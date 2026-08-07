@@ -61,19 +61,17 @@ async function seed() {
       name: 'Alpha League',
       code: 'PREDLG',
       adminId: admin._id,
-      members: [admin._id, player1._id, player2._id, player3._id],
+      members: [player1._id, player2._id, player3._id],
       pendingJoins: [],
       pendingLeaves: []
     });
     await group.save();
 
     // Create Group Standings representing totals after Matchweek 5 calculations
-    const standingAdmin = new GroupStanding({ groupId: group._id, userId: admin._id, totalPoints: 0, battlePoints: 0, rank: 4 });
     const standingP1 = new GroupStanding({ groupId: group._id, userId: player1._id, totalPoints: 5450, battlePoints: 12, rank: 1 });
     const standingP2 = new GroupStanding({ groupId: group._id, userId: player2._id, totalPoints: 4950, battlePoints: 6, rank: 2 });
     const standingP3 = new GroupStanding({ groupId: group._id, userId: player3._id, totalPoints: 4350, battlePoints: 8, rank: 3 });
     
-    await standingAdmin.save();
     await standingP1.save();
     await standingP2.save();
     await standingP3.save();

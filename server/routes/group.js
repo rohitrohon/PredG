@@ -42,24 +42,14 @@ router.post('/', auth, async (req, res) => {
       name,
       code,
       adminId: req.user.id,
-      members: [req.user.id],
+      members: [], // Admin is not a player member
       pendingJoins: [],
       pendingLeaves: []
     });
 
     await group.save();
 
-    // Create GroupStanding for creator
-    const standing = new GroupStanding({
-      groupId: group._id,
-      userId: req.user.id,
-      totalPoints: 0,
-      battlePoints: 0,
-      rank: 1
-    });
-    await standing.save();
-
-    res.status(201).json({ group, standing });
+    res.status(201).json({ group });
   } catch (error) {
     res.status(500).json({ message: 'Server error creating group.', error: error.message });
   }
@@ -72,7 +62,9 @@ router.get('/my', auth, async (req, res) => {
   try {
     const userId = req.user.id;
     
-    const joined = await Group.find({ members: userId }).populate('adminId', 'username name email');
+    const joined = await Group.find({ 
+      $or: [{ members: userId }, { adminId: userId }] 
+    }).populate('adminId', 'username name email');
     const pendingJoin = await Group.find({ pendingJoins: userId }).populate('adminId', 'username name email');
     const pendingLeave = await Group.find({ pendingLeaves: userId }).populate('adminId', 'username name email');
 
@@ -91,6 +83,10 @@ router.post('/join', auth, async (req, res) => {
   try {
     if (!code) {
       return res.status(400).json({ message: 'Please provide a group join code.' });
+    }
+
+    if (req.user.role === 'admin') {
+      return res.status(400).json({ message: 'Administrators cannot join leagues as players.' });
     }
 
     const group = await Group.findOne({ code: code.toUpperCase() });
@@ -338,9 +334,9 @@ router.get('/:id/members', auth, async (req, res) => {
       return res.status(404).json({ message: 'Group not found.' });
     }
 
-    // Verify requesting user is member of the group
-    const isMember = group.members.some(m => m._id.toString() === req.user.id);
-    if (!isMember) {
+    // Verify requesting user is member or admin of the group
+    const isMemberOrAdmin = group.members.some(m => m._id.toString() === req.user.id) || group.adminId._id.toString() === req.user.id;
+    if (!isMemberOrAdmin) {
       return res.status(403).json({ message: 'Access denied. You are not a member of this group.' });
     }
 
@@ -351,7 +347,7 @@ router.get('/:id/members', auth, async (req, res) => {
 });
 
 // @route   GET api/group/:id/standings
-// @desc    Get group standings sorted by points desc
+// @desc    Get group standings sorted by points desc (players only)
 // @access  Private
 router.get('/:id/standings', auth, async (req, res) => {
   try {
@@ -360,8 +356,8 @@ router.get('/:id/standings', auth, async (req, res) => {
       return res.status(404).json({ message: 'Group not found.' });
     }
 
-    // Verify member
-    if (!group.members.some(id => id.toString() === req.user.id)) {
+    const isMemberOrAdmin = group.members.some(id => id.toString() === req.user.id) || group.adminId.toString() === req.user.id;
+    if (!isMemberOrAdmin) {
       return res.status(403).json({ message: 'Access denied. You are not a member of this group.' });
     }
 
@@ -369,7 +365,9 @@ router.get('/:id/standings', auth, async (req, res) => {
       .populate('userId', 'username name email role')
       .sort({ totalPoints: -1 });
 
-    res.json(standings);
+    const playerStandings = standings.filter(s => s.userId && s.userId.role !== 'admin');
+
+    res.json(playerStandings);
   } catch (error) {
     res.status(500).json({ message: 'Server error retrieving group standings.', error: error.message });
   }
@@ -385,7 +383,8 @@ router.get('/:id/results-dashboard', auth, async (req, res) => {
       return res.status(404).json({ message: 'Group not found.' });
     }
 
-    if (!group.members.some(id => id.toString() === req.user.id)) {
+    const isMemberOrAdmin = group.members.some(id => id.toString() === req.user.id) || group.adminId.toString() === req.user.id;
+    if (!isMemberOrAdmin) {
       return res.status(403).json({ message: 'Access denied. You are not a member of this group.' });
     }
 
@@ -404,12 +403,14 @@ router.get('/:id/results-dashboard', auth, async (req, res) => {
       .populate('userId', 'username name email role')
       .sort({ totalPoints: -1 });
 
+    const playerStandings = standings.filter(s => s.userId && s.userId.role !== 'admin');
+
     const battles = await Battle.find({
       groupId: group._id,
       matchweekId: { $in: matchweekIds }
     }).populate('player1Id', 'username name').populate('player2Id', 'username name');
 
-    res.json({ matchweeks, predictions, standings, battles });
+    res.json({ matchweeks, predictions, standings: playerStandings, battles });
   } catch (error) {
     res.status(500).json({ message: 'Server error retrieving results dashboard.', error: error.message });
   }
