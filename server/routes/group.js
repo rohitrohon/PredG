@@ -168,6 +168,31 @@ router.post('/:id/approve-join', auth, async (req, res) => {
   }
 });
 
+// @route   POST api/group/:id/reject-join
+// @desc    Reject user's join request (Admin only)
+// @access  Private
+router.post('/:id/reject-join', auth, async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    const group = await Group.findById(req.params.id);
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found.' });
+    }
+
+    if (group.adminId.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Access denied. Only group administrators can reject join requests.' });
+    }
+
+    group.pendingJoins = group.pendingJoins.filter(id => id.toString() !== userId);
+    await group.save();
+
+    res.json({ message: 'User join request rejected.', group });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error rejecting join request.', error: error.message });
+  }
+});
+
 // @route   POST api/group/:id/request-leave
 // @desc    Submit request to leave group (Users cannot leave directly)
 // @access  Private
@@ -237,6 +262,64 @@ router.post('/:id/approve-leave', auth, async (req, res) => {
     res.json({ message: 'User leave request approved. User removed from group.', group });
   } catch (error) {
     res.status(500).json({ message: 'Server error approving leave request.', error: error.message });
+  }
+});
+
+// @route   POST api/group/:id/reject-leave
+// @desc    Reject user's leave request (Admin only)
+// @access  Private
+router.post('/:id/reject-leave', auth, async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    const group = await Group.findById(req.params.id);
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found.' });
+    }
+
+    if (group.adminId.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Access denied. Only group administrators can reject leave requests.' });
+    }
+
+    group.pendingLeaves = group.pendingLeaves.filter(id => id.toString() !== userId);
+    await group.save();
+
+    res.json({ message: 'User leave request rejected.', group });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error rejecting leave request.', error: error.message });
+  }
+});
+
+// @route   POST api/group/:id/remove-member
+// @desc    Remove a player from group directly without a leave request (Admin only)
+// @access  Private
+router.post('/:id/remove-member', auth, async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    const group = await Group.findById(req.params.id);
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found.' });
+    }
+
+    if (group.adminId.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Access denied. Only group administrators can remove members.' });
+    }
+
+    if (group.adminId.toString() === userId) {
+      return res.status(400).json({ message: 'Cannot remove group administrator from group.' });
+    }
+
+    group.members = group.members.filter(id => id.toString() !== userId);
+    group.pendingLeaves = group.pendingLeaves.filter(id => id.toString() !== userId);
+    group.pendingJoins = group.pendingJoins.filter(id => id.toString() !== userId);
+    await group.save();
+
+    await GroupStanding.deleteOne({ groupId: group._id, userId });
+
+    res.json({ message: 'Player removed from group successfully.', group });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error removing member from group.', error: error.message });
   }
 });
 

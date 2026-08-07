@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
-import { Shield, Plus, List, Trophy, Sword, Trash, Play, AlertTriangle, UserCheck, UserX, Users } from 'lucide-react';
+import { 
+  Shield, Plus, List, Trophy, Sword, Trash, Play, AlertTriangle, 
+  UserCheck, UserX, Users, Edit3, Settings, Save, X, UserMinus, 
+  PlusCircle, RefreshCw, Eye, CheckCircle2, ChevronRight, Award
+} from 'lucide-react';
 
 function AdminPanel({ groupId }) {
   const [matchweeks, setMatchweeks] = useState([]);
@@ -9,14 +13,19 @@ function AdminPanel({ groupId }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Currently selected matchweek for results/grading
   const [selectedMw, setSelectedMw] = useState(null);
 
-  // Tabs: 'list', 'create', or 'roster'
+  // Tabs: 'list', 'create', 'roster', 'create-group', 'overrides'
   const [adminTab, setAdminTab] = useState('list');
+
+  // New Group State
+  const [newGroupName, setNewGroupName] = useState('');
 
   // Create matchweek form state
   const [newMwNum, setNewMwNum] = useState('');
   const [newMwDeadline, setNewMwDeadline] = useState('');
+  const [isManualDeadline, setIsManualDeadline] = useState(false);
   const [newMwMatches, setNewMwMatches] = useState(
     Array.from({ length: 5 }, () => ({ homeTeam: '', awayTeam: '', kickoffTime: '', wildPredictionDetails: '' }))
   );
@@ -24,9 +33,27 @@ function AdminPanel({ groupId }) {
   // Results inputs state
   const [resultsInput, setResultsInput] = useState({});
 
+  // Overrides State
+  const [overrideMwId, setOverrideMwId] = useState('');
+  const [mwPredictions, setMwPredictions] = useState([]);
+  const [selectedPred, setSelectedPred] = useState(null);
+  const [editPredData, setEditPredData] = useState(null);
+  const [overrideScoresInput, setOverrideScoresInput] = useState({ totalPointsScored: 0, battlePointsScored: 0 });
+
+  // Battle Overrides State
+  const [mwBattles, setMwBattles] = useState([]);
+  const [selectedBattle, setSelectedBattle] = useState(null);
+  const [editBattleData, setEditBattleData] = useState(null);
+
   useEffect(() => {
     fetchData();
   }, [groupId]);
+
+  useEffect(() => {
+    if (overrideMwId) {
+      fetchMwPredictionsAndBattles(overrideMwId);
+    }
+  }, [overrideMwId]);
 
   const fetchData = async () => {
     try {
@@ -38,10 +65,70 @@ function AdminPanel({ groupId }) {
 
       const roster = await api.getGroupMembers(groupId);
       setGroupDetails(roster);
+
+      if (mws.length > 0 && !overrideMwId) {
+        setOverrideMwId(mws[0]._id);
+      }
     } catch (err) {
-      setError('Failed to fetch admin data.');
+      setError('Failed to fetch admin console data.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMwPredictionsAndBattles = async (mwId) => {
+    try {
+      const preds = await api.getAdminPredictions(mwId);
+      setMwPredictions(preds);
+
+      const bList = await api.getBattles(mwId, groupId);
+      setMwBattles(bList);
+    } catch (err) {
+      console.error('Failed to load predictions/battles for override:', err);
+    }
+  };
+
+  // --- 1. CREATE NEW GROUP ---
+  const handleCreateGroup = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (!newGroupName.trim()) {
+      setError('Please provide a group name.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await api.createGroup(newGroupName.trim());
+      setSuccess(`Group "${res.group.name}" created successfully! Join Code: ${res.group.code}`);
+      setNewGroupName('');
+      fetchData();
+    } catch (err) {
+      setError(err.message || 'Failed to create group.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- 2. MATCHWEEK FIXTURES BUILDER (AUTO DEADLINE FROM KICKOFF TIMES) ---
+  const handleMatchFormChange = (index, field, value) => {
+    const updatedMatches = newMwMatches.map((m, idx) => {
+      if (idx === index) {
+        return { ...m, [field]: value };
+      }
+      return m;
+    });
+    setNewMwMatches(updatedMatches);
+
+    // Auto-calculate deadline based on earliest kickoff time if not manually overridden
+    if (field === 'kickoffTime' && !isManualDeadline) {
+      const validTimes = updatedMatches.map(m => m.kickoffTime).filter(Boolean);
+      if (validTimes.length > 0) {
+        validTimes.sort();
+        setNewMwDeadline(validTimes[0]);
+      }
     }
   };
 
@@ -70,9 +157,10 @@ function AdminPanel({ groupId }) {
         matches: newMwMatches
       });
 
-      setSuccess(`Matchweek #${newMwNum} created successfully!`);
+      setSuccess(`Matchweek #${newMwNum} fixtures created successfully!`);
       setNewMwNum('');
       setNewMwDeadline('');
+      setIsManualDeadline(false);
       setNewMwMatches(
         Array.from({ length: 5 }, () => ({ homeTeam: '', awayTeam: '', kickoffTime: '', wildPredictionDetails: '' }))
       );
@@ -85,6 +173,84 @@ function AdminPanel({ groupId }) {
     }
   };
 
+  // --- 3. ROSTER / MEMBERS MANAGEMENT (JOIN, LEAVE, REMOVE) ---
+  const handleApproveJoin = async (userId) => {
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      await api.approveJoinRequest(groupId, userId);
+      setSuccess('Player join request approved!');
+      fetchData();
+    } catch (err) {
+      setError(err.message || 'Failed to approve player.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRejectJoin = async (userId) => {
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      await api.rejectJoinRequest(groupId, userId);
+      setSuccess('Player join request rejected.');
+      fetchData();
+    } catch (err) {
+      setError(err.message || 'Failed to reject join request.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApproveLeave = async (userId) => {
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      await api.approveLeaveRequest(groupId, userId);
+      setSuccess('Player leave request approved.');
+      fetchData();
+    } catch (err) {
+      setError(err.message || 'Failed to approve leave request.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRejectLeave = async (userId) => {
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      await api.rejectLeaveRequest(groupId, userId);
+      setSuccess('Player leave request rejected.');
+      fetchData();
+    } catch (err) {
+      setError(err.message || 'Failed to reject leave request.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveMember = async (userId, username) => {
+    if (!window.confirm(`Are you sure you want to remove "${username}" from the group?`)) return;
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      await api.removeGroupMember(groupId, userId);
+      setSuccess(`Player "${username}" removed from group.`);
+      fetchData();
+    } catch (err) {
+      setError(err.message || 'Failed to remove member.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- 4. MATCH RESULTS ENTRY & GRADING ---
   const handleSelectMwForScoring = (mw) => {
     setSelectedMw(mw);
     setError('');
@@ -119,7 +285,7 @@ function AdminPanel({ groupId }) {
   };
 
   const handleWildUserToggle = (matchId, userId) => {
-    const currentList = resultsInput[matchId].wildPredictionCorrectUsers;
+    const currentList = resultsInput[matchId].wildPredictionCorrectUsers || [];
     let newList;
     if (currentList.includes(userId)) {
       newList = currentList.filter(id => id !== userId);
@@ -137,7 +303,7 @@ function AdminPanel({ groupId }) {
       await api.updateResults(selectedMw._id, {
         matchesResults: resultsInput
       });
-      setSuccess('Results saved in draft successfully.');
+      setSuccess('Match results draft saved successfully.');
       fetchData();
     } catch (err) {
       setError(err.message || 'Failed to save results.');
@@ -163,7 +329,7 @@ function AdminPanel({ groupId }) {
 
   const handleCalculateScores = async () => {
     const confirmCalc = window.confirm(
-      'WARNING: This will finalize calculations, distribute points/battle points, update standings, and mark this matchweek as COMPLETED. This operation is non-reversible. Proceed?'
+      'WARNING: This will finalize calculations, distribute points/battle points, update standings, and mark this matchweek as COMPLETED. Proceed?'
     );
     if (!confirmCalc) return;
 
@@ -177,7 +343,7 @@ function AdminPanel({ groupId }) {
       });
 
       const data = await api.calculateScores(selectedMw._id);
-      setSuccess(data.message || 'Calculated successfully!');
+      setSuccess(data.message || 'Calculated scores and battle outcomes successfully!');
       setSelectedMw(null);
       fetchData();
     } catch (err) {
@@ -203,7 +369,7 @@ function AdminPanel({ groupId }) {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this matchweek? All predictions will be lost.')) return;
+    if (!window.confirm('Are you sure you want to delete this matchweek? All predictions for this week will be lost.')) return;
     try {
       setLoading(true);
       setError('');
@@ -218,91 +384,176 @@ function AdminPanel({ groupId }) {
     }
   };
 
-  const handleApproveJoin = async (userId) => {
-    try {
-      setLoading(true);
-      setError('');
-      setSuccess('');
-      await api.approveJoinRequest(groupId, userId);
-      setSuccess('Player approved and added to group standing!');
-      fetchData();
-    } catch (err) {
-      setError(err.message || 'Failed to approve player.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleApproveLeave = async (userId) => {
-    try {
-      setLoading(true);
-      setError('');
-      setSuccess('');
-      await api.approveLeaveRequest(groupId, userId);
-      setSuccess('Player leave request approved and removed from standings.');
-      fetchData();
-    } catch (err) {
-      setError(err.message || 'Failed to approve leave request.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleMatchFormChange = (index, field, value) => {
-    const updatedMatches = newMwMatches.map((m, idx) => {
-      if (idx === index) {
-        return { ...m, [field]: value };
-      }
-      return m;
+  // --- 5. PREDICTION EDITING & MANUAL OVERRIDES ---
+  const handleSelectPredForEdit = (pred) => {
+    setSelectedPred(pred);
+    setEditPredData(JSON.parse(JSON.stringify(pred)));
+    setOverrideScoresInput({
+      totalPointsScored: pred.totalPointsScored || 0,
+      battlePointsScored: pred.battlePointsScored || 0
     });
-    setNewMwMatches(updatedMatches);
+  };
+
+  const handleSavePredEdit = async () => {
+    if (!selectedPred || !editPredData) return;
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      await api.updateAdminPrediction(selectedPred._id, {
+        predictions: editPredData.predictions,
+        captainMatchId: editPredData.captainMatchId,
+        gamble: editPredData.gamble,
+        marketPowerUps: editPredData.marketPowerUps,
+        isSubmitted: editPredData.isSubmitted
+      });
+      setSuccess(`Prediction for ${selectedPred.userId?.name || selectedPred.userId?.username} updated!`);
+      setSelectedPred(null);
+      fetchMwPredictionsAndBattles(overrideMwId);
+    } catch (err) {
+      setError(err.message || 'Failed to update prediction.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveScoreOverride = async () => {
+    if (!selectedPred) return;
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      await api.overridePredictionScores(selectedPred._id, {
+        totalPointsScored: Number(overrideScoresInput.totalPointsScored),
+        battlePointsScored: Number(overrideScoresInput.battlePointsScored)
+      });
+      setSuccess(`Scores overridden for ${selectedPred.userId?.name || selectedPred.userId?.username}!`);
+      setSelectedPred(null);
+      fetchMwPredictionsAndBattles(overrideMwId);
+      fetchData();
+    } catch (err) {
+      setError(err.message || 'Failed to override scores.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveBattleOverride = async () => {
+    if (!selectedBattle || !editBattleData) return;
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      await api.overrideBattleResult(selectedBattle._id, editBattleData);
+      setSuccess(`Battle outcome overridden successfully!`);
+      setSelectedBattle(null);
+      fetchMwPredictionsAndBattles(overrideMwId);
+      fetchData();
+    } catch (err) {
+      setError(err.message || 'Failed to override battle.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      
+      {/* CONSOLE HEADER */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h2 style={{ borderBottom: 'none', marginBottom: '0.25rem', paddingBottom: 0 }}>
-            League <span className="text-gradient">Console</span>
+            League <span className="text-gradient">Admin Console</span>
           </h2>
-          <p style={{ color: 'var(--text-muted)' }}>Manage fixtures, results, standings calculations, and member requests.</p>
+          <p style={{ color: 'var(--text-muted)' }}>Complete control over groups, fixtures, player predictions, points & chip overrides.</p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        {/* ADMIN TAB NAVIGATION BUTTONS */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
           <button 
             className={`btn ${adminTab === 'list' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+            style={{ padding: '0.45rem 0.9rem', fontSize: '0.8rem' }}
             onClick={() => { setAdminTab('list'); setSelectedMw(null); }}
           >
-            <List size={16} /> Manage Weeks
+            <List size={15} /> Matchweeks ({matchweeks.length})
           </button>
           
           <button 
             className={`btn ${adminTab === 'create' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+            style={{ padding: '0.45rem 0.9rem', fontSize: '0.8rem' }}
             onClick={() => { setAdminTab('create'); setSelectedMw(null); }}
           >
-            <Plus size={16} /> Create fixtures
+            <Plus size={15} /> Create Fixtures
           </button>
 
           <button 
             className={`btn ${adminTab === 'roster' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+            style={{ padding: '0.45rem 0.9rem', fontSize: '0.8rem' }}
             onClick={() => { setAdminTab('roster'); setSelectedMw(null); }}
           >
-            <Users size={16} /> Roster ({groupDetails.pendingJoins.length + groupDetails.pendingLeaves.length})
+            <Users size={15} /> Group Roster ({groupDetails.members.length})
+          </button>
+
+          <button 
+            className={`btn ${adminTab === 'overrides' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ padding: '0.45rem 0.9rem', fontSize: '0.8rem' }}
+            onClick={() => { setAdminTab('overrides'); setSelectedMw(null); }}
+          >
+            <Edit3 size={15} /> Edit & Overrides
+          </button>
+
+          <button 
+            className={`btn ${adminTab === 'create-group' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ padding: '0.45rem 0.9rem', fontSize: '0.8rem' }}
+            onClick={() => { setAdminTab('create-group'); setSelectedMw(null); }}
+          >
+            <PlusCircle size={15} /> New Group
           </button>
         </div>
       </div>
 
-      {error && <div className="card" style={{ color: 'var(--danger)', background: 'var(--danger-glow)', marginBottom: '1rem' }}>{error}</div>}
-      {success && <div className="card" style={{ color: 'var(--success)', background: 'var(--success-glow)', marginBottom: '1rem' }}>{success}</div>}
+      {/* ALERT MESSAGES */}
+      {error && <div className="card" style={{ color: 'var(--danger)', background: 'var(--danger-glow)', marginBottom: 0 }}>{error}</div>}
+      {success && <div className="card" style={{ color: 'var(--success)', background: 'var(--success-glow)', marginBottom: 0 }}>{success}</div>}
 
-      {/* 1. Create Matchweek Form */}
+      {/* ================= TAB 1: CREATE NEW GROUP ================= */}
+      {adminTab === 'create-group' && (
+        <div className="card" style={{ maxWidth: '500px' }}>
+          <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <PlusCircle size={18} style={{ color: 'var(--primary)' }} /> Create a New League Group
+          </h3>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
+            Create a fresh prediction group. You will automatically become the group administrator and a unique join code will be generated.
+          </p>
+
+          <form onSubmit={handleCreateGroup}>
+            <div className="form-group">
+              <label className="form-label">Group Name</label>
+              <input 
+                type="text" 
+                className="form-input"
+                placeholder="e.g. Premier Masters 2026"
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                required
+              />
+            </div>
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }} disabled={loading}>
+              {loading ? 'Creating...' : 'Create Group'}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* ================= TAB 2: CREATE MATCHWEEK & 5 FIXTURES ================= */}
       {adminTab === 'create' && (
         <div className="card">
+          <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Plus size={18} style={{ color: 'var(--primary)' }} /> Add 5 Fixtures & Auto-Calculate Deadline
+          </h3>
+
           <form onSubmit={handleCreateMatchweek}>
-            <div className="grid-2">
+            <div className="grid-2" style={{ marginBottom: '1.5rem' }}>
               <div className="form-group">
                 <label className="form-label">Matchweek Number</label>
                 <input 
@@ -312,89 +563,106 @@ function AdminPanel({ groupId }) {
                   className="form-input" 
                   value={newMwNum} 
                   onChange={(e) => setNewMwNum(e.target.value)} 
+                  placeholder="e.g. 6"
                   required 
                 />
               </div>
+
               <div className="form-group">
-                <label className="form-label">Submission Deadline</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label className="form-label">Submission Deadline</label>
+                  <span style={{ fontSize: '0.75rem', color: isManualDeadline ? 'var(--warning)' : 'var(--success)' }}>
+                    {isManualDeadline ? 'Manual Override' : 'Auto (Earliest Kickoff)'}
+                  </span>
+                </div>
                 <input 
                   type="datetime-local" 
                   className="form-input" 
                   value={newMwDeadline} 
-                  onChange={(e) => setNewMwDeadline(e.target.value)} 
+                  onChange={(e) => {
+                    setNewMwDeadline(e.target.value);
+                    setIsManualDeadline(true);
+                  }} 
                   required 
                 />
               </div>
             </div>
 
-            <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', margin: '1.5rem 0' }}>Matches (Exactly 5)</h3>
+            <h4 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
+              Matchweek Games (Exactly 5 Fixtures)
+            </h4>
             
-            {newMwMatches.map((match, idx) => (
-              <div key={idx} className="card" style={{ background: 'rgba(0,0,0,0.15)', marginBottom: '1.5rem' }}>
-                <h4 style={{ color: 'var(--primary)', marginBottom: '1rem' }}>Game #{idx + 1}</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                  <div className="form-group">
-                    <label className="form-label">Home Team</label>
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      value={match.homeTeam} 
-                      onChange={(e) => handleMatchFormChange(idx, 'homeTeam', e.target.value)} 
-                      placeholder="e.g. Arsenal" 
-                      required 
-                    />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+              {newMwMatches.map((match, idx) => (
+                <div key={idx} className="card" style={{ background: 'rgba(0,0,0,0.15)', margin: 0, padding: '1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                    <span style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '0.9rem' }}>Fixture #{idx + 1}</span>
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Away Team</label>
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      value={match.awayTeam} 
-                      onChange={(e) => handleMatchFormChange(idx, 'awayTeam', e.target.value)} 
-                      placeholder="e.g. Chelsea" 
-                      required 
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Kickoff Time</label>
-                    <input 
-                      type="datetime-local" 
-                      className="form-input" 
-                      value={match.kickoffTime} 
-                      onChange={(e) => handleMatchFormChange(idx, 'kickoffTime', e.target.value)} 
-                      required 
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Wild Prediction Detail (optional)</label>
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      value={match.wildPredictionDetails} 
-                      onChange={(e) => handleMatchFormChange(idx, 'wildPredictionDetails', e.target.value)} 
-                      placeholder="e.g. Penalty saved in the match" 
-                    />
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
+                    <div className="form-group">
+                      <label className="form-label">Home Team</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        value={match.homeTeam} 
+                        onChange={(e) => handleMatchFormChange(idx, 'homeTeam', e.target.value)} 
+                        placeholder="e.g. Arsenal" 
+                        required 
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Away Team</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        value={match.awayTeam} 
+                        onChange={(e) => handleMatchFormChange(idx, 'awayTeam', e.target.value)} 
+                        placeholder="e.g. Chelsea" 
+                        required 
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Kickoff Time</label>
+                      <input 
+                        type="datetime-local" 
+                        className="form-input" 
+                        value={match.kickoffTime} 
+                        onChange={(e) => handleMatchFormChange(idx, 'kickoffTime', e.target.value)} 
+                        required 
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Wild Question (optional)</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        value={match.wildPredictionDetails} 
+                        onChange={(e) => handleMatchFormChange(idx, 'wildPredictionDetails', e.target.value)} 
+                        placeholder="e.g. Red card in match" 
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
 
-            <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-              Create Matchweek Fixtures
+            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
+              Create Matchweek & Fixtures
             </button>
           </form>
         </div>
       )}
 
-      {/* 2. Manage Weeks Tab */}
+      {/* ================= TAB 3: MANAGE WEEKS & RESULTS GRADING ================= */}
       {adminTab === 'list' && !selectedMw && (
-        <div className="card" style={{ padding: 0 }}>
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div className="table-container">
             <table>
               <thead>
                 <tr>
                   <th style={{ width: '80px', textAlign: 'center' }}>Week</th>
                   <th>Deadline</th>
+                  <th>Fixtures</th>
                   <th>Status</th>
                   <th style={{ textAlign: 'center' }}>Actions</th>
                 </tr>
@@ -404,6 +672,7 @@ function AdminPanel({ groupId }) {
                   <tr key={mw._id}>
                     <td style={{ textAlign: 'center', fontWeight: 700 }}>#{mw.matchweekNumber}</td>
                     <td>{new Date(mw.deadline).toLocaleString()}</td>
+                    <td>{mw.matches?.length || 0} Games</td>
                     <td>
                       <span className={`badge ${
                         mw.status === 'active' ? 'badge-success' : mw.status === 'completed' ? 'badge-info' : 'badge-warning'
@@ -412,16 +681,16 @@ function AdminPanel({ groupId }) {
                       </span>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: '0.4rem' }}>
                         {mw.status !== 'active' && mw.status !== 'completed' && (
-                          <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }} onClick={() => handleSetActive(mw._id)}>
+                          <button className="btn btn-secondary" style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem' }} onClick={() => handleSetActive(mw._id)}>
                             Set Active
                           </button>
                         )}
-                        <button className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }} onClick={() => handleSelectMwForScoring(mw)}>
+                        <button className="btn btn-primary" style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem' }} onClick={() => handleSelectMwForScoring(mw)}>
                           Input Results / Grade
                         </button>
-                        <button className="btn btn-secondary" style={{ padding: '0.4rem', color: 'var(--danger)' }} onClick={() => handleDelete(mw._id)}>
+                        <button className="btn btn-secondary" style={{ padding: '0.35rem', color: 'var(--danger)' }} onClick={() => handleDelete(mw._id)}>
                           <Trash size={14} />
                         </button>
                       </div>
@@ -434,11 +703,11 @@ function AdminPanel({ groupId }) {
         </div>
       )}
 
-      {/* 3. Group Roster Tab */}
+      {/* ================= TAB 4: GROUP ROSTER & REQUESTS (ACCEPT / REJECT / REMOVE) ================= */}
       {adminTab === 'roster' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           
-          {/* Join Requests */}
+          {/* JOIN REQUESTS */}
           <div className="card">
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
               <UserCheck size={18} style={{ color: 'var(--success)' }} /> Pending Join Requests ({groupDetails.pendingJoins.length})
@@ -450,6 +719,7 @@ function AdminPanel({ groupId }) {
                 <table>
                   <thead>
                     <tr>
+                      <th>Name</th>
                       <th>Username</th>
                       <th>Email</th>
                       <th style={{ textAlign: 'right' }}>Actions</th>
@@ -458,12 +728,18 @@ function AdminPanel({ groupId }) {
                   <tbody>
                     {groupDetails.pendingJoins.map((reqUser) => (
                       <tr key={reqUser._id}>
-                        <td style={{ fontWeight: 600 }}>{reqUser.username}</td>
+                        <td style={{ fontWeight: 600 }}>{reqUser.name || '-'}</td>
+                        <td style={{ color: 'var(--text-muted)' }}>{reqUser.username}</td>
                         <td>{reqUser.email}</td>
                         <td style={{ textAlign: 'right' }}>
-                          <button className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }} onClick={() => handleApproveJoin(reqUser._id)}>
-                            Approve Join
-                          </button>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                            <button className="btn btn-primary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleApproveJoin(reqUser._id)}>
+                              Accept Join
+                            </button>
+                            <button className="btn btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => handleRejectJoin(reqUser._id)}>
+                              Reject Join
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -473,7 +749,7 @@ function AdminPanel({ groupId }) {
             )}
           </div>
 
-          {/* Leave Requests */}
+          {/* LEAVE REQUESTS */}
           <div className="card">
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
               <UserX size={18} style={{ color: 'var(--danger)' }} /> Pending Leave Requests ({groupDetails.pendingLeaves.length})
@@ -485,6 +761,7 @@ function AdminPanel({ groupId }) {
                 <table>
                   <thead>
                     <tr>
+                      <th>Name</th>
                       <th>Username</th>
                       <th>Email</th>
                       <th style={{ textAlign: 'right' }}>Actions</th>
@@ -493,12 +770,18 @@ function AdminPanel({ groupId }) {
                   <tbody>
                     {groupDetails.pendingLeaves.map((reqUser) => (
                       <tr key={reqUser._id}>
-                        <td style={{ fontWeight: 600 }}>{reqUser.username}</td>
+                        <td style={{ fontWeight: 600 }}>{reqUser.name || '-'}</td>
+                        <td style={{ color: 'var(--text-muted)' }}>{reqUser.username}</td>
                         <td>{reqUser.email}</td>
                         <td style={{ textAlign: 'right' }}>
-                          <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', borderColor: 'var(--danger)', color: 'var(--danger)' }} onClick={() => handleApproveLeave(reqUser._id)}>
-                            Approve Leave
-                          </button>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                            <button className="btn btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', borderColor: 'var(--danger)', color: 'var(--danger)' }} onClick={() => handleApproveLeave(reqUser._id)}>
+                              Accept Leave
+                            </button>
+                            <button className="btn btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleRejectLeave(reqUser._id)}>
+                              Reject Leave
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -508,32 +791,49 @@ function AdminPanel({ groupId }) {
             )}
           </div>
 
-          {/* Active Members */}
+          {/* ACTIVE MEMBERS ROSTER WITH DIRECT REMOVE */}
           <div className="card">
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-              <Users size={18} style={{ color: 'var(--primary)' }} /> Active Members ({groupDetails.members.length})
+              <Users size={18} style={{ color: 'var(--primary)' }} /> Active Group Members ({groupDetails.members.length})
             </h3>
             <div className="table-container">
               <table>
                 <thead>
                   <tr>
+                    <th>Name</th>
                     <th>Username</th>
                     <th>Email</th>
                     <th>Role</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {groupDetails.members.map((member) => (
-                    <tr key={member._id}>
-                      <td style={{ fontWeight: 600 }}>{member.username}</td>
-                      <td>{member.email}</td>
-                      <td>
-                        <span className={`badge ${member._id === groupDetails.adminId._id ? 'badge-accent' : 'badge-info'}`} style={{ fontSize: '0.7rem' }}>
-                          {member._id === groupDetails.adminId._id ? 'Owner / Admin' : 'Player'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {groupDetails.members.map((member) => {
+                    const isOwner = member._id === groupDetails.adminId?._id;
+                    return (
+                      <tr key={member._id}>
+                        <td style={{ fontWeight: 600 }}>{member.name || '-'}</td>
+                        <td style={{ color: 'var(--text-muted)' }}>{member.username}</td>
+                        <td>{member.email}</td>
+                        <td>
+                          <span className={`badge ${isOwner ? 'badge-accent' : 'badge-info'}`} style={{ fontSize: '0.7rem' }}>
+                            {isOwner ? 'Owner / Admin' : 'Player'}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          {!isOwner && (
+                            <button 
+                              className="btn btn-secondary" 
+                              style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem', color: 'var(--danger)', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+                              onClick={() => handleRemoveMember(member._id, member.name || member.username)}
+                            >
+                              <UserMinus size={13} style={{ marginRight: '0.2rem' }} /> Remove Member
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -541,7 +841,374 @@ function AdminPanel({ groupId }) {
         </div>
       )}
 
-      {/* 4. Results & Calculations inputs panel */}
+      {/* ================= TAB 5: PREDICTIONS & MANUAL OVERRIDES CONSOLE ================= */}
+      {adminTab === 'overrides' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+          
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Edit3 size={18} style={{ color: 'var(--accent)' }} /> Predictions & Manual Overrides
+              </h3>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <label className="form-label" style={{ marginBottom: 0 }}>Matchweek:</label>
+                <select 
+                  className="form-input" 
+                  style={{ width: '180px' }}
+                  value={overrideMwId}
+                  onChange={(e) => setOverrideMwId(e.target.value)}
+                >
+                  {matchweeks.map((mw) => (
+                    <option key={mw._id} value={mw._id}>Matchweek #{mw.matchweekNumber}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0 }}>
+              Select a player to edit their choices/chips or directly override their total score and battle points.
+            </p>
+          </div>
+
+          {/* PLAYER PREDICTIONS LIST & OVERRIDE CONTROLS */}
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Player Name</th>
+                    <th>Username</th>
+                    <th>Status</th>
+                    <th style={{ textAlign: 'right' }}>Total Scored</th>
+                    <th style={{ textAlign: 'right' }}>Battle Points</th>
+                    <th style={{ textAlign: 'center' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mwPredictions.map((pred) => (
+                    <tr key={pred._id}>
+                      <td style={{ fontWeight: 600 }}>{pred.userId?.name || '-'}</td>
+                      <td style={{ color: 'var(--text-muted)' }}>{pred.userId?.username}</td>
+                      <td>
+                        <span className={`badge ${pred.isSubmitted ? 'badge-success' : 'badge-warning'}`}>
+                          {pred.isSubmitted ? 'Submitted' : 'Draft / Autofilled'}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--primary)' }}>
+                        {pred.totalPointsScored} pts
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--accent)' }}>
+                        {pred.battlePointsScored} BP
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <button 
+                          className="btn btn-primary" 
+                          style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}
+                          onClick={() => handleSelectPredForEdit(pred)}
+                        >
+                          <Edit3 size={13} style={{ marginRight: '0.2rem' }} /> Edit / Override
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* EDIT PREDICTION / OVERRIDE MODAL EDITOR */}
+          {selectedPred && editPredData && (
+            <div className="card" style={{ border: '2px solid var(--primary)', background: 'rgba(15, 23, 42, 0.95)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                <h4 style={{ margin: 0, color: 'var(--primary)' }}>
+                  Editing Sheet: {selectedPred.userId?.name || selectedPred.userId?.username}
+                </h4>
+                <button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem' }} onClick={() => setSelectedPred(null)}>
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* OVERRIDE POINTS SECTION */}
+              <div className="card" style={{ background: 'rgba(56, 189, 248, 0.05)', borderColor: 'rgba(56, 189, 248, 0.2)', marginBottom: '1.5rem' }}>
+                <h4 style={{ color: 'var(--primary)', margin: '0 0 0.75rem 0' }}>Direct Score Overrides</h4>
+                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Total Matchweek Points</label>
+                    <input 
+                      type="number"
+                      className="form-input"
+                      style={{ width: '120px' }}
+                      value={overrideScoresInput.totalPointsScored}
+                      onChange={(e) => setOverrideScoresInput({ ...overrideScoresInput, totalPointsScored: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Battle Points (BP)</label>
+                    <input 
+                      type="number"
+                      className="form-input"
+                      style={{ width: '120px' }}
+                      value={overrideScoresInput.battlePointsScored}
+                      onChange={(e) => setOverrideScoresInput({ ...overrideScoresInput, battlePointsScored: e.target.value })}
+                    />
+                  </div>
+
+                  <button className="btn btn-accent" onClick={handleSaveScoreOverride} style={{ padding: '0.5rem 1rem' }}>
+                    <Save size={14} /> Apply Points Override
+                  </button>
+                </div>
+              </div>
+
+              {/* EDIT CHIPS & GAMBLE */}
+              <div className="card" style={{ background: 'rgba(0,0,0,0.2)', marginBottom: '1.5rem' }}>
+                <h4 style={{ color: 'var(--accent)', margin: '0 0 0.75rem 0' }}>Gamble & Chips Override</h4>
+                
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Gamble Active</label>
+                    <select 
+                      className="form-input"
+                      value={editPredData.gamble?.active ? 'yes' : 'no'}
+                      onChange={(e) => setEditPredData({
+                        ...editPredData,
+                        gamble: { ...editPredData.gamble, active: e.target.value === 'yes' }
+                      })}
+                    >
+                      <option value="no">No</option>
+                      <option value="yes">Yes</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Gamble Points</label>
+                    <input 
+                      type="number"
+                      className="form-input"
+                      value={editPredData.gamble?.points || 0}
+                      onChange={(e) => setEditPredData({
+                        ...editPredData,
+                        gamble: { ...editPredData.gamble, points: Number(e.target.value) || 0 }
+                      })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* EDIT SINGLE MATCH PREDICTIONS */}
+              <h4 style={{ margin: '1rem 0 0.75rem 0' }}>Match Prediction Choices</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+                {editPredData.predictions.map((p, idx) => (
+                  <div key={idx} className="card" style={{ background: 'rgba(255,255,255,0.02)', margin: 0, padding: '0.75rem' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary)' }}>Game #{idx + 1}</span>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem', marginTop: '0.5rem' }}>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '0.75rem' }}>Result</label>
+                        <select 
+                          className="form-input" 
+                          style={{ padding: '0.3rem', fontSize: '0.85rem' }}
+                          value={p.result} 
+                          onChange={(e) => {
+                            const updated = [...editPredData.predictions];
+                            updated[idx].result = e.target.value;
+                            setEditPredData({ ...editPredData, predictions: updated });
+                          }}
+                        >
+                          <option value="Home">Home</option>
+                          <option value="Away">Away</option>
+                          <option value="Draw">Draw</option>
+                        </select>
+                      </div>
+
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '0.75rem' }}>Scores (H-A)</label>
+                        <div style={{ display: 'flex', gap: '0.25rem' }}>
+                          <input 
+                            type="number" 
+                            className="form-input" 
+                            style={{ padding: '0.3rem', fontSize: '0.85rem', textAlign: 'center' }}
+                            value={p.homeScore} 
+                            onChange={(e) => {
+                              const updated = [...editPredData.predictions];
+                              updated[idx].homeScore = Number(e.target.value);
+                              setEditPredData({ ...editPredData, predictions: updated });
+                            }} 
+                          />
+                          <input 
+                            type="number" 
+                            className="form-input" 
+                            style={{ padding: '0.3rem', fontSize: '0.85rem', textAlign: 'center' }}
+                            value={p.awayScore} 
+                            onChange={(e) => {
+                              const updated = [...editPredData.predictions];
+                              updated[idx].awayScore = Number(e.target.value);
+                              setEditPredData({ ...editPredData, predictions: updated });
+                            }} 
+                          />
+                        </div>
+                      </div>
+
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '0.75rem' }}>1st Goal</label>
+                        <select 
+                          className="form-input" 
+                          style={{ padding: '0.3rem', fontSize: '0.85rem' }}
+                          value={p.firstGoal} 
+                          onChange={(e) => {
+                            const updated = [...editPredData.predictions];
+                            updated[idx].firstGoal = e.target.value;
+                            setEditPredData({ ...editPredData, predictions: updated });
+                          }}
+                        >
+                          <option value="Home">Home</option>
+                          <option value="Away">Away</option>
+                          <option value="No goal">No goal</option>
+                        </select>
+                      </div>
+
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '0.75rem' }}>Possession</label>
+                        <select 
+                          className="form-input" 
+                          style={{ padding: '0.3rem', fontSize: '0.85rem' }}
+                          value={p.possession} 
+                          onChange={(e) => {
+                            const updated = [...editPredData.predictions];
+                            updated[idx].possession = e.target.value;
+                            setEditPredData({ ...editPredData, predictions: updated });
+                          }}
+                        >
+                          <option value="Home">Home</option>
+                          <option value="Away">Away</option>
+                          <option value="Equal">Equal</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleSavePredEdit}>
+                <Save size={16} /> Save Prediction Sheet Changes
+              </button>
+            </div>
+          )}
+
+          {/* BATTLES H2H OVERRIDE SECTION */}
+          {mwBattles.length > 0 && (
+            <div className="card">
+              <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Sword size={18} style={{ color: 'var(--primary)' }} /> Battle H2H Outcomes Manual Override
+              </h3>
+              <div className="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Bracket</th>
+                      <th>Player 1</th>
+                      <th>Player 2</th>
+                      <th>Score</th>
+                      <th>Winner / Outcome</th>
+                      <th style={{ textAlign: 'center' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mwBattles.map((b, idx) => (
+                      <tr key={b._id}>
+                        <td style={{ fontWeight: 700 }}>Bracket #{idx + 1}</td>
+                        <td>{b.player1Id?.name || b.player1Id?.username}</td>
+                        <td>{b.player2Id?.name || b.player2Id?.username}</td>
+                        <td style={{ fontWeight: 700 }}>{b.player1Wins} - {b.player2Wins}</td>
+                        <td>
+                          <span className={`badge ${b.outcome === 'Draw' ? 'badge-info' : 'badge-success'}`}>
+                            {b.outcome}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button 
+                            className="btn btn-secondary" 
+                            style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem' }}
+                            onClick={() => {
+                              setSelectedBattle(b);
+                              setEditBattleData(JSON.parse(JSON.stringify(b)));
+                            }}
+                          >
+                            Override Battle
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* EDIT BATTLE MODAL */}
+          {selectedBattle && editBattleData && (
+            <div className="card" style={{ border: '2px solid var(--accent)', background: 'rgba(15, 23, 42, 0.95)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                <h4 style={{ margin: 0, color: 'var(--accent)' }}>
+                  Editing Battle: {selectedBattle.player1Id?.name || selectedBattle.player1Id?.username} vs {selectedBattle.player2Id?.name || selectedBattle.player2Id?.username}
+                </h4>
+                <button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem' }} onClick={() => setSelectedBattle(null)}>
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="grid-2" style={{ marginBottom: '1.5rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Player 1 Wins</label>
+                  <input 
+                    type="number"
+                    className="form-input"
+                    value={editBattleData.player1Wins}
+                    onChange={(e) => setEditBattleData({ ...editBattleData, player1Wins: Number(e.target.value) })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Player 2 Wins</label>
+                  <input 
+                    type="number"
+                    className="form-input"
+                    value={editBattleData.player2Wins}
+                    onChange={(e) => setEditBattleData({ ...editBattleData, player2Wins: Number(e.target.value) })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Player 1 BP Awarded</label>
+                  <input 
+                    type="number"
+                    className="form-input"
+                    value={editBattleData.player1Points}
+                    onChange={(e) => setEditBattleData({ ...editBattleData, player1Points: Number(e.target.value) })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Player 2 BP Awarded</label>
+                  <input 
+                    type="number"
+                    className="form-input"
+                    value={editBattleData.player2Points}
+                    onChange={(e) => setEditBattleData({ ...editBattleData, player2Points: Number(e.target.value) })}
+                  />
+                </div>
+              </div>
+
+              <button className="btn btn-accent" style={{ width: '100%' }} onClick={handleSaveBattleOverride}>
+                <Save size={16} /> Save Battle Override
+              </button>
+            </div>
+          )}
+
+        </div>
+      )}
+
+      {/* ================= RESULTS & CALCULATIONS MODAL / INPUT PANEL ================= */}
       {selectedMw && (
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
@@ -557,7 +1224,7 @@ function AdminPanel({ groupId }) {
               <Play size={16} /> 2. Finalize & Calculate Weekly Points
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--warning)', fontSize: '0.85rem' }}>
-              <AlertTriangle size={16} /> Remember to save match results below before triggering calculations!
+              <AlertTriangle size={16} /> Save match results draft below before calculating final scores!
             </div>
           </div>
 
@@ -709,7 +1376,7 @@ function AdminPanel({ groupId }) {
                     </label>
                     <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
                       {groupDetails.members
-                        .filter(m => m._id !== AVERAGE_PLAYER_ID)
+                        .filter(m => m._id !== '600000000000000000000000')
                         .map((p) => (
                           <label key={p._id} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', cursor: 'pointer', background: 'rgba(255, 255, 255, 0.03)', padding: '0.25rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
                             <input
@@ -717,7 +1384,7 @@ function AdminPanel({ groupId }) {
                               checked={input.wildPredictionCorrectUsers?.includes(p._id)}
                               onChange={() => handleWildUserToggle(mId, p._id)}
                             />
-                            {p.username}
+                            {p.name || p.username}
                           </label>
                         ))}
                     </div>

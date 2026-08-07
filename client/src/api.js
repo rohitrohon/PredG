@@ -189,6 +189,27 @@ const api = {
   },
 
   // Admin actions (Group Admin)
+  async rejectJoinRequest(groupId, userId) {
+    return this.request(`/group/${groupId}/reject-join`, {
+      method: 'POST',
+      body: JSON.stringify({ userId })
+    });
+  },
+
+  async rejectLeaveRequest(groupId, userId) {
+    return this.request(`/group/${groupId}/reject-leave`, {
+      method: 'POST',
+      body: JSON.stringify({ userId })
+    });
+  },
+
+  async removeGroupMember(groupId, userId) {
+    return this.request(`/group/${groupId}/remove-member`, {
+      method: 'POST',
+      body: JSON.stringify({ userId })
+    });
+  },
+
   async updateResults(matchweekId, resultsData) {
     return this.request(`/admin/matchweek/${matchweekId}/results`, {
       method: 'POST',
@@ -205,6 +226,31 @@ const api = {
   async calculateScores(matchweekId) {
     return this.request(`/admin/matchweek/${matchweekId}/calculate`, {
       method: 'POST'
+    });
+  },
+
+  async getAdminPredictions(matchweekId) {
+    return this.request(`/admin/matchweek/${matchweekId}/predictions`);
+  },
+
+  async updateAdminPrediction(predictionId, data) {
+    return this.request(`/admin/prediction/${predictionId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async overridePredictionScores(predictionId, data) {
+    return this.request(`/admin/prediction/${predictionId}/override-scores`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async overrideBattleResult(battleId, data) {
+    return this.request(`/admin/battle/${battleId}/override`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
     });
   }
 };

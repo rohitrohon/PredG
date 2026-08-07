@@ -389,4 +389,155 @@ router.post('/matchweek/:id/calculate', [auth, verifyMwGroupAdmin], async (req, 
   }
 });
 
+// @route   GET api/admin/matchweek/:id/predictions
+// @desc    Get all user predictions for a matchweek (Group Admin only)
+// @access  Private
+router.get('/matchweek/:id/predictions', [auth, verifyMwGroupAdmin], async (req, res) => {
+  try {
+    const predictions = await Prediction.find({ 
+      groupId: req.group._id, 
+      matchweekId: req.matchweek._id 
+    }).populate('userId', 'username name email role');
+    
+    res.json(predictions);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error retrieving matchweek predictions.', error: error.message });
+  }
+});
+
+// @route   PUT api/admin/prediction/:id
+// @desc    Edit a user's prediction choices, chips, and power-ups after deadline (Group Admin only)
+// @access  Private
+router.put('/prediction/:id', auth, async (req, res) => {
+  const { predictions, captainMatchId, gamble, marketPowerUps, isSubmitted } = req.body;
+
+  try {
+    const predDoc = await Prediction.findById(req.params.id);
+    if (!predDoc) {
+      return res.status(404).json({ message: 'Prediction record not found.' });
+    }
+
+    const group = await Group.findById(predDoc.groupId);
+    if (!group || group.adminId.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Access denied. Only group administrators can edit predictions.' });
+    }
+
+    if (predictions !== undefined) predDoc.predictions = predictions;
+    if (captainMatchId !== undefined) predDoc.captainMatchId = captainMatchId;
+    if (gamble !== undefined) predDoc.gamble = gamble;
+    if (marketPowerUps !== undefined) predDoc.marketPowerUps = marketPowerUps;
+    if (isSubmitted !== undefined) predDoc.isSubmitted = isSubmitted;
+
+    await predDoc.save();
+    res.json({ message: 'User prediction updated successfully.', prediction: predDoc });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error updating prediction.', error: error.message });
+  }
+});
+
+// @route   PUT api/admin/prediction/:id/override-scores
+// @desc    Manually override prediction points & battle points for a player (Group Admin only)
+// @access  Private
+router.put('/prediction/:id/override-scores', auth, async (req, res) => {
+  const { totalPointsScored, battlePointsScored } = req.body;
+
+  try {
+    const predDoc = await Prediction.findById(req.params.id);
+    if (!predDoc) {
+      return res.status(404).json({ message: 'Prediction record not found.' });
+    }
+
+    const group = await Group.findById(predDoc.groupId);
+    if (!group || group.adminId.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Access denied. Only group administrators can override scores.' });
+    }
+
+    const prevTotal = predDoc.totalPointsScored || 0;
+    const prevBattle = predDoc.battlePointsScored || 0;
+
+    const newTotal = totalPointsScored !== undefined ? Number(totalPointsScored) : prevTotal;
+    const newBattle = battlePointsScored !== undefined ? Number(battlePointsScored) : prevBattle;
+
+    const diffTotal = newTotal - prevTotal;
+    const diffBattle = newBattle - prevBattle;
+
+    predDoc.totalPointsScored = newTotal;
+    predDoc.battlePointsScored = newBattle;
+    await predDoc.save();
+
+    // Adjust user's group standings by difference
+    await GroupStanding.findOneAndUpdate(
+      { groupId: group._id, userId: predDoc.userId },
+      { $inc: { totalPoints: diffTotal, battlePoints: diffBattle } }
+    );
+
+    // Recalculate group ranks
+    const updatedStandings = await GroupStanding.find({ 
+      groupId: group._id, 
+      userId: { $ne: AVERAGE_PLAYER_ID } 
+    }).sort({ totalPoints: -1 });
+
+    for (let index = 0; index < updatedStandings.length; index++) {
+      const standing = updatedStandings[index];
+      standing.rank = index + 1;
+      await standing.save();
+    }
+
+    res.json({ message: 'Points overridden successfully.', prediction: predDoc });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error overriding points.', error: error.message });
+  }
+});
+
+// @route   PUT api/admin/battle/:id/override
+// @desc    Manually override battle scores and winner outcomes (Group Admin only)
+// @access  Private
+router.put('/battle/:id/override', auth, async (req, res) => {
+  const { player1Wins, player2Wins, player1Points, player2Points, outcome, details } = req.body;
+
+  try {
+    const battle = await Battle.findById(req.params.id);
+    if (!battle) {
+      return res.status(404).json({ message: 'Battle not found.' });
+    }
+
+    const group = await Group.findById(battle.groupId);
+    if (!group || group.adminId.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Access denied. Only group administrators can override battles.' });
+    }
+
+    const prevP1Pts = battle.player1Points || 0;
+    const prevP2Pts = battle.player2Points || 0;
+
+    if (player1Wins !== undefined) battle.player1Wins = player1Wins;
+    if (player2Wins !== undefined) battle.player2Wins = player2Wins;
+    if (player1Points !== undefined) battle.player1Points = player1Points;
+    if (player2Points !== undefined) battle.player2Points = player2Points;
+    if (outcome !== undefined) battle.outcome = outcome;
+    if (details !== undefined) battle.details = details;
+
+    await battle.save();
+
+    // Adjust group standings battle points by difference if not Average Player
+    if (battle.player1Id.toString() !== AVERAGE_PLAYER_ID && player1Points !== undefined) {
+      const diff1 = battle.player1Points - prevP1Pts;
+      await GroupStanding.findOneAndUpdate(
+        { groupId: group._id, userId: battle.player1Id },
+        { $inc: { battlePoints: diff1 } }
+      );
+    }
+    if (battle.player2Id.toString() !== AVERAGE_PLAYER_ID && player2Points !== undefined) {
+      const diff2 = battle.player2Points - prevP2Pts;
+      await GroupStanding.findOneAndUpdate(
+        { groupId: group._id, userId: battle.player2Id },
+        { $inc: { battlePoints: diff2 } }
+      );
+    }
+
+    res.json({ message: 'Battle record overridden successfully.', battle });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error overriding battle.', error: error.message });
+  }
+});
+
 module.exports = router;
