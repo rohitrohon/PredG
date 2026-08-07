@@ -2,6 +2,47 @@ import React, { useEffect, useState } from 'react';
 import api from '../api';
 import { Clock, Trophy, Shield, Play, AlertCircle, RefreshCw, Award, Activity } from 'lucide-react';
 
+// Shorten team names for prediction display in Home section:
+// Single word -> First 3 letters (Arsenal -> ARS, Chelsea -> CHE, Everton -> EVE)
+// Multiple words -> 1st letter of 1st word + 2 letters of 2nd word (Manchester United -> MUN, Manchester City -> MCI)
+function getShortTeamName(teamName) {
+  if (!teamName || typeof teamName !== 'string') return '';
+  const words = teamName.trim().split(/\s+/);
+  if (words.length >= 2) {
+    const w1 = words[0];
+    const w2 = words[1];
+    if (w1.length >= 1 && w2.length >= 2) {
+      return (w1[0] + w2.slice(0, 2)).toUpperCase();
+    }
+  }
+  return teamName.trim().slice(0, 3).toUpperCase();
+}
+
+function renderChoiceAbbreviation(choice, homeTeam, awayTeam) {
+  if (!choice) return '-';
+  if (choice === 'Home') return getShortTeamName(homeTeam);
+  if (choice === 'Away') return getShortTeamName(awayTeam);
+  if (choice === 'Draw') return 'DRAW';
+  if (choice === 'Equal') return 'EQUAL';
+  if (choice === 'No goal') return 'NO GOAL';
+  if (homeTeam && choice.toLowerCase() === homeTeam.toLowerCase()) return getShortTeamName(homeTeam);
+  if (awayTeam && choice.toLowerCase() === awayTeam.toLowerCase()) return getShortTeamName(awayTeam);
+  return getShortTeamName(choice);
+}
+
+function getMatchWinnerChoice(actualResults, homeTeam, awayTeam) {
+  if (!actualResults) return null;
+  if (actualResults.result === 'Home' || actualResults.result === 'Away' || actualResults.result === 'Draw') {
+    return actualResults.result;
+  }
+  const h = Number(actualResults.homeScore);
+  const a = Number(actualResults.awayScore);
+  if (isNaN(h) || isNaN(a)) return null;
+  if (h > a) return 'Home';
+  if (a > h) return 'Away';
+  return 'Draw';
+}
+
 // Replicated scoring helpers on the client
 function getGeneralCategoryPoints(userChoice, correctChoice, categoryDistribution = {}, totalPlayers = 1) {
   if (!correctChoice || userChoice !== correctChoice) {
@@ -248,10 +289,21 @@ function Live({ groupId, user }) {
       const ptsPossession = getGeneralCategoryPoints(p.possession, act.possession, dist.possession, totalSubPlayers);
       const ptsScoreline = getScorelinePoints(p.homeScore, p.awayScore, p.safeBet, act.homeScore, act.awayScore);
 
-      // Check wild prediction correct
-      const isWildCorrect = act.wildPredictionCorrectUsers && act.wildPredictionCorrectUsers.some(
+      // Check wild prediction correct automatically against actual match stats
+      let isWildCorrect = false;
+      if (p.wildPredictionCategory && p.wildPredictionCategory !== 'None') {
+        const cat = p.wildPredictionCategory;
+        const val = Number(p.wildPredictionValue);
+        if (cat === 'Yellow Cards' && act.yellowCards !== null && val === Number(act.yellowCards)) isWildCorrect = true;
+        if (cat === 'Offsides' && act.offsides !== null && val === Number(act.offsides)) isWildCorrect = true;
+        if (cat === 'Corners' && act.corners !== null && val === Number(act.corners)) isWildCorrect = true;
+        if (cat === 'Total Shots' && act.shots !== null && val === Number(act.shots)) isWildCorrect = true;
+      }
+      if (!isWildCorrect && act.wildPredictionCorrectUsers && act.wildPredictionCorrectUsers.some(
         id => id.toString() === predDoc.userId?._id?.toString()
-      );
+      )) {
+        isWildCorrect = true;
+      }
       const ptsWild = isWildCorrect ? 100 : 0;
 
       let correctCats = 0;
@@ -384,34 +436,84 @@ function Live({ groupId, user }) {
 
       {/* BEFORE DEADLINE DISPLAY */}
       {!deadlinePassed && selectedMw && (
-        <div className="card" style={{
-          textAlign: 'center', 
-          padding: '4rem 2rem', 
-          background: 'rgba(56, 189, 248, 0.03)',
-          borderColor: 'rgba(56, 189, 248, 0.2)'
-        }}>
-          <Clock size={64} style={{ color: 'var(--primary)', margin: '0 auto 1.5rem', animation: 'pulse 2s infinite' }} />
-          <h2>Waiting for Deadline</h2>
-          <p style={{ color: 'var(--text-muted)', maxWidth: '500px', margin: '0.5rem auto 2rem' }}>
-            Predictions for Matchweek #{selectedMw.matchweekNumber} lock in:
-          </p>
-          <div style={{
-            fontSize: '3rem', 
-            fontWeight: 800, 
-            fontFamily: 'monospace', 
-            color: 'var(--primary)',
-            background: 'rgba(0,0,0,0.2)',
-            padding: '1rem 2rem',
-            borderRadius: '12px',
-            display: 'inline-block',
-            letterSpacing: '0.05em',
-            boxShadow: '0 0 20px rgba(56, 189, 248, 0.1)'
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* COUNTDOWN CARD */}
+          <div className="card" style={{
+            textAlign: 'center', 
+            padding: '2.5rem 2rem', 
+            background: 'rgba(56, 189, 248, 0.03)',
+            borderColor: 'rgba(56, 189, 248, 0.2)'
           }}>
-            {timeRemaining || 'LOCKING...'}
+            <Clock size={48} style={{ color: 'var(--primary)', margin: '0 auto 1rem', animation: 'pulse 2s infinite' }} />
+            <h2 style={{ marginBottom: '0.25rem' }}>Waiting for Deadline</h2>
+            <p style={{ color: 'var(--text-muted)', maxWidth: '500px', margin: '0.25rem auto 1.5rem', fontSize: '0.9rem' }}>
+              Predictions for Matchweek #{selectedMw.matchweekNumber} lock in:
+            </p>
+            <div style={{
+              fontSize: '2.5rem', 
+              fontWeight: 800, 
+              fontFamily: 'monospace', 
+              color: 'var(--primary)',
+              background: 'rgba(0,0,0,0.25)',
+              padding: '0.75rem 1.75rem',
+              borderRadius: '12px',
+              display: 'inline-block',
+              letterSpacing: '0.05em',
+              boxShadow: '0 0 20px rgba(56, 189, 248, 0.1)'
+            }}>
+              {timeRemaining || 'LOCKING...'}
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '1.25rem' }}>
+              Player predictions for all categories remain hidden until the submission deadline passes.
+            </p>
           </div>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '2rem' }}>
-            Once the clock expires, all players' detailed prediction choices and strategic items will be unlocked and updated live here.
-          </p>
+
+          {/* FIXTURES & DETAILS CARD */}
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Activity size={18} style={{ color: 'var(--primary)' }} /> Matchweek #{selectedMw.matchweekNumber} Fixtures
+              </h3>
+              <span className="badge badge-info" style={{ fontSize: '0.75rem' }}>
+                Predictions Hidden Until Deadline
+              </span>
+            </div>
+
+            <div className="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{ width: '80px', textAlign: 'center' }}>Match No.</th>
+                    <th>Home Team</th>
+                    <th style={{ textAlign: 'center', width: '40px' }}>vs</th>
+                    <th>Away Team</th>
+                    <th style={{ textAlign: 'center' }}>Kickoff Time</th>
+                    <th style={{ textAlign: 'center' }}>Predictions Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedMw.matches?.map((m, idx) => (
+                    <tr key={m._id || idx}>
+                      <td style={{ textAlign: 'center', fontWeight: 700 }}>#{idx + 1}</td>
+                      <td style={{ fontWeight: 700 }}>{m.homeTeam}</td>
+                      <td style={{ textAlign: 'center', color: 'var(--text-muted)' }}>vs</td>
+                      <td style={{ fontWeight: 700 }}>{m.awayTeam}</td>
+                      <td style={{ textAlign: 'center', fontSize: '0.85rem' }}>
+                        {new Date(m.kickoffTime).toLocaleString(undefined, {
+                          weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                        })}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span className="badge badge-warning" style={{ fontSize: '0.75rem' }}>
+                          Locked until deadline
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
@@ -483,9 +585,9 @@ function Live({ groupId, user }) {
                         </td>
                         <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
                           <span className={`badge ${isCompleted ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: '0.7rem', fontWeight: 700 }}>
-                            {isCompleted ? (
-                              m.actualResults.homeScore > m.actualResults.awayScore ? m.homeTeam :
-                              m.actualResults.awayScore > m.actualResults.homeScore ? m.awayTeam : 'Draw'
+                            {isCompleted ? renderChoiceAbbreviation(
+                              getMatchWinnerChoice(m.actualResults, m.homeTeam, m.awayTeam),
+                              m.homeTeam, m.awayTeam
                             ) : 'Not Yet Started'}
                           </span>
                         </td>
@@ -499,8 +601,8 @@ function Live({ groupId, user }) {
                         }}>
                           {isCompleted ? `${m.actualResults.homeScore} - ${m.actualResults.awayScore}` : 'vs'}
                         </td>
-                        <td>{isCompleted ? m.actualResults.firstGoal : '-'}</td>
-                        <td>{isCompleted ? m.actualResults.possession : '-'}</td>
+                        <td>{isCompleted ? renderChoiceAbbreviation(m.actualResults.firstGoal, m.homeTeam, m.awayTeam) : '-'}</td>
+                        <td>{isCompleted ? renderChoiceAbbreviation(m.actualResults.possession, m.homeTeam, m.awayTeam) : '-'}</td>
                         <td style={{ textAlign: 'center' }}>{isCompleted && m.actualResults.yellowCards !== null ? m.actualResults.yellowCards : '-'}</td>
                         <td style={{ textAlign: 'center' }}>{isCompleted && m.actualResults.offsides !== null ? m.actualResults.offsides : '-'}</td>
                         <td style={{ textAlign: 'center' }}>{isCompleted && m.actualResults.corners !== null ? m.actualResults.corners : '-'}</td>
@@ -559,8 +661,10 @@ function Live({ groupId, user }) {
                             {match.actualResults.homeScore} - {match.actualResults.awayScore}
                           </div>
                           <span className="badge badge-success" style={{ fontWeight: 700 }}>
-                            {match.actualResults.homeScore > match.actualResults.awayScore ? match.homeTeam :
-                             match.actualResults.awayScore > match.actualResults.homeScore ? match.awayTeam : 'Draw'}
+                            {renderChoiceAbbreviation(
+                              getMatchWinnerChoice(match.actualResults, match.homeTeam, match.awayTeam),
+                              match.homeTeam, match.awayTeam
+                            )}
                           </span>
                         </>
                       ) : (
@@ -601,10 +705,10 @@ function Live({ groupId, user }) {
                       fontSize: '0.8rem'
                     }}>
                       <div style={{ whiteSpace: 'nowrap' }}>
-                        1st Goal: <strong style={{ color: 'var(--primary)' }}>{match.actualResults.firstGoal}</strong>
+                        1st Goal: <strong style={{ color: 'var(--primary)' }}>{renderChoiceAbbreviation(match.actualResults.firstGoal, match.homeTeam, match.awayTeam)}</strong>
                       </div>
                       <div style={{ whiteSpace: 'nowrap' }}>
-                        Possession: <strong style={{ color: 'var(--primary)' }}>{match.actualResults.possession}</strong>
+                        Possession: <strong style={{ color: 'var(--primary)' }}>{renderChoiceAbbreviation(match.actualResults.possession, match.homeTeam, match.awayTeam)}</strong>
                       </div>
                       <div style={{ whiteSpace: 'nowrap' }}>
                         Yellow Cards: <strong style={{ color: 'var(--primary)' }}>{match.actualResults.yellowCards !== null && match.actualResults.yellowCards !== undefined ? match.actualResults.yellowCards : '-'}</strong>
@@ -626,19 +730,13 @@ function Live({ groupId, user }) {
                     <table>
                       <thead>
                         <tr>
-                          <th>Name</th>
-                          <th>Match Result</th>
-                          <th style={{ textAlign: 'right' }}>Points</th>
-                          <th style={{ textAlign: 'center' }}>Scoreline</th>
-                          <th>Safe Bet</th>
-                          <th style={{ textAlign: 'right' }}>Points</th>
-                          <th>1st Goal</th>
-                          <th style={{ textAlign: 'right' }}>Points</th>
-                          <th>Possession</th>
-                          <th style={{ textAlign: 'right' }}>Points</th>
-                          <th>Wild Prediction</th>
-                          <th style={{ textAlign: 'right' }}>Points</th>
-                          <th style={{ textAlign: 'right', color: 'var(--primary)', fontWeight: 700 }}>Total</th>
+                          <th style={{ whiteSpace: 'nowrap', minWidth: '120px' }}>Player</th>
+                          <th style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>Match Result</th>
+                          <th style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>Scoreline (Safe Bet)</th>
+                          <th style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>1st Goal</th>
+                          <th style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>Possession</th>
+                          <th style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>Wild Prediction</th>
+                          <th style={{ textAlign: 'center', color: 'var(--primary)', fontWeight: 700, whiteSpace: 'nowrap' }}>Total</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -701,7 +799,6 @@ function Live({ groupId, user }) {
                             if (powerUp.type === 'Triple') tripleMult = 3;
                           }
                           const totalMultiplier = captainMult * doubleMult * tripleMult;
-                          const multiplier = totalMultiplier;
 
                           const categoriesSum = ptsResult + ptsScoreline + ptsFirstGoal + ptsPossession + ptsWild;
                           let matchTotal = (categoriesSum + bonusPoints + matchGamblePoints) * totalMultiplier;
@@ -726,52 +823,129 @@ function Live({ groupId, user }) {
                               {/* NAME COLUMN */}
                               <td style={{ 
                                 fontWeight: 700,
+                                whiteSpace: 'nowrap',
                                 ...getNameCellStyle(isCaptain, powerUp, isGamble, predDoc.marketPowerUps?.some(pu => pu.matchId.toString() === mId && pu.type === 'Shield'))
                               }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                                   <span>{nameLabel}</span>
-                                  <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+                                  <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'nowrap' }}>
                                     {tags}
                                   </div>
                                 </div>
                               </td>
 
                               {/* MATCH RESULT */}
-                              <td>{matchPred.result}</td>
-                              <td style={getTemperatureStyle(ptsResult * multiplier, hasScore)}>
-                                {hasScore ? ptsResult * multiplier : '-'}
+                              <td style={{
+                                ...getTemperatureStyle(ptsResult, hasScore),
+                                textAlign: 'center',
+                                padding: '0.5rem',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                  <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>
+                                    {renderChoiceAbbreviation(matchPred.result, match.homeTeam, match.awayTeam)}
+                                  </span>
+                                  {hasScore && (
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.9, marginTop: '2px' }}>
+                                      +{ptsResult}
+                                    </span>
+                                  )}
+                                </div>
                               </td>
 
                               {/* SCORELINE & SAFE BET */}
-                              <td style={{ textAlign: 'center', fontWeight: 600 }}>{matchPred.homeScore}-{matchPred.awayScore}</td>
-                              <td>{matchPred.safeBet}</td>
-                              <td style={getTemperatureStyle(ptsScoreline * multiplier, hasScore)}>
-                                {hasScore ? ptsScoreline * multiplier : '-'}
+                              <td style={{
+                                ...getTemperatureStyle(ptsScoreline, hasScore),
+                                textAlign: 'center',
+                                padding: '0.5rem',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                  <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>
+                                    {matchPred.homeScore}-{matchPred.awayScore} ({renderChoiceAbbreviation(matchPred.safeBet, match.homeTeam, match.awayTeam)})
+                                  </span>
+                                  {hasScore && (
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.9, marginTop: '2px' }}>
+                                      +{ptsScoreline}
+                                    </span>
+                                  )}
+                                </div>
                               </td>
 
                               {/* 1ST GOAL */}
-                              <td>{matchPred.firstGoal}</td>
-                              <td style={getTemperatureStyle(ptsFirstGoal * multiplier, hasScore)}>
-                                {hasScore ? ptsFirstGoal * multiplier : '-'}
+                              <td style={{
+                                ...getTemperatureStyle(ptsFirstGoal, hasScore),
+                                textAlign: 'center',
+                                padding: '0.5rem',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                  <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>
+                                    {renderChoiceAbbreviation(matchPred.firstGoal, match.homeTeam, match.awayTeam)}
+                                  </span>
+                                  {hasScore && (
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.9, marginTop: '2px' }}>
+                                      +{ptsFirstGoal}
+                                    </span>
+                                  )}
+                                </div>
                               </td>
 
                               {/* POSSESSION */}
-                              <td>{matchPred.possession}</td>
-                              <td style={getTemperatureStyle(ptsPossession * multiplier, hasScore)}>
-                                {hasScore ? ptsPossession * multiplier : '-'}
+                              <td style={{
+                                ...getTemperatureStyle(ptsPossession, hasScore),
+                                textAlign: 'center',
+                                padding: '0.5rem',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                  <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>
+                                    {renderChoiceAbbreviation(matchPred.possession, match.homeTeam, match.awayTeam)}
+                                  </span>
+                                  {hasScore && (
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.9, marginTop: '2px' }}>
+                                      +{ptsPossession}
+                                    </span>
+                                  )}
+                                </div>
                               </td>
 
                               {/* WILD PREDICTION */}
-                              <td style={{ fontSize: '0.85rem' }}>
-                                {matchPred.wildPredictionCategory !== 'None' ? `${matchPred.wildPredictionCategory}: ${matchPred.wildPredictionValue}` : '-'}
-                              </td>
-                              <td style={getTemperatureStyle(ptsWild, hasScore)}>
-                                {hasScore && matchPred.wildPredictionCategory !== 'None' ? ptsWild : '-'}
+                              <td style={{
+                                ...getTemperatureStyle(ptsWild, hasScore),
+                                textAlign: 'center',
+                                padding: '0.5rem',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                  <span style={{ fontWeight: 700, fontSize: '0.8rem' }}>
+                                    {matchPred.wildPredictionCategory !== 'None' ? `${matchPred.wildPredictionCategory}: ${matchPred.wildPredictionValue}` : '-'}
+                                  </span>
+                                  {hasScore && matchPred.wildPredictionCategory !== 'None' && (
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.9, marginTop: '2px' }}>
+                                      +{ptsWild}
+                                    </span>
+                                  )}
+                                </div>
                               </td>
 
                               {/* TOTAL MATCH POINTS (TOTAL COLUMN) */}
-                              <td style={getTotalTemperatureStyle(matchTotal, hasScore)}>
-                                {hasScore ? (matchTotal > 0 ? `+${matchTotal}` : matchTotal) : 'Pending'}
+                              <td style={{
+                                ...getTotalTemperatureStyle(matchTotal, hasScore),
+                                textAlign: 'center',
+                                padding: '0.5rem',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                  <span style={{ fontSize: '1rem', fontWeight: 800 }}>
+                                    {hasScore ? (matchTotal >= 0 ? `+${matchTotal}` : `${matchTotal}`) : 'Pending'}
+                                  </span>
+                                  {hasScore && totalMultiplier > 1 && (
+                                    <span style={{ fontSize: '0.65rem', fontWeight: 700, opacity: 0.9 }}>
+                                      ({totalMultiplier}x)
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           );

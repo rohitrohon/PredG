@@ -327,22 +327,14 @@ router.post('/matchweek/:id/calculate', [auth, verifyMwGroupAdmin], async (req, 
         details: bRes.details
       });
 
-      // Award battle points to players' Group standings & update Predictions
+      // Update Predictions with battle points scored
       if (bRes.player1Id.toString() !== AVERAGE_PLAYER_ID) {
-        await GroupStanding.findOneAndUpdate(
-          { groupId: group._id, userId: bRes.player1Id }, 
-          { $inc: { battlePoints: bRes.player1Points } }
-        );
         await Prediction.findOneAndUpdate(
           { groupId: group._id, userId: bRes.player1Id, matchweekId: matchweek._id },
           { battlePointsScored: bRes.player1Points }
         );
       }
       if (bRes.player2Id.toString() !== AVERAGE_PLAYER_ID) {
-        await GroupStanding.findOneAndUpdate(
-          { groupId: group._id, userId: bRes.player2Id }, 
-          { $inc: { battlePoints: bRes.player2Points } }
-        );
         await Prediction.findOneAndUpdate(
           { groupId: group._id, userId: bRes.player2Id, matchweekId: matchweek._id },
           { battlePointsScored: bRes.player2Points }
@@ -350,19 +342,29 @@ router.post('/matchweek/:id/calculate', [auth, verifyMwGroupAdmin], async (req, 
       }
     }
 
-    // Update real players' total points in Group standings & update Predictions
+    // Update Predictions with total weekly points scored
     for (const score of scoredPredictions) {
-      await GroupStanding.findOneAndUpdate(
-        { groupId: group._id, userId: score.userId },
-        { $inc: { totalPoints: score.totalMatchweekPoints } }
-      );
       await Prediction.findOneAndUpdate(
         { groupId: group._id, userId: score.userId, matchweekId: matchweek._id },
         { totalPointsScored: score.totalMatchweekPoints }
       );
     }
 
-    // 6. Recalculate standings and ranks within the group
+    // 6. Recalculate GroupStandings (exact sum of all matchweeks) and ranks within the group
+    const allStandings = await GroupStanding.find({ groupId: group._id });
+    for (const std of allStandings) {
+      const uIdStr = std.userId.toString();
+      if (uIdStr === AVERAGE_PLAYER_ID) continue;
+
+      const userPreds = await Prediction.find({ groupId: group._id, userId: uIdStr });
+      const sumTotal = userPreds.reduce((sum, p) => sum + (p.totalPointsScored || 0), 0);
+      const sumBattle = userPreds.reduce((sum, p) => sum + (p.battlePointsScored || 0), 0);
+
+      std.totalPoints = sumTotal;
+      std.battlePoints = sumBattle;
+      await std.save();
+    }
+
     const updatedStandings = await GroupStanding.find({ 
       groupId: group._id, 
       userId: { $ne: AVERAGE_PLAYER_ID } 
@@ -465,10 +467,14 @@ router.put('/prediction/:id/override-scores', auth, async (req, res) => {
     predDoc.battlePointsScored = newBattle;
     await predDoc.save();
 
-    // Adjust user's group standings by difference
+    // Recalculate exact totalPoints and battlePoints for user's group standings from all predictions
+    const userPreds = await Prediction.find({ groupId: group._id, userId: predDoc.userId });
+    const sumTotal = userPreds.reduce((sum, p) => sum + (p.totalPointsScored || 0), 0);
+    const sumBattle = userPreds.reduce((sum, p) => sum + (p.battlePointsScored || 0), 0);
+
     await GroupStanding.findOneAndUpdate(
       { groupId: group._id, userId: predDoc.userId },
-      { $inc: { totalPoints: diffTotal, battlePoints: diffBattle } }
+      { totalPoints: sumTotal, battlePoints: sumBattle }
     );
 
     // Recalculate group ranks

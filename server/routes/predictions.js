@@ -216,8 +216,10 @@ router.get('/matchweek/:matchweekId', auth, async (req, res) => {
     }
 
     const group = await Group.findById(groupId);
-    if (!group || !group.members.some(id => id.toString() === req.user.id)) {
-      return res.status(403).json({ message: 'Access denied. You are not a member of this group.' });
+    const adminIdStr = group?.adminId?._id ? group.adminId._id.toString() : group?.adminId?.toString();
+    const isMemberOrAdmin = group && (group.members.some(id => id.toString() === req.user.id) || adminIdStr === req.user.id || req.user.role === 'admin');
+    if (!group || !isMemberOrAdmin) {
+      return res.status(403).json({ message: 'Access denied. You are not a member or admin of this group.' });
     }
 
     const predictions = await Prediction.find({ groupId, matchweekId: req.params.matchweekId })

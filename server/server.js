@@ -37,7 +37,14 @@ app.get('/health', (req, res) => {
 // Database Connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/prediction_game';
 mongoose.connect(MONGODB_URI)
-  .then(() => console.log('Connected to MongoDB Database.'))
+  .then(async () => {
+    console.log('Connected to MongoDB Database.');
+    try {
+      await mongoose.connection.collection('matchweeks').dropIndex('matchweekNumber_1');
+    } catch (e) {
+      // Ignore if index was already dropped or doesn't exist
+    }
+  })
   .catch((err) => console.error('Database connection error:', err));
 
 // Start Server

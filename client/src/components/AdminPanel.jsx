@@ -16,18 +16,15 @@ function AdminPanel({ groupId }) {
   // Currently selected matchweek for results/grading
   const [selectedMw, setSelectedMw] = useState(null);
 
-  // Tabs: 'list', 'create', 'roster', 'create-group', 'overrides'
+  // Tabs: 'list', 'create', 'roster', 'overrides'
   const [adminTab, setAdminTab] = useState('list');
-
-  // New Group State
-  const [newGroupName, setNewGroupName] = useState('');
 
   // Create matchweek form state
   const [newMwNum, setNewMwNum] = useState('');
   const [newMwDeadline, setNewMwDeadline] = useState('');
   const [isManualDeadline, setIsManualDeadline] = useState(false);
   const [newMwMatches, setNewMwMatches] = useState(
-    Array.from({ length: 5 }, () => ({ homeTeam: '', awayTeam: '', kickoffTime: '', wildPredictionDetails: '' }))
+    Array.from({ length: 5 }, () => ({ homeTeam: '', awayTeam: '', kickoffTime: '' }))
   );
 
   // Results inputs state
@@ -88,29 +85,7 @@ function AdminPanel({ groupId }) {
     }
   };
 
-  // --- 1. CREATE NEW GROUP ---
-  const handleCreateGroup = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
 
-    if (!newGroupName.trim()) {
-      setError('Please provide a group name.');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const res = await api.createGroup(newGroupName.trim());
-      setSuccess(`Group "${res.group.name}" created successfully! Join Code: ${res.group.code}`);
-      setNewGroupName('');
-      fetchData();
-    } catch (err) {
-      setError(err.message || 'Failed to create group.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // --- 2. MATCHWEEK FIXTURES BUILDER (AUTO DEADLINE FROM KICKOFF TIMES) ---
   const handleMatchFormChange = (index, field, value) => {
@@ -162,7 +137,7 @@ function AdminPanel({ groupId }) {
       setNewMwDeadline('');
       setIsManualDeadline(false);
       setNewMwMatches(
-        Array.from({ length: 5 }, () => ({ homeTeam: '', awayTeam: '', kickoffTime: '', wildPredictionDetails: '' }))
+        Array.from({ length: 5 }, () => ({ homeTeam: '', awayTeam: '', kickoffTime: '' }))
       );
       setAdminTab('list');
       fetchData();
@@ -275,12 +250,24 @@ function AdminPanel({ groupId }) {
   };
 
   const handleResultChange = (matchId, field, value) => {
+    const updatedMatch = {
+      ...resultsInput[matchId],
+      [field]: value
+    };
+
+    if (field === 'homeScore' || field === 'awayScore') {
+      const h = field === 'homeScore' ? Number(value) : Number(updatedMatch.homeScore);
+      const a = field === 'awayScore' ? Number(value) : Number(updatedMatch.awayScore);
+      if (!isNaN(h) && !isNaN(a)) {
+        if (h > a) updatedMatch.result = 'Home';
+        else if (a > h) updatedMatch.result = 'Away';
+        else updatedMatch.result = 'Draw';
+      }
+    }
+
     setResultsInput({
       ...resultsInput,
-      [matchId]: {
-        ...resultsInput[matchId],
-        [field]: value
-      }
+      [matchId]: updatedMatch
     });
   };
 
@@ -501,49 +488,12 @@ function AdminPanel({ groupId }) {
           >
             <Edit3 size={15} /> Edit & Overrides
           </button>
-
-          <button 
-            className={`btn ${adminTab === 'create-group' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '0.45rem 0.9rem', fontSize: '0.8rem' }}
-            onClick={() => { setAdminTab('create-group'); setSelectedMw(null); }}
-          >
-            <PlusCircle size={15} /> New Group
-          </button>
         </div>
       </div>
 
       {/* ALERT MESSAGES */}
       {error && <div className="card" style={{ color: 'var(--danger)', background: 'var(--danger-glow)', marginBottom: 0 }}>{error}</div>}
       {success && <div className="card" style={{ color: 'var(--success)', background: 'var(--success-glow)', marginBottom: 0 }}>{success}</div>}
-
-      {/* ================= TAB 1: CREATE NEW GROUP ================= */}
-      {adminTab === 'create-group' && (
-        <div className="card" style={{ maxWidth: '500px' }}>
-          <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <PlusCircle size={18} style={{ color: 'var(--primary)' }} /> Create a New League Group
-          </h3>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
-            Create a fresh prediction group. You will automatically become the group administrator and a unique join code will be generated.
-          </p>
-
-          <form onSubmit={handleCreateGroup}>
-            <div className="form-group">
-              <label className="form-label">Group Name</label>
-              <input 
-                type="text" 
-                className="form-input"
-                placeholder="e.g. Premier Masters 2026"
-                value={newGroupName}
-                onChange={(e) => setNewGroupName(e.target.value)}
-                required
-              />
-            </div>
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }} disabled={loading}>
-              {loading ? 'Creating...' : 'Create Group'}
-            </button>
-          </form>
-        </div>
-      )}
 
       {/* ================= TAB 2: CREATE MATCHWEEK & 5 FIXTURES ================= */}
       {adminTab === 'create' && (
@@ -629,16 +579,6 @@ function AdminPanel({ groupId }) {
                         value={match.kickoffTime} 
                         onChange={(e) => handleMatchFormChange(idx, 'kickoffTime', e.target.value)} 
                         required 
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Wild Question (optional)</label>
-                      <input 
-                        type="text" 
-                        className="form-input" 
-                        value={match.wildPredictionDetails} 
-                        onChange={(e) => handleMatchFormChange(idx, 'wildPredictionDetails', e.target.value)} 
-                        placeholder="e.g. Red card in match" 
                       />
                     </div>
                   </div>
@@ -1367,26 +1307,6 @@ function AdminPanel({ groupId }) {
                         value={input.shots}
                         onChange={(e) => handleResultChange(mId, 'shots', parseInt(e.target.value) || 0)}
                       />
-                    </div>
-                  </div>
-
-                  <div style={{ marginTop: '1.25rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
-                    <label className="form-label" style={{ fontSize: '0.8rem', color: 'var(--accent)' }}>
-                      Wild Prediction Correct Players ({match.wildPredictionDetails || 'Optional Wild Prediction'})
-                    </label>
-                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
-                      {groupDetails.members
-                        .filter(m => m._id !== '600000000000000000000000')
-                        .map((p) => (
-                          <label key={p._id} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', cursor: 'pointer', background: 'rgba(255, 255, 255, 0.03)', padding: '0.25rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
-                            <input
-                              type="checkbox"
-                              checked={input.wildPredictionCorrectUsers?.includes(p._id)}
-                              onChange={() => handleWildUserToggle(mId, p._id)}
-                            />
-                            {p.name || p.username}
-                          </label>
-                        ))}
                     </div>
                   </div>
                 </div>

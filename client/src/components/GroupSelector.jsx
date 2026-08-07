@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
-import { Plus, Users, Shield, ArrowRight, Share2, LogOut, Loader2, Hourglass } from 'lucide-react';
+import { Plus, Users, Shield, ArrowRight, Share2, LogOut, Loader2, Hourglass, Trash } from 'lucide-react';
 
 function GroupSelector({ user, onSelectGroup, onLogout }) {
   const [groups, setGroups] = useState({ joined: [], pendingJoin: [], pendingLeave: [] });
@@ -71,6 +71,24 @@ function GroupSelector({ user, onSelectGroup, onLogout }) {
     }
   };
 
+  const handleDeleteGroup = async (groupId, groupName) => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete the league "${groupName}"? This will permanently delete all fixtures, standings, predictions, and battles in this league. This action cannot be undone.`
+    );
+    if (!confirmDelete) return;
+
+    setError('');
+    setSuccess('');
+
+    try {
+      const data = await api.deleteGroup(groupId);
+      setSuccess(data.message || `League "${groupName}" deleted successfully.`);
+      fetchGroups();
+    } catch (err) {
+      setError(err.message || 'Failed to delete group.');
+    }
+  };
+
   const handleRequestLeave = async (groupId, groupName) => {
     const confirmLeave = window.confirm(
       `Are you sure you want to request to leave "${groupName}"? Your leave request must be approved by the administrator.`
@@ -137,7 +155,8 @@ function GroupSelector({ user, onSelectGroup, onLogout }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2.5rem' }}>
           {/* Active Memberships */}
           {groups.joined.map((group) => {
-            const isGroupAdmin = group.adminId._id.toString() === user.id;
+            const adminIdStr = typeof group.adminId === 'object' ? group.adminId?._id?.toString() : group.adminId?.toString();
+            const isGroupAdmin = (adminIdStr && user && adminIdStr === user.id) || user?.role === 'admin';
             return (
               <div key={group._id} className="card" style={{ 
                 display: 'flex', 
@@ -166,7 +185,16 @@ function GroupSelector({ user, onSelectGroup, onLogout }) {
                 </div>
 
                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                  {!isGroupAdmin && (
+                  {isGroupAdmin ? (
+                    <button 
+                      className="btn btn-secondary" 
+                      style={{ padding: '0.5rem 0.85rem', fontSize: '0.8rem', color: 'var(--danger)', border: '1px solid rgba(239, 68, 68, 0.4)' }}
+                      onClick={() => handleDeleteGroup(group._id, group.name)}
+                      title="Delete Group"
+                    >
+                      <Trash size={14} style={{ marginRight: '0.25rem' }} /> Delete
+                    </button>
+                  ) : (
                     <button 
                       className="btn btn-secondary" 
                       style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', color: 'var(--danger)' }}

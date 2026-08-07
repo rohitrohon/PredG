@@ -335,7 +335,8 @@ router.get('/:id/members', auth, async (req, res) => {
     }
 
     // Verify requesting user is member or admin of the group
-    const isMemberOrAdmin = group.members.some(m => m._id.toString() === req.user.id) || group.adminId._id.toString() === req.user.id;
+    const adminIdStr = group.adminId?._id ? group.adminId._id.toString() : group.adminId?.toString();
+    const isMemberOrAdmin = group.members.some(m => (m._id || m).toString() === req.user.id) || adminIdStr === req.user.id || req.user.role === 'admin';
     if (!isMemberOrAdmin) {
       return res.status(403).json({ message: 'Access denied. You are not a member of this group.' });
     }
@@ -361,9 +362,27 @@ router.get('/:id/standings', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied. You are not a member of this group.' });
     }
 
+    // Auto-sync standings totals from exact sum of prediction records to eliminate double-counting
+    const existingStandings = await GroupStanding.find({ groupId: group._id });
+    for (const std of existingStandings) {
+      if (!std.userId || std.userId.toString() === '600000000000000000000000') continue;
+      const userPreds = await Prediction.find({ groupId: group._id, userId: std.userId });
+      const sumTotal = userPreds.reduce((sum, p) => sum + (p.totalPointsScored || 0), 0);
+      const sumBattle = userPreds.reduce((sum, p) => sum + (p.battlePointsScored || 0), 0);
+
+      std.totalPoints = sumTotal;
+      std.battlePoints = sumBattle;
+      await std.save();
+    }
+
     const standings = await GroupStanding.find({ groupId: group._id })
       .populate('userId', 'username name email role')
       .sort({ totalPoints: -1 });
+
+    for (let idx = 0; idx < standings.length; idx++) {
+      standings[idx].rank = idx + 1;
+      await standings[idx].save();
+    }
 
     const playerStandings = standings.filter(s => s.userId && s.userId.role !== 'admin');
 
@@ -413,6 +432,34 @@ router.get('/:id/results-dashboard', auth, async (req, res) => {
     res.json({ matchweeks, predictions, standings: playerStandings, battles });
   } catch (error) {
     res.status(500).json({ message: 'Server error retrieving results dashboard.', error: error.message });
+  }
+});
+
+// @route   DELETE api/group/:id
+// @desc    Delete a group and all its related matchweeks, predictions, standings, and battles (Admin only)
+// @access  Private
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    const group = await Group.findById(req.params.id);
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found.' });
+    }
+
+    const adminIdStr = group.adminId?._id ? group.adminId._id.toString() : group.adminId?.toString();
+    if (adminIdStr !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied. Only group administrators can delete this group.' });
+    }
+
+    // Clean up all related documents for this group
+    await Matchweek.deleteMany({ groupId: group._id });
+    await Prediction.deleteMany({ groupId: group._id });
+    await GroupStanding.deleteMany({ groupId: group._id });
+    await Battle.deleteMany({ groupId: group._id });
+    await Group.deleteOne({ _id: group._id });
+
+    res.json({ message: `Group "${group.name}" deleted successfully.` });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error deleting group.', error: error.message });
   }
 });
 

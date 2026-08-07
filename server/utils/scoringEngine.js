@@ -141,10 +141,21 @@ function scoreUserPrediction(predictionDoc, matchweekDoc, distribution, totalPla
     // Scoreline points
     const ptsScoreline = getScorelinePoints(singlePred.homeScore, singlePred.awayScore, singlePred.safeBet, act.homeScore, act.awayScore);
 
-    // Wild Prediction points: Check if admin marked this user as correct for this match
-    const isWildCorrect = act.wildPredictionCorrectUsers && act.wildPredictionCorrectUsers.some(
+    // Wild Prediction points: Automatically evaluate player's chosen stat category & value against actual match stats
+    let isWildCorrect = false;
+    if (singlePred.wildPredictionCategory && singlePred.wildPredictionCategory !== 'None') {
+      const cat = singlePred.wildPredictionCategory;
+      const val = Number(singlePred.wildPredictionValue);
+      if (cat === 'Yellow Cards' && act.yellowCards !== null && val === Number(act.yellowCards)) isWildCorrect = true;
+      if (cat === 'Offsides' && act.offsides !== null && val === Number(act.offsides)) isWildCorrect = true;
+      if (cat === 'Corners' && act.corners !== null && val === Number(act.corners)) isWildCorrect = true;
+      if (cat === 'Total Shots' && act.shots !== null && val === Number(act.shots)) isWildCorrect = true;
+    }
+    if (!isWildCorrect && act.wildPredictionCorrectUsers && act.wildPredictionCorrectUsers.some(
       (userId) => userId.toString() === predictionDoc.userId.toString()
-    );
+    )) {
+      isWildCorrect = true;
+    }
     const ptsWild = isWildCorrect ? 100 : 0; // Wild is 100 points if correct, else 0
 
     // Count correct core categories (points scored > 0) out of 5 categories (Result, Scoreline, 1st Goal, Possession, and Wild Card)

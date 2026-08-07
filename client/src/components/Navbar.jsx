@@ -1,6 +1,10 @@
+import React from 'react';
 import { LogOut, Trophy, Sword, User, ShieldAlert, BookOpen, Layers, BarChart3, Home } from 'lucide-react';
 
 function Navbar({ user, group, standing, onLogout, activeTab, setActiveTab, onSwitchGroup }) {
+  const adminIdStr = typeof group?.adminId === 'object' ? group?.adminId?._id?.toString() : group?.adminId?.toString();
+  const isGroupAdmin = (adminIdStr && user && adminIdStr === user.id) || user?.role === 'admin';
+
   return (
     <nav style={{
       background: 'rgba(15, 23, 42, 0.8)',
@@ -38,47 +42,7 @@ function Navbar({ user, group, standing, onLogout, activeTab, setActiveTab, onSw
 
         {/* Navigation Tabs */}
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <button 
-            className={`btn ${activeTab === 'home' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
-            onClick={() => setActiveTab('home')}
-          >
-            <Home size={16} /> Home
-          </button>
-
-          <button 
-            className={`btn ${activeTab === 'leaderboard' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
-            onClick={() => setActiveTab('leaderboard')}
-          >
-            <Trophy size={16} /> Standings
-          </button>
-          
-          <button 
-            className={`btn ${activeTab === 'predictions' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
-            onClick={() => setActiveTab('predictions')}
-          >
-            <BookOpen size={16} /> Predictions
-          </button>
-          
-          <button 
-            className={`btn ${activeTab === 'battles' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
-            onClick={() => setActiveTab('battles')}
-          >
-            <Sword size={16} /> Battles
-          </button>
-
-          <button 
-            className={`btn ${activeTab === 'results' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
-            onClick={() => setActiveTab('results')}
-          >
-            <BarChart3 size={16} /> Results
-          </button>
-
-          {group && group.adminId === user.id && (
+          {user?.role === 'admin' ? (
             <button 
               className={`btn ${activeTab === 'admin' ? 'btn-accent' : 'btn-secondary'}`}
               style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
@@ -86,6 +50,58 @@ function Navbar({ user, group, standing, onLogout, activeTab, setActiveTab, onSw
             >
               <ShieldAlert size={16} /> Admin Panel
             </button>
+          ) : (
+            <>
+              <button 
+                className={`btn ${activeTab === 'home' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                onClick={() => setActiveTab('home')}
+              >
+                <Home size={16} /> Home
+              </button>
+
+              <button 
+                className={`btn ${activeTab === 'leaderboard' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                onClick={() => setActiveTab('leaderboard')}
+              >
+                <Trophy size={16} /> Standings
+              </button>
+              
+              <button 
+                className={`btn ${activeTab === 'predictions' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                onClick={() => setActiveTab('predictions')}
+              >
+                <BookOpen size={16} /> Predictions
+              </button>
+              
+              <button 
+                className={`btn ${activeTab === 'battles' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                onClick={() => setActiveTab('battles')}
+              >
+                <Sword size={16} /> Battles
+              </button>
+
+              <button 
+                className={`btn ${activeTab === 'results' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                onClick={() => setActiveTab('results')}
+              >
+                <BarChart3 size={16} /> Results
+              </button>
+
+              {isGroupAdmin && (
+                <button 
+                  className={`btn ${activeTab === 'admin' ? 'btn-accent' : 'btn-secondary'}`}
+                  style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                  onClick={() => setActiveTab('admin')}
+                >
+                  <ShieldAlert size={16} /> Admin Panel
+                </button>
+              )}
+            </>
           )}
         </div>
 

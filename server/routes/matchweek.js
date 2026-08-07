@@ -5,6 +5,13 @@ const Prediction = require('../models/Prediction');
 const Group = require('../models/Group');
 const { auth } = require('../middleware/auth');
 
+const isMemberOrAdmin = (group, userId, userRole) => {
+  if (!group) return false;
+  if (userRole === 'admin') return true;
+  const adminIdStr = group.adminId?._id ? group.adminId._id.toString() : group.adminId?.toString();
+  return group.members.some(id => id.toString() === userId) || adminIdStr === userId;
+};
+
 // Middleware to verify user is group admin
 const verifyGroupAdmin = async (req, res, next) => {
   try {
@@ -18,7 +25,7 @@ const verifyGroupAdmin = async (req, res, next) => {
       return res.status(404).json({ message: 'Group not found.' });
     }
 
-    if (group.adminId.toString() !== req.user.id) {
+    if (!isMemberOrAdmin(group, req.user.id, req.user.role)) {
       return res.status(403).json({ message: 'Access denied. You are not the administrator of this group.' });
     }
 
@@ -40,10 +47,10 @@ router.get('/', auth, async (req, res) => {
       return res.status(400).json({ message: 'groupId query parameter is required.' });
     }
 
-    // Verify user belongs to group
+    // Verify user belongs to or manages group
     const group = await Group.findById(groupId);
-    if (!group || !group.members.some(id => id.toString() === req.user.id)) {
-      return res.status(403).json({ message: 'Access denied. You are not a member of this group.' });
+    if (!isMemberOrAdmin(group, req.user.id, req.user.role)) {
+      return res.status(403).json({ message: 'Access denied. You are not a member or admin of this group.' });
     }
 
     const matchweeks = await Matchweek.find({ groupId }).sort({ matchweekNumber: 1 });
@@ -65,8 +72,8 @@ router.get('/active', auth, async (req, res) => {
     }
 
     const group = await Group.findById(groupId);
-    if (!group || !group.members.some(id => id.toString() === req.user.id)) {
-      return res.status(403).json({ message: 'Access denied. You are not a member of this group.' });
+    if (!isMemberOrAdmin(group, req.user.id, req.user.role)) {
+      return res.status(403).json({ message: 'Access denied. You are not a member or admin of this group.' });
     }
 
     let matchweek = await Matchweek.findOne({ groupId, status: 'active' });
@@ -95,10 +102,10 @@ router.get('/:id', auth, async (req, res) => {
       return res.status(404).json({ message: 'Matchweek not found.' });
     }
 
-    // Verify user belongs to the matchweek's group
+    // Verify user belongs to or manages the matchweek's group
     const group = await Group.findById(matchweek.groupId);
-    if (!group || !group.members.some(id => id.toString() === req.user.id)) {
-      return res.status(403).json({ message: 'Access denied. You are not a member of this group.' });
+    if (!isMemberOrAdmin(group, req.user.id, req.user.role)) {
+      return res.status(403).json({ message: 'Access denied. You are not a member or admin of this group.' });
     }
 
     res.json(matchweek);
@@ -128,18 +135,36 @@ router.post('/', [auth, verifyGroupAdmin], async (req, res) => {
       return res.status(400).json({ message: 'A matchweek can have at most 5 selected games.' });
     }
 
+    const deadlineDate = new Date(deadline);
+    if (isNaN(deadlineDate.getTime())) {
+      return res.status(400).json({ message: 'Invalid deadline date format.' });
+    }
+
+    const formattedMatches = matches.map(m => ({
+      homeTeam: m.homeTeam,
+      awayTeam: m.awayTeam,
+      kickoffTime: new Date(m.kickoffTime)
+    }));
+
+    for (let m of formattedMatches) {
+      if (isNaN(m.kickoffTime.getTime())) {
+        return res.status(400).json({ message: `Invalid kickoff time for match ${m.homeTeam} vs ${m.awayTeam}` });
+      }
+    }
+
     const matchweek = new Matchweek({
       groupId,
       matchweekNumber,
-      deadline: new Date(deadline),
-      matches,
+      deadline: deadlineDate,
+      matches: formattedMatches,
       battleMatchId
     });
 
     await matchweek.save();
     res.status(201).json(matchweek);
   } catch (error) {
-    res.status(500).json({ message: 'Server error creating matchweek.', error: error.message });
+    console.error('Error creating matchweek:', error);
+    res.status(500).json({ message: error.message || 'Server error creating matchweek.' });
   }
 });
 

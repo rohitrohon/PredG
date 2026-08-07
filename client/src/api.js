@@ -84,6 +84,12 @@ const api = {
     });
   },
 
+  async deleteGroup(groupId) {
+    return this.request(`/group/${groupId}`, {
+      method: 'DELETE'
+    });
+  },
+
   async getMyGroups() {
     return this.request('/group/my');
   },

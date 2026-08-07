@@ -24,6 +24,9 @@ function App() {
   useEffect(() => {
     if (activeGroup && user) {
       refreshUserStanding();
+      if (user.role === 'admin') {
+        setActiveTab('admin');
+      }
     }
   }, [activeGroup, user]);
 
@@ -152,7 +155,7 @@ function App() {
             user={user}
           />
         )}
-        {activeTab === 'admin' && activeGroup.adminId === user.id && (
+        {activeTab === 'admin' && (
           <AdminPanel 
             groupId={activeGroup._id} 
           />
