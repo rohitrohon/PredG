@@ -118,12 +118,18 @@ function Battles({ user, groupId }) {
                     <span style={{ fontWeight: isUserP2 ? 700 : 500, color: isUserP2 ? 'var(--primary)' : 'inherit', fontSize: '0.95rem', textAlign: 'right' }}>{p2}</span>
                   </>
                 ) : (
-                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', width: '100%', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: isUserP1 ? 700 : 500, color: isUserP1 ? 'var(--primary)' : 'inherit' }}>{p1} {isCompleted ? `(${battle.player1Wins}W)` : ''}</span>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 700 }}>vs (Triad) vs</span>
-                    <span style={{ fontWeight: isUserP2 ? 700 : 500, color: isUserP2 ? 'var(--primary)' : 'inherit' }}>{p2} {isCompleted ? `(${battle.player2Wins}W)` : ''}</span>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 700 }}>vs</span>
-                    <span style={{ fontWeight: isUserP3 ? 700 : 500, color: isUserP3 ? 'var(--primary)' : 'inherit' }}>{p3} {isCompleted ? `(${battle.player3Wins}W)` : ''}</span>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', width: '100%', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: isUserP1 ? 700 : 500, color: isUserP1 ? 'var(--primary)' : 'inherit', fontSize: '0.95rem' }}>
+                      {p1} {isCompleted ? `(${battle.player1Wins}W)` : ''}
+                    </span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700 }}>vs</span>
+                    <span style={{ fontWeight: isUserP2 ? 700 : 500, color: isUserP2 ? 'var(--primary)' : 'inherit', fontSize: '0.95rem' }}>
+                      {p2} {isCompleted ? `(${battle.player2Wins}W)` : ''}
+                    </span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700 }}>vs</span>
+                    <span style={{ fontWeight: isUserP3 ? 700 : 500, color: isUserP3 ? 'var(--primary)' : 'inherit', fontSize: '0.95rem' }}>
+                      {p3} {isCompleted ? `(${battle.player3Wins}W)` : ''}
+                    </span>
                   </div>
                 )}
               </div>
@@ -206,7 +212,7 @@ function Battles({ user, groupId }) {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
                 <h4 style={{ margin: 0, fontWeight: 700, color: 'var(--primary)' }}>
-                  Bracket #{bIdx + 1}: {!isTriad ? `${p1} vs ${p2}` : `${p1} vs ${p2} vs ${p3} (3-Way Triad)`}
+                  Bracket #{bIdx + 1}: {!isTriad ? `${p1} vs ${p2}` : `${p1} vs ${p2} vs ${p3}`}
                 </h4>
                 <span className="badge badge-info" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
                   {!isTriad ? `Score: ${battle.player1Wins} - ${battle.player2Wins}` : `Wins: ${p1}(${battle.player1Wins}) ${p2}(${battle.player2Wins}) ${p3}(${battle.player3Wins})`}
