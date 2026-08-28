@@ -29,7 +29,7 @@
   "crons": [
     {
       "path": "/api/admin/auto-sync-now",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
