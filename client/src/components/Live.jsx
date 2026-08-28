@@ -175,6 +175,7 @@ function Live({ groupId, user, onNavigateToPredictions }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [timeRemaining, setTimeRemaining] = useState('');
+  const [showDeadlineModal, setShowDeadlineModal] = useState(false);
 
   useEffect(() => {
     fetchMatchweeks();
@@ -436,7 +437,16 @@ function Live({ groupId, user, onNavigateToPredictions }) {
           </h2>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button 
+            className="btn btn-secondary" 
+            style={{ padding: '0.5rem 0.85rem', fontSize: '0.8rem', gap: '0.35rem', color: 'var(--primary)', borderColor: 'var(--primary-glow)' }}
+            onClick={() => setShowDeadlineModal(true)}
+            title="View Deadlines & Autofill Information"
+          >
+            <Info size={15} /> Deadline Info
+          </button>
+
           <label className="form-label" style={{ marginBottom: 0 }}>Matchweek:</label>
           <select
             className="form-input"
@@ -453,6 +463,91 @@ function Live({ groupId, user, onNavigateToPredictions }) {
           </button>
         </div>
       </div>
+
+      {/* DEADLINE & AUTOFILL INFO MODAL OVERLAY */}
+      {showDeadlineModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.82)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }}>
+          <div className="card" style={{
+            width: '100%',
+            maxWidth: '620px',
+            maxHeight: '88vh',
+            overflowY: 'auto',
+            background: 'rgba(15, 23, 42, 0.96)',
+            border: '1px solid var(--primary-glow)',
+            borderRadius: '16px',
+            padding: '1.75rem',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.7)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontSize: '1.25rem' }}>
+                <Clock size={22} /> Matchweek Deadlines & Autofill System
+              </h3>
+              <button 
+                className="btn btn-secondary" 
+                style={{ padding: '0.3rem 0.7rem', fontSize: '0.85rem', borderRadius: '50%' }}
+                onClick={() => setShowDeadlineModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', fontSize: '0.9rem', color: 'var(--text-main)' }}>
+              
+              {/* 1st Main Deadline */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--primary)' }}>
+                <h4 style={{ color: 'var(--primary)', marginBottom: '0.5rem', fontSize: '1rem' }}>⏰ 1st Main Deadline (Game 1 Kickoff)</h4>
+                <p>The primary prediction deadline locks exactly at the <strong>kickoff time of Game 1</strong> in the matchweek.</p>
+                <p style={{ marginTop: '0.35rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  Players must submit their full prediction form (scores, safe bet, result, first goal, possession, wild category, captain, gamble & power-ups) before Game 1 starts.
+                </p>
+              </div>
+
+              {/* Intelligent Autofill */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--warning)' }}>
+                <h4 style={{ color: 'var(--warning)', marginBottom: '0.5rem', fontSize: '1rem' }}>🤖 How Intelligent Autofill Works</h4>
+                <p>If a player <strong>misses the 1st Main Deadline</strong> without submitting, the system automatically generates <strong>Intelligent Default Predictions</strong> for them.</p>
+                <p style={{ marginTop: '0.35rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  Default predictions analyze official Premier League standings and team rank differences to generate realistic predictions, ensuring unsubmitted players still participate and earn points.
+                </p>
+              </div>
+
+              {/* 2nd Chance Deadline */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--success)' }}>
+                <h4 style={{ color: 'var(--success)', marginBottom: '0.5rem', fontSize: '1rem' }}>🔄 2nd Chance Deadline (Games 4 & 5)</h4>
+                <p>If you missed the 1st Main Deadline and received autofilled default predictions, you are granted a <strong>Second Chance Window</strong>!</p>
+                <ul style={{ paddingLeft: '1.2rem', marginTop: '0.4rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                  <li><strong>Games 1, 2 & 3:</strong> Permanently locked with your autofilled predictions.</li>
+                  <li><strong>Games 4 & 5:</strong> Editable in the Prediction tab until the <strong>2nd Chance Deadline</strong> (Game 4 Kickoff time).</li>
+                </ul>
+              </div>
+
+            </div>
+
+            <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+              <button 
+                className="btn btn-primary" 
+                style={{ padding: '0.65rem 2.25rem', fontWeight: 700 }}
+                onClick={() => setShowDeadlineModal(false)}
+              >
+                Got it!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* BEFORE DEADLINE DISPLAY */}
       {!deadlinePassed && selectedMw && (
