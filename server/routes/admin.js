@@ -217,129 +217,26 @@ router.post('/matchweek/:id/results', [auth, verifyMwGroupAdmin], async (req, re
   }
 });
 
+const { generateBattlePairingsInternal } = require('../utils/battlePairing');
+
 // @route   POST api/admin/matchweek/:id/pair-battles
-// @desc    Generate battle pairings for a matchweek based on group standings
+// @desc    Manually generate battle pairings for a matchweek (1st vs Nth, 2nd vs N-1th, triad in middle if odd)
 // @access  Private
 router.post('/matchweek/:id/pair-battles', [auth, verifyMwGroupAdmin], async (req, res) => {
   const matchweek = req.matchweek;
   const group = req.group;
 
   try {
-    // Fetch players' standings in the group, sorted by totalPoints desc
-    const standings = await GroupStanding.find({ groupId: group._id })
-      .populate('userId', 'username email role')
-      .sort({ totalPoints: -1 });
-
-    // Exclude Average Player standing if it somehow got in
-    const activeStandings = standings.filter(s => s.userId._id.toString() !== AVERAGE_PLAYER_ID);
-
-    if (activeStandings.length < 2) {
-      return res.status(400).json({ message: 'Need at least 2 players in the group to generate pairings.' });
-    }
-
-    // Delete existing pairings for this matchweek first to avoid duplicates
-    await Battle.deleteMany({ groupId: group._id, matchweekId: matchweek._id });
-
-    // Pairings logic: 1 vs N, 2 vs N-1, etc.
-    const pairedStandings = [...activeStandings];
-    let oddPlayerBye = false;
-
-    // Check if odd number of players
-    if (pairedStandings.length % 2 !== 0) {
-      oddPlayerBye = true;
-      // We will create/assert a dummy Average Player in the DB
-      let averagePlayer = await User.findById(AVERAGE_PLAYER_ID);
-      if (!averagePlayer) {
-        averagePlayer = new User({
-          _id: AVERAGE_PLAYER_ID,
-          username: 'Average Player',
-          email: 'average.player@predg.com',
-          password: 'dummy_hash_not_usable',
-          role: 'player'
-        });
-        await averagePlayer.save();
-      }
-
-      // Add temporary mock standing to complete the pairing list
-      pairedStandings.push({
-        groupId: group._id,
-        userId: averagePlayer,
-        totalPoints: 0,
-        battlePoints: 0,
-        rank: 999
-      });
-    }
-
-    const battles = [];
-    const n = pairedStandings.length;
-    for (let i = 0; i < Math.floor(n / 2); i++) {
-      const p1 = pairedStandings[i].userId;
-      const p2 = pairedStandings[n - 1 - i].userId;
-
-      const battle = new Battle({
-        groupId: group._id,
-        matchweekId: matchweek._id,
-        player1Id: p1._id,
-        player2Id: p2._id
-      });
-      await battle.save();
-      battles.push(battle);
-    }
+    const battles = await generateBattlePairingsInternal(matchweek, group);
 
     res.json({
-      message: `Paired ${battles.length} battles. ${oddPlayerBye ? 'Odd number of players, paired the odd player with Average Player.' : ''}`,
+      message: `Generated ${battles.length} battle matchups/triads successfully.`,
       battles
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error generating pairings.', error: error.message });
   }
 });
-
-async function generateBattlePairingsInternal(matchweek, group) {
-  const standings = await GroupStanding.find({ groupId: group._id })
-    .populate('userId', 'username email role')
-    .sort({ totalPoints: -1 });
-
-  const activeStandings = standings.filter(s => s.userId && s.userId._id.toString() !== AVERAGE_PLAYER_ID);
-  if (activeStandings.length < 2) return;
-
-  await Battle.deleteMany({ groupId: group._id, matchweekId: matchweek._id });
-
-  const pairedStandings = [...activeStandings];
-  if (pairedStandings.length % 2 !== 0) {
-    let averagePlayer = await User.findById(AVERAGE_PLAYER_ID);
-    if (!averagePlayer) {
-      averagePlayer = new User({
-        _id: AVERAGE_PLAYER_ID,
-        username: 'Average Player',
-        email: 'average.player@predg.com',
-        password: 'dummy_hash_not_usable',
-        role: 'player'
-      });
-      await averagePlayer.save();
-    }
-    pairedStandings.push({
-      groupId: group._id,
-      userId: averagePlayer,
-      totalPoints: 0,
-      battlePoints: 0,
-      rank: 999
-    });
-  }
-
-  const n = pairedStandings.length;
-  for (let i = 0; i < Math.floor(n / 2); i++) {
-    const p1 = pairedStandings[i].userId;
-    const p2 = pairedStandings[n - 1 - i].userId;
-    const battle = new Battle({
-      groupId: group._id,
-      matchweekId: matchweek._id,
-      player1Id: p1._id,
-      player2Id: p2._id
-    });
-    await battle.save();
-  }
-}
 
 // @route   POST api/admin/matchweek/:id/calculate
 // @desc    Apply Autofills, calculate scores, battle outcomes, and update group standings
@@ -505,26 +402,37 @@ router.post('/matchweek/:id/calculate', [auth, verifyMwGroupAdmin], async (req, 
 
     // 5. Save Battle results & update User Group standings
     for (const bRes of battleResults) {
-      await Battle.findByIdAndUpdate(bRes.battleId, {
+      const bUpdate = {
         player1Wins: bRes.player1Wins,
         player2Wins: bRes.player2Wins,
         player1Points: bRes.player1Points,
         player2Points: bRes.player2Points,
         outcome: bRes.outcome,
         details: bRes.details
-      });
+      };
+      if (bRes.isTriad) {
+        bUpdate.player3Wins = bRes.player3Wins;
+        bUpdate.player3Points = bRes.player3Points;
+      }
+      await Battle.findByIdAndUpdate(bRes.battleId, bUpdate);
 
       // Update Predictions with battle points scored
-      if (bRes.player1Id.toString() !== AVERAGE_PLAYER_ID) {
+      if (bRes.player1Id && bRes.player1Id.toString() !== AVERAGE_PLAYER_ID) {
         await Prediction.findOneAndUpdate(
           { groupId: group._id, userId: bRes.player1Id, matchweekId: matchweek._id },
           { battlePointsScored: bRes.player1Points }
         );
       }
-      if (bRes.player2Id.toString() !== AVERAGE_PLAYER_ID) {
+      if (bRes.player2Id && bRes.player2Id.toString() !== AVERAGE_PLAYER_ID) {
         await Prediction.findOneAndUpdate(
           { groupId: group._id, userId: bRes.player2Id, matchweekId: matchweek._id },
           { battlePointsScored: bRes.player2Points }
+        );
+      }
+      if (bRes.isTriad && bRes.player3Id && bRes.player3Id.toString() !== AVERAGE_PLAYER_ID) {
+        await Prediction.findOneAndUpdate(
+          { groupId: group._id, userId: bRes.player3Id, matchweekId: matchweek._id },
+          { battlePointsScored: bRes.player3Points }
         );
       }
     }

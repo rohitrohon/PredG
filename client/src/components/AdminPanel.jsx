@@ -1493,31 +1493,42 @@ function AdminPanel({ groupId }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {mwBattles.map((b, idx) => (
-                      <tr key={b._id}>
-                        <td style={{ fontWeight: 700 }}>Bracket #{idx + 1}</td>
-                        <td>{b.player1Id?.name || b.player1Id?.username}</td>
-                        <td>{b.player2Id?.name || b.player2Id?.username}</td>
-                        <td style={{ fontWeight: 700 }}>{b.player1Wins} - {b.player2Wins}</td>
-                        <td>
-                          <span className={`badge ${b.outcome === 'Draw' ? 'badge-info' : 'badge-success'}`}>
-                            {b.outcome}
-                          </span>
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <button 
-                            className="btn btn-secondary" 
-                            style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem' }}
-                            onClick={() => {
-                              setSelectedBattle(b);
-                              setEditBattleData(JSON.parse(JSON.stringify(b)));
-                            }}
-                          >
-                            Override Battle
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {mwBattles.map((b, idx) => {
+                      const p1Name = b.player1Id?.name || b.player1Id?.username || 'Player 1';
+                      const p2Name = b.player2Id?.name || b.player2Id?.username || 'Player 2';
+                      const p3Name = b.player3Id?.name || b.player3Id?.username || 'Player 3';
+                      const isTriad = b.isTriad && b.player3Id;
+
+                      return (
+                        <tr key={b._id}>
+                          <td style={{ fontWeight: 700 }}>
+                            Bracket #{idx + 1} {isTriad ? '(Triad)' : ''}
+                          </td>
+                          <td>{p1Name}</td>
+                          <td>{p2Name} {isTriad ? `& ${p3Name}` : ''}</td>
+                          <td style={{ fontWeight: 700 }}>
+                            {!isTriad ? `${b.player1Wins} - ${b.player2Wins}` : `${b.player1Wins} - ${b.player2Wins} - ${b.player3Wins}`}
+                          </td>
+                          <td>
+                            <span className={`badge ${b.outcome === 'Draw' || b.outcome === 'Tie' ? 'badge-info' : 'badge-success'}`}>
+                              {b.outcome}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <button 
+                              className="btn btn-secondary" 
+                              style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem' }}
+                              onClick={() => {
+                                setSelectedBattle(b);
+                                setEditBattleData(JSON.parse(JSON.stringify(b)));
+                              }}
+                            >
+                              Override Battle
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

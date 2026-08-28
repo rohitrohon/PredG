@@ -80,9 +80,13 @@ function Battles({ user, groupId }) {
         {battles.map((battle, index) => {
           const p1 = battle.player1Id?.username || 'Player 1';
           const p2 = battle.player2Id?.username || 'Player 2';
+          const p3 = battle.player3Id?.username || 'Player 3';
+          const isTriad = battle.isTriad && battle.player3Id;
+
           const isUserP1 = battle.player1Id?._id?.toString() === user.id;
           const isUserP2 = battle.player2Id?._id?.toString() === user.id;
-          const isUserInBattle = isUserP1 || isUserP2;
+          const isUserP3 = battle.player3Id?._id?.toString() === user.id;
+          const isUserInBattle = isUserP1 || isUserP2 || (isTriad && isUserP3);
 
           return (
             <div key={battle._id} className="card" style={{ 
@@ -96,35 +100,32 @@ function Battles({ user, groupId }) {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Bracket #{index + 1}
+                  Bracket #{index + 1} {isTriad ? '(3-Way Triad Matchup)' : ''}
                 </span>
                 {isCompleted && (
-                  <span className={`badge ${battle.outcome === 'Draw' ? 'badge-info' : 'badge-success'}`} style={{ fontSize: '0.65rem' }}>
-                    {battle.outcome === 'Draw' ? 'Draw' : battle.outcome === 'Player1' ? `${p1} Win` : `${p2} Win`}
+                  <span className={`badge ${battle.outcome === 'Draw' || battle.outcome === 'Tie' ? 'badge-info' : 'badge-success'}`} style={{ fontSize: '0.65rem' }}>
+                    {battle.outcome === 'Draw' || battle.outcome === 'Tie' ? 'Draw / Tie' : battle.outcome === 'Player1' ? `${p1} Win` : battle.outcome === 'Player2' ? `${p2} Win` : `${p3} Win`}
                   </span>
                 )}
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0.2rem 0' }}>
-                <span style={{ 
-                  fontWeight: isUserP1 ? 700 : 500, 
-                  color: isUserP1 ? 'var(--primary)' : 'inherit',
-                  fontSize: '0.95rem'
-                }}>
-                  {p1}
-                </span>
-                
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700, padding: '0 0.5rem' }}>
-                  {isCompleted ? `${battle.player1Wins} - ${battle.player2Wins}` : 'vs'}
-                </span>
-
-                <span style={{ 
-                  fontWeight: isUserP2 ? 700 : 500, 
-                  color: isUserP2 ? 'var(--primary)' : 'inherit',
-                  fontSize: '0.95rem',
-                  textAlign: 'right'
-                }}>
-                  {p2}
-                </span>
+                {!isTriad ? (
+                  <>
+                    <span style={{ fontWeight: isUserP1 ? 700 : 500, color: isUserP1 ? 'var(--primary)' : 'inherit', fontSize: '0.95rem' }}>{p1}</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700, padding: '0 0.5rem' }}>
+                      {isCompleted ? `${battle.player1Wins} - ${battle.player2Wins}` : 'vs'}
+                    </span>
+                    <span style={{ fontWeight: isUserP2 ? 700 : 500, color: isUserP2 ? 'var(--primary)' : 'inherit', fontSize: '0.95rem', textAlign: 'right' }}>{p2}</span>
+                  </>
+                ) : (
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', width: '100%', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: isUserP1 ? 700 : 500, color: isUserP1 ? 'var(--primary)' : 'inherit' }}>{p1} {isCompleted ? `(${battle.player1Wins}W)` : ''}</span>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 700 }}>vs (Triad) vs</span>
+                    <span style={{ fontWeight: isUserP2 ? 700 : 500, color: isUserP2 ? 'var(--primary)' : 'inherit' }}>{p2} {isCompleted ? `(${battle.player2Wins}W)` : ''}</span>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 700 }}>vs</span>
+                    <span style={{ fontWeight: isUserP3 ? 700 : 500, color: isUserP3 ? 'var(--primary)' : 'inherit' }}>{p3} {isCompleted ? `(${battle.player3Wins}W)` : ''}</span>
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -149,20 +150,25 @@ function Battles({ user, groupId }) {
         {battles.map((battle, bIdx) => {
           const p1 = battle.player1Id?.username || 'Player 1';
           const p2 = battle.player2Id?.username || 'Player 2';
+          const p3 = battle.player3Id?.username || 'Player 3';
+          const isTriad = battle.isTriad && battle.player3Id;
 
           // Category details mapping
           const p1Details = { name: p1, bp: battle.player1Points };
           const p2Details = { name: p2, bp: battle.player2Points };
+          const p3Details = isTriad ? { name: p3, bp: battle.player3Points } : null;
 
           battle.details?.forEach(d => {
             const cat = d.category;
             p1Details[cat] = { val: d.player1Val, pts: d.player1Pts };
             p2Details[cat] = { val: d.player2Val, pts: d.player2Pts };
+            if (isTriad && p3Details) {
+              p3Details[cat] = { val: d.player3Val, pts: d.player3Pts };
+            }
           });
 
-          const bracketRows = [];
-          if (p1) bracketRows.push(p1Details);
-          if (p2) bracketRows.push(p2Details);
+          const bracketRows = [p1Details, p2Details];
+          if (isTriad && p3Details) bracketRows.push(p3Details);
 
           const renderValueAndPts = (item) => {
             if (!item) {
@@ -200,10 +206,10 @@ function Battles({ user, groupId }) {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
                 <h4 style={{ margin: 0, fontWeight: 700, color: 'var(--primary)' }}>
-                  Bracket #{bIdx + 1}: {p1} vs {p2}
+                  Bracket #{bIdx + 1}: {!isTriad ? `${p1} vs ${p2}` : `${p1} vs ${p2} vs ${p3} (3-Way Triad)`}
                 </h4>
                 <span className="badge badge-info" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
-                  Score: {battle.player1Wins} - {battle.player2Wins}
+                  {!isTriad ? `Score: ${battle.player1Wins} - ${battle.player2Wins}` : `Wins: ${p1}(${battle.player1Wins}) ${p2}(${battle.player2Wins}) ${p3}(${battle.player3Wins})`}
                 </span>
               </div>
 

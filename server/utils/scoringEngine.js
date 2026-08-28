@@ -280,54 +280,84 @@ function scoreMatchweek(matchweekDoc, predictionsList, battleMatchups) {
     const battleMatchIdStr = matchweekDoc.battleMatchId.toString();
 
     battleMatchups.forEach((matchup) => {
-      const p1IdStr = matchup.player1Id.toString();
-      const p2IdStr = matchup.player2Id.toString();
+      const p1IdStr = matchup.player1Id ? matchup.player1Id.toString() : null;
+      const p2IdStr = matchup.player2Id ? matchup.player2Id.toString() : null;
+      const p3IdStr = matchup.player3Id ? matchup.player3Id.toString() : null;
+      const isTriad = !!(matchup.isTriad && p3IdStr);
 
-      const p1ScoreDoc = playerScoresMap[p1IdStr];
-      const p2ScoreDoc = playerScoresMap[p2IdStr];
+      const p1ScoreDoc = p1IdStr ? playerScoresMap[p1IdStr] : null;
+      const p2ScoreDoc = p2IdStr ? playerScoresMap[p2IdStr] : null;
+      const p3ScoreDoc = p3IdStr ? playerScoresMap[p3IdStr] : null;
 
-      // Default details
       const categories = ['result', 'scoreline', 'firstGoal', 'possession'];
       const details = [];
       let p1Wins = 0;
       let p2Wins = 0;
+      let p3Wins = 0;
 
-      // Find match predictions for p1 and p2
       const p1MatchPred = p1ScoreDoc ? p1ScoreDoc.matchResults.find(m => m.matchId.toString() === battleMatchIdStr) : null;
       const p2MatchPred = p2ScoreDoc ? p2ScoreDoc.matchResults.find(m => m.matchId.toString() === battleMatchIdStr) : null;
+      const p3MatchPred = p3ScoreDoc ? p3ScoreDoc.matchResults.find(m => m.matchId.toString() === battleMatchIdStr) : null;
 
       categories.forEach((cat) => {
-        const p1Pts = p1MatchPred ? p1MatchPred.points[cat] : 0;
-        const p2Pts = p2MatchPred ? p2MatchPred.points[cat] : 0;
+        const p1Pts = p1MatchPred ? (p1MatchPred.points[cat] || 0) : 0;
+        const p2Pts = p2MatchPred ? (p2MatchPred.points[cat] || 0) : 0;
+        const p3Pts = isTriad ? (p3MatchPred ? (p3MatchPred.points[cat] || 0) : 0) : 0;
 
         let catWinner = 'Draw';
-        if (p1Pts > p2Pts) {
-          catWinner = 'Player1';
-          p1Wins++;
-        } else if (p2Pts > p1Pts) {
-          catWinner = 'Player2';
-          p2Wins++;
+        if (!isTriad) {
+          if (p1Pts > p2Pts) {
+            catWinner = 'Player1';
+            p1Wins++;
+          } else if (p2Pts > p1Pts) {
+            catWinner = 'Player2';
+            p2Wins++;
+          }
+        } else {
+          // Triad evaluation: compare all 3 players
+          const maxPts = Math.max(p1Pts, p2Pts, p3Pts);
+          const winners = [];
+          if (p1Pts === maxPts) winners.push('Player1');
+          if (p2Pts === maxPts) winners.push('Player2');
+          if (p3Pts === maxPts) winners.push('Player3');
+
+          if (winners.length === 1) {
+            catWinner = winners[0];
+            if (catWinner === 'Player1') p1Wins++;
+            if (catWinner === 'Player2') p2Wins++;
+            if (catWinner === 'Player3') p3Wins++;
+          } else {
+            catWinner = 'Tie';
+            if (winners.includes('Player1')) p1Wins++;
+            if (winners.includes('Player2')) p2Wins++;
+            if (winners.includes('Player3')) p3Wins++;
+          }
         }
 
-        // Locate original prediction values
+        // Get original prediction display values
         let p1Val = null;
         let p2Val = null;
+        let p3Val = null;
 
         if (p1ScoreDoc) {
           const originalPred = predictionsList.find(p => p.userId.toString() === p1IdStr)
-            .predictions.find(m => m.matchId.toString() === battleMatchIdStr);
-          p1Val = originalPred ? originalPred[cat === 'scoreline' ? 'homeScore' : cat] : null;
-          // scoreline needs format
-          if (cat === 'scoreline' && originalPred) {
-            p1Val = `${originalPred.homeScore}-${originalPred.awayScore} (${originalPred.safeBet})`;
+            ?.predictions.find(m => m.matchId.toString() === battleMatchIdStr);
+          if (originalPred) {
+            p1Val = cat === 'scoreline' ? `${originalPred.homeScore}-${originalPred.awayScore} (${originalPred.safeBet})` : originalPred[cat];
           }
         }
         if (p2ScoreDoc) {
           const originalPred = predictionsList.find(p => p.userId.toString() === p2IdStr)
-            .predictions.find(m => m.matchId.toString() === battleMatchIdStr);
-          p2Val = originalPred ? originalPred[cat === 'scoreline' ? 'homeScore' : cat] : null;
-          if (cat === 'scoreline' && originalPred) {
-            p2Val = `${originalPred.homeScore}-${originalPred.awayScore} (${originalPred.safeBet})`;
+            ?.predictions.find(m => m.matchId.toString() === battleMatchIdStr);
+          if (originalPred) {
+            p2Val = cat === 'scoreline' ? `${originalPred.homeScore}-${originalPred.awayScore} (${originalPred.safeBet})` : originalPred[cat];
+          }
+        }
+        if (isTriad && p3ScoreDoc) {
+          const originalPred = predictionsList.find(p => p.userId.toString() === p3IdStr)
+            ?.predictions.find(m => m.matchId.toString() === battleMatchIdStr);
+          if (originalPred) {
+            p3Val = cat === 'scoreline' ? `${originalPred.homeScore}-${originalPred.awayScore} (${originalPred.safeBet})` : originalPred[cat];
           }
         }
 
@@ -335,8 +365,10 @@ function scoreMatchweek(matchweekDoc, predictionsList, battleMatchups) {
           category: cat,
           player1Val: p1Val,
           player2Val: p2Val,
+          player3Val: isTriad ? p3Val : null,
           player1Pts: p1Pts,
           player2Pts: p2Pts,
+          player3Pts: isTriad ? p3Pts : 0,
           winner: catWinner
         });
       });
@@ -344,32 +376,63 @@ function scoreMatchweek(matchweekDoc, predictionsList, battleMatchups) {
       // Calculate Battle Points
       let p1BattlePoints = 0;
       let p2BattlePoints = 0;
+      let p3BattlePoints = 0;
       let battleOutcome = 'Draw';
 
-      if (p1Wins > p2Wins) {
-        battleOutcome = 'Player1';
-        // Clean sweep check: 4 wins
-        p1BattlePoints = (p1Wins === 4) ? 5 : 3;
-        p2BattlePoints = 0;
-      } else if (p2Wins > p1Wins) {
-        battleOutcome = 'Player2';
-        p2BattlePoints = (p2Wins === 4) ? 5 : 3;
-        p1BattlePoints = 0;
+      if (!isTriad) {
+        if (p1Wins > p2Wins) {
+          battleOutcome = 'Player1';
+          p1BattlePoints = (p1Wins === 4) ? 5 : 3;
+          p2BattlePoints = 0;
+        } else if (p2Wins > p1Wins) {
+          battleOutcome = 'Player2';
+          p2BattlePoints = (p2Wins === 4) ? 5 : 3;
+          p1BattlePoints = 0;
+        } else {
+          battleOutcome = 'Draw';
+          p1BattlePoints = 1;
+          p2BattlePoints = 1;
+        }
       } else {
-        // Draw
-        battleOutcome = 'Draw';
-        p1BattlePoints = 1;
-        p2BattlePoints = 1;
+        // Triad Battle Points
+        const maxWins = Math.max(p1Wins, p2Wins, p3Wins);
+        const topWinners = [];
+        if (p1Wins === maxWins) topWinners.push('Player1');
+        if (p2Wins === maxWins) topWinners.push('Player2');
+        if (p3Wins === maxWins) topWinners.push('Player3');
+
+        if (topWinners.length === 1) {
+          battleOutcome = topWinners[0];
+          const winnerWins = battleOutcome === 'Player1' ? p1Wins : (battleOutcome === 'Player2' ? p2Wins : p3Wins);
+          const bp = (winnerWins === 4) ? 5 : 3;
+          if (battleOutcome === 'Player1') p1BattlePoints = bp;
+          if (battleOutcome === 'Player2') p2BattlePoints = bp;
+          if (battleOutcome === 'Player3') p3BattlePoints = bp;
+        } else if (topWinners.length === 2) {
+          battleOutcome = 'Tie';
+          if (topWinners.includes('Player1')) p1BattlePoints = 1;
+          if (topWinners.includes('Player2')) p2BattlePoints = 1;
+          if (topWinners.includes('Player3')) p3BattlePoints = 1;
+        } else {
+          battleOutcome = 'Draw';
+          p1BattlePoints = 1;
+          p2BattlePoints = 1;
+          p3BattlePoints = 1;
+        }
       }
 
       battleResults.push({
         battleId: matchup._id,
+        isTriad: !!isTriad,
         player1Id: matchup.player1Id,
         player2Id: matchup.player2Id,
+        player3Id: matchup.player3Id || null,
         player1Wins: p1Wins,
         player2Wins: p2Wins,
+        player3Wins: p3Wins,
         player1Points: p1BattlePoints,
         player2Points: p2BattlePoints,
+        player3Points: p3BattlePoints,
         outcome: battleOutcome,
         details
       });

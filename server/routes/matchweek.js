@@ -233,8 +233,11 @@ router.put('/:id', [auth, verifyGroupAdmin], async (req, res) => {
   }
 });
 
+const { generateBattlePairingsInternal } = require('../utils/battlePairing');
+const Group = require('../models/Group');
+
 // @route   POST api/matchweek/:id/set-active
-// @desc    Set matchweek status to active, and set all others in group to draft
+// @desc    Set matchweek status to active, and set all others in group to draft (automatically generates battle pairings)
 // @access  Private/GroupAdmin
 router.post('/:id/set-active', [auth, verifyGroupAdmin], async (req, res) => {
   try {
@@ -252,7 +255,18 @@ router.post('/:id/set-active', [auth, verifyGroupAdmin], async (req, res) => {
     matchweek.status = 'active';
     await matchweek.save();
 
-    res.json({ message: `Matchweek ${matchweek.matchweekNumber} is now active.`, matchweek });
+    // Generate Battle Pairings at this point based on current standings (1st vs Nth, 2nd vs N-1th, triad in middle if odd)
+    const group = await Group.findById(matchweek.groupId);
+    let pairings = [];
+    if (group) {
+      pairings = await generateBattlePairingsInternal(matchweek, group);
+    }
+
+    res.json({ 
+      message: `Matchweek ${matchweek.matchweekNumber} is now active and ${pairings.length} battle pairings/triads generated!`, 
+      matchweek,
+      pairingsCount: pairings.length
+    });
   } catch (error) {
     res.status(500).json({ message: 'Server error setting active matchweek.', error: error.message });
   }
