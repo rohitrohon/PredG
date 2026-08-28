@@ -445,10 +445,10 @@ function Live({ groupId, user }) {
             borderColor: 'rgba(56, 189, 248, 0.2)'
           }}>
             <Clock size={48} style={{ color: 'var(--primary)', margin: '0 auto 1rem', animation: 'pulse 2s infinite' }} />
-            <h2 style={{ marginBottom: '0.25rem' }}>Waiting for Deadline</h2>
-            <p style={{ color: 'var(--text-muted)', maxWidth: '500px', margin: '0.25rem auto 1.5rem', fontSize: '0.9rem' }}>
-              Predictions for Matchweek #{selectedMw.matchweekNumber} lock in:
-            </p>
+            <h2 style={{ marginBottom: '0.25rem' }}>Matchweek #{selectedMw.matchweekNumber} Submission Deadline</h2>
+            <div style={{ color: 'var(--accent)', fontWeight: 700, fontSize: '1.1rem', margin: '0.5rem auto 1.25rem' }}>
+              Deadline: {formatDeadline(selectedMw.submissionDeadline)}
+            </div>
             <div style={{
               fontSize: '2.5rem', 
               fontWeight: 800, 

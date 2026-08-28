@@ -1,7 +1,6 @@
 /**
  * Utility to fetch official Premier League matchweek fixtures with IST kickoff timestamps.
  * Primary source: ESPN Official Premier League API
- * Secondary fallbacks: Football-Data.org / TheSportsDB
  */
 
 const TEAM_NAME_MAP = {
@@ -28,20 +27,32 @@ function formatCleanTeamName(rawName) {
   return TEAM_NAME_MAP[lower] || clean;
 }
 
-function parseToISTFormat(dateString) {
-  try {
-    const d = new Date(dateString);
-    if (isNaN(d.getTime())) return '';
+function formatForDateTimeLocalIST(dateString) {
+  if (!dateString) return '';
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).formatToParts(d);
+  const getVal = type => parts.find(p => p.type === type)?.value;
+  return `${getVal('year')}-${getVal('month')}-${getVal('day')}T${getVal('hour')}:${getVal('minute')}`;
+}
 
-    // Convert to IST (UTC + 5.5 hours) for datetime-local input (YYYY-MM-DDTHH:mm)
-    const istOffsetMs = 5.5 * 60 * 60 * 1000;
-    const istDate = new Date(d.getTime() + istOffsetMs);
-
-    const iso = istDate.toISOString();
-    return iso.slice(0, 16); // "YYYY-MM-DDTHH:mm"
-  } catch (err) {
-    return '';
+function parseISTToISO(istDateTimeString) {
+  if (!istDateTimeString) return null;
+  if (typeof istDateTimeString !== 'string') return new Date(istDateTimeString).toISOString();
+  if (istDateTimeString.endsWith('Z') || istDateTimeString.includes('+')) {
+    return new Date(istDateTimeString).toISOString();
   }
+  const fullIstString = `${istDateTimeString}:00+05:30`;
+  const d = new Date(fullIstString);
+  return isNaN(d.getTime()) ? null : d.toISOString();
 }
 
 function formatISTDisplay(dateString) {
@@ -89,13 +100,13 @@ async function fetchESPNMatchweekFixtures(mwNum) {
 
           const homeTeam = formatCleanTeamName(home.team.displayName);
           const awayTeam = formatCleanTeamName(away.team.displayName);
-          const rawUtc = e.date;
+          const rawUtc = new Date(e.date).toISOString();
 
           if (!matches.some(m => m.homeTeam === homeTeam && m.awayTeam === awayTeam)) {
             matches.push({
               homeTeam,
               awayTeam,
-              kickoffTime: parseToISTFormat(rawUtc),
+              kickoffTime: formatForDateTimeLocalIST(rawUtc),
               kickoffDisplayIST: formatISTDisplay(rawUtc),
               rawUtc
             });
@@ -105,7 +116,6 @@ async function fetchESPNMatchweekFixtures(mwNum) {
     }
 
     if (matches.length > 0) {
-      // Sort matches by UTC kickoff time
       matches.sort((a, b) => new Date(a.rawUtc) - new Date(b.rawUtc));
       return matches;
     }
@@ -141,25 +151,24 @@ function generateFallbackPLFixtures(mwNum) {
   }
 
   const currentYear = new Date().getFullYear();
-  const startDate = new Date(currentYear, 7, 16);
-  startDate.setDate(startDate.getDate() + (mwNum - 1) * 7);
+  const startDate = new Date(Date.UTC(currentYear, 7, 16));
+  startDate.setUTCDate(startDate.getUTCDate() + (mwNum - 1) * 7);
 
   return rotated.map(([home, away], idx) => {
     const matchDate = new Date(startDate.getTime());
-    if (idx >= 5) matchDate.setDate(matchDate.getDate() + 1);
+    if (idx >= 5) matchDate.setUTCDate(matchDate.getUTCDate() + 1);
 
     const hours = idx % 2 === 0 ? 17 : (idx % 3 === 0 ? 20 : 22);
-    matchDate.setHours(hours, 30, 0, 0);
+    matchDate.setUTCHours(hours, 30, 0, 0);
 
-    const iso = matchDate.toISOString().slice(0, 16);
-    const displayIST = formatISTDisplay(matchDate.toISOString());
+    const rawUtc = matchDate.toISOString();
 
     return {
       homeTeam: home,
       awayTeam: away,
-      kickoffTime: iso,
-      kickoffDisplayIST: displayIST,
-      rawUtc: matchDate.toISOString()
+      kickoffTime: formatForDateTimeLocalIST(rawUtc),
+      kickoffDisplayIST: formatISTDisplay(rawUtc),
+      rawUtc
     };
   });
 }
@@ -179,39 +188,13 @@ async function fetchPLMatchweekFixtures(matchweekNumber) {
     return espnMatches;
   }
 
-  // 2. Try Football-Data.org if API key is provided
-  if (process.env.FOOTBALL_DATA_API_KEY) {
-    try {
-      const res = await fetch(`https://api.football-data.org/v4/competitions/PL/matches?matchweek=${mwNum}`, {
-        headers: { 'X-Auth-Token': process.env.FOOTBALL_DATA_API_KEY }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const matches = data.matches || [];
-        if (matches.length > 0) {
-          return matches.map(m => {
-            const rawUtc = m.utcDate;
-            return {
-              homeTeam: formatCleanTeamName(m.homeTeam?.name || m.homeTeam?.shortName),
-              awayTeam: formatCleanTeamName(m.awayTeam?.name || m.awayTeam?.shortName),
-              kickoffTime: parseToISTFormat(rawUtc),
-              kickoffDisplayIST: formatISTDisplay(rawUtc),
-              rawUtc
-            };
-          });
-        }
-      }
-    } catch (err) {
-      console.warn('Football-data.org matchweek fetch failed, trying free fallback:', err.message);
-    }
-  }
-
-  // 3. Fallback: Generate 10-match Premier League schedule template with IST kickoff times
+  // 2. Fallback: Generate 10-match Premier League schedule template with IST kickoff times
   return generateFallbackPLFixtures(mwNum);
 }
 
 module.exports = {
   fetchPLMatchweekFixtures,
-  parseToISTFormat,
+  formatForDateTimeLocalIST,
+  parseISTToISO,
   formatISTDisplay
 };

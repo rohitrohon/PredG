@@ -114,6 +114,8 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
+const { parseISTToISO } = require('../utils/plFixturesFetcher');
+
 // @route   POST api/matchweek
 // @desc    Create a new matchweek for a group
 // @access  Private/GroupAdmin
@@ -135,7 +137,8 @@ router.post('/', [auth, verifyGroupAdmin], async (req, res) => {
       return res.status(400).json({ message: 'A matchweek can have at most 5 selected games.' });
     }
 
-    const deadlineDate = new Date(deadline);
+    const isoDeadlineStr = parseISTToISO(deadline);
+    const deadlineDate = new Date(isoDeadlineStr);
     if (isNaN(deadlineDate.getTime())) {
       return res.status(400).json({ message: 'Invalid deadline date format.' });
     }
@@ -143,7 +146,7 @@ router.post('/', [auth, verifyGroupAdmin], async (req, res) => {
     const formattedMatches = matches.map(m => ({
       homeTeam: m.homeTeam,
       awayTeam: m.awayTeam,
-      kickoffTime: new Date(m.kickoffTime)
+      kickoffTime: new Date(parseISTToISO(m.kickoffTime))
     }));
 
     for (let m of formattedMatches) {
@@ -187,12 +190,12 @@ router.put('/:id', [auth, verifyGroupAdmin], async (req, res) => {
     }
 
     if (matchweekNumber !== undefined) matchweek.matchweekNumber = matchweekNumber;
-    if (deadline) matchweek.deadline = new Date(deadline);
+    if (deadline) matchweek.deadline = new Date(parseISTToISO(deadline));
     if (status) matchweek.status = status;
     if (matches) {
       matchweek.matches = matches.map(m => ({
         ...m,
-        kickoffTime: new Date(m.kickoffTime)
+        kickoffTime: new Date(parseISTToISO(m.kickoffTime))
       }));
     }
 
