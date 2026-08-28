@@ -2,6 +2,26 @@ import React, { useEffect, useState } from 'react';
 import api from '../api';
 import { Clock, Trophy, Shield, Play, AlertCircle, RefreshCw, Award, Activity } from 'lucide-react';
 
+function formatDeadlineIST(dateString) {
+  if (!dateString) return '';
+  try {
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    }) + ' IST';
+  } catch (e) {
+    return dateString;
+  }
+}
+
 // Shorten team names for prediction display in Home section:
 // Single word -> First 3 letters (Arsenal -> ARS, Chelsea -> CHE, Everton -> EVE)
 // Multiple words -> 1st letter of 1st word + 2 letters of 2nd word (Manchester United -> MUN, Manchester City -> MCI)
@@ -447,7 +467,7 @@ function Live({ groupId, user }) {
             <Clock size={48} style={{ color: 'var(--primary)', margin: '0 auto 1rem', animation: 'pulse 2s infinite' }} />
             <h2 style={{ marginBottom: '0.25rem' }}>Matchweek #{selectedMw.matchweekNumber} Submission Deadline</h2>
             <div style={{ color: 'var(--accent)', fontWeight: 700, fontSize: '1.1rem', margin: '0.5rem auto 1.25rem' }}>
-              Deadline: {formatDeadline(selectedMw.submissionDeadline)}
+              Deadline: {formatDeadlineIST(selectedMw.deadline || selectedMw.submissionDeadline)}
             </div>
             <div style={{
               fontSize: '2.5rem', 
