@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
-import { Calendar, Lock, Unlock, AlertCircle, UserCheck, RotateCcw } from 'lucide-react';
+import { Calendar, Lock, Unlock, AlertCircle, UserCheck, RotateCcw, Info, BookOpen } from 'lucide-react';
 
 function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
   const [matchweek, setMatchweek] = useState(null);
@@ -12,6 +12,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
   const [deadline1Passed, setDeadline1Passed] = useState(false);
   const [deadline2Passed, setDeadline2Passed] = useState(false);
   const [deadlinePassed, setDeadlinePassed] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
 
   // Total players count in group to compute Top/Bottom 50%
   const [totalPlayers, setTotalPlayers] = useState(8);
@@ -324,8 +325,17 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
           </p>
         </div>
 
-        {/* Countdown Badge & Reset Button Header */}
+        {/* Countdown Badge, Reset Button & Rules Info Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button 
+            className="btn btn-secondary" 
+            style={{ padding: '0.5rem 0.85rem', fontSize: '0.8rem', gap: '0.35rem', borderColor: 'var(--primary-glow)', color: 'var(--primary)' }}
+            onClick={() => setShowRulesModal(true)}
+            title="View Rules & Scoring System"
+          >
+            <Info size={15} /> Rules
+          </button>
+
           <button 
             className="btn btn-secondary" 
             style={{ padding: '0.5rem 0.85rem', fontSize: '0.8rem', gap: '0.35rem' }}
@@ -344,6 +354,112 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
           </div>
         </div>
       </div>
+
+      {/* RULES MODAL OVERLAY */}
+      {showRulesModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.82)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }}>
+          <div className="card" style={{
+            width: '100%',
+            maxWidth: '680px',
+            maxHeight: '88vh',
+            overflowY: 'auto',
+            background: 'rgba(15, 23, 42, 0.96)',
+            border: '1px solid var(--primary-glow)',
+            borderRadius: '16px',
+            padding: '1.75rem',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.7)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontSize: '1.25rem' }}>
+                <BookOpen size={22} /> PredG Point System & Rulebook
+              </h3>
+              <button 
+                className="btn btn-secondary" 
+                style={{ padding: '0.3rem 0.7rem', fontSize: '0.85rem', borderRadius: '50%' }}
+                onClick={() => setShowRulesModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', fontSize: '0.9rem', color: 'var(--text-main)' }}>
+              
+              {/* Basic Match Predictions */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--primary)' }}>
+                <h4 style={{ color: 'var(--primary)', marginBottom: '0.5rem', fontSize: '1rem' }}>⚽ Basic Match Scoring</h4>
+                <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  <li><strong>Exact Scoreline:</strong> Predict exact home & away goals.</li>
+                  <li><strong>Safe Bet:</strong> Pick the team expected to perform safely (+Points).</li>
+                  <li><strong>Match Result:</strong> Predict Home Win, Away Win, or Draw.</li>
+                  <li><strong>First Goal:</strong> Predict which team scores first (or No Goal).</li>
+                  <li><strong>Greater Possession:</strong> Predict which team controls higher possession % (or Equal).</li>
+                </ul>
+              </div>
+
+              {/* Captain Multiplier */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--warning)' }}>
+                <h4 style={{ color: 'var(--warning)', marginBottom: '0.5rem', fontSize: '1rem' }}>★ Captain (2x Multiplier)</h4>
+                <p>Select 1 match per matchweek as your Captain match. All match points earned from that game are multiplied by <strong>2x</strong>.</p>
+              </div>
+
+              {/* Gamble */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--danger)' }}>
+                <h4 style={{ color: 'var(--danger)', marginBottom: '0.5rem', fontSize: '1rem' }}>🎲 Gamble System</h4>
+                <p>Stake a portion of your standing points on 1 match per matchweek (Max 10% of total group points; capped at 500 pts for Top 50% players, 1000 pts for Bottom 50% players).</p>
+                <p style={{ marginTop: '0.35rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>If your prediction for that match is correct, you win your staked points. If incorrect, staked points are deducted.</p>
+              </div>
+
+              {/* Market Power-Up Chips */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--accent)' }}>
+                <h4 style={{ color: 'var(--accent)', marginBottom: '0.5rem', fontSize: '1rem' }}>⚡ Market Power-Up Chips (Spent via Battle Points BP)</h4>
+                <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                  <li><span className="badge badge-info" style={{ marginRight: '0.3rem' }}>Double (5 BP)</span> Doubles points earned on the chosen match.</li>
+                  <li><span className="badge badge-warning" style={{ marginRight: '0.3rem' }}>Triple (10 BP)</span> Triples points earned on the chosen match.</li>
+                  <li><span className="badge badge-success" style={{ marginRight: '0.3rem' }}>Shield (15 BP)</span> Protects against point deductions or negative scores on that match.</li>
+                </ul>
+              </div>
+
+              {/* Wild Category */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--success)' }}>
+                <h4 style={{ color: 'var(--success)', marginBottom: '0.5rem', fontSize: '1rem' }}>🎯 Wild Category & Rule Limit</h4>
+                <p>Predict exact stats for <em>Yellow Cards, Offsides, Corners, or Total Shots</em>.</p>
+                <p style={{ marginTop: '0.35rem', fontWeight: 600, color: 'var(--warning)' }}>⚠️ Category Limit Rule: You can select the same wild category for a maximum of 2 matches per matchweek.</p>
+              </div>
+
+              {/* Deadlines & Second Chance */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--primary)' }}>
+                <h4 style={{ color: 'var(--primary)', marginBottom: '0.5rem', fontSize: '1rem' }}>⏰ Deadlines & Second Chance</h4>
+                <p><strong>Main Deadline:</strong> Locks before Game 1 Kickoff. Players missing this deadline receive intelligent default predictions based on team standings.</p>
+                <p style={{ marginTop: '0.35rem' }}><strong>Second Chance Window:</strong> Players with default predictions can edit Games 4 & 5 before Game 4 Kickoff!</p>
+              </div>
+
+            </div>
+
+            <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+              <button 
+                className="btn btn-primary" 
+                style={{ padding: '0.65rem 2.25rem', fontWeight: 700 }}
+                onClick={() => setShowRulesModal(false)}
+              >
+                Got it!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {prediction?.isAutofilled && (
         <div className="card" style={{ background: 'rgba(56, 189, 248, 0.1)', color: 'var(--primary)', border: '1px solid rgba(56, 189, 248, 0.3)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
