@@ -5,11 +5,19 @@ const Prediction = require('../models/Prediction');
 const Group = require('../models/Group');
 const { auth } = require('../middleware/auth');
 
+const isGroupAdmin = (group, userId, userRole) => {
+  if (!group) return false;
+  if (userRole === 'admin') return true;
+  const adminIdStr = group.adminId?._id ? group.adminId._id.toString() : group.adminId?.toString();
+  return adminIdStr === userId;
+};
+
 const isMemberOrAdmin = (group, userId, userRole) => {
   if (!group) return false;
   if (userRole === 'admin') return true;
   const adminIdStr = group.adminId?._id ? group.adminId._id.toString() : group.adminId?.toString();
-  return group.members.some(id => id.toString() === userId) || adminIdStr === userId;
+  if (adminIdStr === userId) return true;
+  return group.members.some(id => (id._id || id).toString() === userId);
 };
 
 // Middleware to verify user is group admin
@@ -35,7 +43,7 @@ const verifyGroupAdmin = async (req, res, next) => {
       return res.status(404).json({ message: 'Group not found.' });
     }
 
-    if (!isMemberOrAdmin(group, req.user.id, req.user.role)) {
+    if (!isGroupAdmin(group, req.user.id, req.user.role)) {
       return res.status(403).json({ message: 'Access denied. You are not the administrator of this group.' });
     }
 

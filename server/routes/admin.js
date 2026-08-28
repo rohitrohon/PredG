@@ -146,6 +146,13 @@ router.post('/pl-fixtures-db/refresh/:matchweekNumber', auth, async (req, res) =
   }
 });
 
+const isGroupAdmin = (group, userId, userRole) => {
+  if (!group) return false;
+  if (userRole === 'admin') return true;
+  const adminIdStr = group.adminId?._id ? group.adminId._id.toString() : group.adminId?.toString();
+  return adminIdStr === userId;
+};
+
 // Middleware to verify user is group admin of the matchweek
 const verifyMwGroupAdmin = async (req, res, next) => {
   try {
@@ -159,7 +166,7 @@ const verifyMwGroupAdmin = async (req, res, next) => {
       return res.status(404).json({ message: 'Group not found.' });
     }
 
-    if (group.adminId.toString() !== req.user.id) {
+    if (!isGroupAdmin(group, req.user.id, req.user.role)) {
       return res.status(403).json({ message: 'Access denied. Only group administrators can manage fixtures.' });
     }
 
@@ -600,7 +607,7 @@ router.put('/prediction/:id', auth, async (req, res) => {
     }
 
     const group = await Group.findById(predDoc.groupId);
-    if (!group || group.adminId.toString() !== req.user.id) {
+    if (!group || !isGroupAdmin(group, req.user.id, req.user.role)) {
       return res.status(403).json({ message: 'Access denied. Only group administrators can edit predictions.' });
     }
 
@@ -630,7 +637,7 @@ router.put('/prediction/:id/override-scores', auth, async (req, res) => {
     }
 
     const group = await Group.findById(predDoc.groupId);
-    if (!group || group.adminId.toString() !== req.user.id) {
+    if (!group || !isGroupAdmin(group, req.user.id, req.user.role)) {
       return res.status(403).json({ message: 'Access denied. Only group administrators can override scores.' });
     }
 
@@ -688,7 +695,7 @@ router.put('/battle/:id/override', auth, async (req, res) => {
     }
 
     const group = await Group.findById(battle.groupId);
-    if (!group || group.adminId.toString() !== req.user.id) {
+    if (!group || !isGroupAdmin(group, req.user.id, req.user.role)) {
       return res.status(403).json({ message: 'Access denied. Only group administrators can override battles.' });
     }
 
