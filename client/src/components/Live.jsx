@@ -518,10 +518,14 @@ function Live({ groupId, user, onNavigateToPredictions }) {
               {/* Intelligent Autofill */}
               <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--warning)' }}>
                 <h4 style={{ color: 'var(--warning)', marginBottom: '0.5rem', fontSize: '1rem' }}>🤖 How Intelligent Autofill Works</h4>
-                <p>If a player <strong>misses the 1st Main Deadline</strong> without submitting, the system automatically generates <strong>Intelligent Default Predictions</strong> for them.</p>
-                <p style={{ marginTop: '0.35rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  Default predictions analyze official Premier League standings and team rank differences to generate realistic predictions, ensuring unsubmitted players still participate and earn points.
-                </p>
+                <p style={{ marginBottom: '0.4rem' }}>If a player <strong>misses the 1st Main Deadline</strong> without submitting, default predictions are automatically generated using the following rules:</p>
+                <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.85rem' }}>
+                  <li>Team positioned higher in the points table at the start of the matchweek will be autofilled for <strong>Match Result, First Goal, and Greater Possession</strong>.</li>
+                  <li>Scoreline will be filled <strong>3-0</strong> in favour of the higher ranked team.</li>
+                  <li><strong>Safe bet</strong> will always be set for the Home team and <strong>Wild Category</strong> will remain None.</li>
+                  <li><strong>Captain</strong> will be selected as the last match of the matchweek, so that it can be edited before the second deadline.</li>
+                  <li><strong>Gamble</strong> and other features remain unselected.</li>
+                </ul>
               </div>
 
               {/* 2nd Chance Deadline */}

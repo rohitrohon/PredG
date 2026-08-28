@@ -462,11 +462,18 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                 </ul>
               </div>
 
-              {/* Deadlines & Second Chance */}
+              {/* Deadlines, Intelligent Autofill & Second Chance */}
               <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--primary)' }}>
-                <h4 style={{ color: 'var(--primary)', marginBottom: '0.5rem', fontSize: '1rem' }}>⏰ Deadlines & Second Chance</h4>
-                <p><strong>Main Deadline:</strong> Locks before Game 1 Kickoff. Players missing this deadline receive intelligent default predictions based on team standings.</p>
-                <p style={{ marginTop: '0.35rem' }}><strong>Second Chance Window:</strong> Players with default predictions can edit Games 4 & 5 before Game 4 Kickoff!</p>
+                <h4 style={{ color: 'var(--primary)', marginBottom: '0.5rem', fontSize: '1rem' }}>⏰ Deadlines, Intelligent Autofill & Second Chance Window</h4>
+                <p><strong>Main Deadline:</strong> Locks before Game 1 Kickoff. Unsubmitted players automatically receive Intelligent Default Predictions with the following rules:</p>
+                <ul style={{ paddingLeft: '1.2rem', marginTop: '0.35rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem' }}>
+                  <li>Team positioned higher in the points table at the start of the matchweek will be autofilled for <strong>Match Result, First Goal, and Greater Possession</strong>.</li>
+                  <li>Scoreline will be filled <strong>3-0</strong> in favour of the higher ranked team.</li>
+                  <li><strong>Safe bet</strong> will always be set for the Home team and <strong>Wild Category</strong> will remain None.</li>
+                  <li><strong>Captain</strong> will be selected as the last match of the matchweek, so that it can be edited before the second deadline.</li>
+                  <li><strong>Gamble</strong> and other features remain unselected.</li>
+                </ul>
+                <p style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}><strong>Second Chance Window:</strong> Players with default predictions can edit Games 4 & 5 before the Game 4 Kickoff deadline!</p>
               </div>
 
             </div>
