@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
-import { Clock, Trophy, Shield, Play, AlertCircle, RefreshCw, Award, Activity, Edit3 } from 'lucide-react';
+import { Clock, Trophy, Shield, Play, AlertCircle, RefreshCw, Award, Activity, Edit3, Info, BookOpen } from 'lucide-react';
 
 function formatDeadlineIST(dateString) {
   if (!dateString) return '';
