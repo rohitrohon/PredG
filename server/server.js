@@ -25,21 +25,6 @@ const battleRoutes = require('./routes/battle');
 const adminRoutes = require('./routes/admin');
 const groupRoutes = require('./routes/group');
 
-// Routes middlewares
-app.use('/api/auth', authRoutes);
-app.use('/api/matchweek', matchweekRoutes);
-app.use('/api/predictions', predictionRoutes);
-app.use('/api/battle', battleRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/group', groupRoutes);
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Prediction Game 3.0 server is running.' });
-});
-
-const { startAutoResultSync } = require('./utils/autoResultFetcher');
-
 // Database Connection with caching for Vercel Serverless Functions
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/prediction_game';
 let cachedDbPromise = null;
@@ -72,7 +57,7 @@ async function connectDB() {
   return await cachedDbPromise;
 }
 
-// Middleware to ensure DB connection is 100% complete on every request
+// Middleware to ensure DB connection is 100% complete on every request (MUST BE BEFORE ROUTES)
 app.use(async (req, res, next) => {
   try {
     await connectDB();
@@ -83,6 +68,14 @@ app.use(async (req, res, next) => {
     });
   }
 });
+
+// Routes middlewares
+app.use('/api/auth', authRoutes);
+app.use('/api/matchweek', matchweekRoutes);
+app.use('/api/predictions', predictionRoutes);
+app.use('/api/battle', battleRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/group', groupRoutes);
 
 // Global Express Error Handler
 app.use((err, req, res, next) => {
