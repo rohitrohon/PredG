@@ -408,14 +408,14 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                   <li><strong>Consensus (100%):</strong> <span style={{ color: 'var(--text-muted)', fontWeight: 700 }}>10 pts</span> (Everyone in group made the same pick)</li>
                   <li><strong>Incorrect Pick:</strong> <span style={{ color: 'var(--danger)', fontWeight: 700 }}>0 pts</span></li>
                 </ul>
-                <p style={{ marginTop: '0.6rem', fontSize: '0.85rem', color: 'var(--primary-glow)' }}>
-                  <strong>Safe Bet:</strong> Pick the team whose goal score you are confident in the scoreline
-                </p>
               </div>
 
               {/* Scoreline Scoring */}
               <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--primary)' }}>
                 <h4 style={{ color: 'var(--primary)', marginBottom: '0.5rem', fontSize: '1rem' }}>📊 Scoreline Points</h4>
+                <p style={{ marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--primary-glow)' }}>
+                  <strong>Safe Bet:</strong> Pick the team whose goal score you are confident in the scoreline
+                </p>
                 <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                   <li><strong>Exact Scoreline Match:</strong> <span style={{ color: 'var(--success)', fontWeight: 700 }}>100 pts</span></li>
                   <li><strong>Safe Bet Team Score Tally Match:</strong> <span style={{ color: 'var(--primary)', fontWeight: 700 }}>50 pts</span></li>
@@ -456,9 +456,9 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                 <h4 style={{ color: 'var(--danger)', marginBottom: '0.5rem', fontSize: '1rem' }}>🎲 Gamble System Rules</h4>
                 <p style={{ marginBottom: '0.4rem' }}>Stake standing points on 1 match per matchweek (Max 10% of total group points; capped at 500 pts for Top 50% players, 1000 pts for Bottom 50% players).</p>
                 <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                  <li><strong>4 or 5 Categories Correct:</strong> Gamble Successful $\rightarrow$ <span style={{ color: 'var(--success)', fontWeight: 700 }}>+Staked Points Added</span></li>
-                  <li><strong>3 Categories Correct:</strong> Gamble Neutral $\rightarrow$ <span style={{ color: 'var(--warning)', fontWeight: 700 }}>0 Net Change (Points Maintained)</span></li>
-                  <li><strong>Less than 3 Categories Correct:</strong> Gamble Failed $\rightarrow$ <span style={{ color: 'var(--danger)', fontWeight: 700 }}>-Staked Points Deducted</span></li>
+                  <li><strong>4 or 5 Categories Correct:</strong> Gamble Successful ➔ <span style={{ color: 'var(--success)', fontWeight: 700 }}>+Staked Points Added</span></li>
+                  <li><strong>3 Categories Correct:</strong> Gamble Neutral ➔ <span style={{ color: 'var(--warning)', fontWeight: 700 }}>0 Net Change (Points Maintained)</span></li>
+                  <li><strong>Less than 3 Categories Correct:</strong> Gamble Failed ➔ <span style={{ color: 'var(--danger)', fontWeight: 700 }}>-Staked Points Deducted</span></li>
                 </ul>
               </div>
 
