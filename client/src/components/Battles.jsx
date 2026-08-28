@@ -78,9 +78,9 @@ function Battles({ user, groupId }) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {battles.map((battle, index) => {
-          const p1 = battle.player1Id?.username || 'Player 1';
-          const p2 = battle.player2Id?.username || 'Player 2';
-          const p3 = battle.player3Id?.username || 'Player 3';
+          const p1 = battle.player1Id?.username || battle.player1Id?.name || 'Player 1';
+          const p2 = battle.player2Id?.username || battle.player2Id?.name || 'Player 2';
+          const p3 = battle.player3Id?.username || battle.player3Id?.name || 'Player 3';
           const isTriad = battle.isTriad && battle.player3Id;
 
           const isUserP1 = battle.player1Id?._id?.toString() === user.id;
@@ -154,9 +154,9 @@ function Battles({ user, groupId }) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
         {battles.map((battle, bIdx) => {
-          const p1 = battle.player1Id?.username || 'Player 1';
-          const p2 = battle.player2Id?.username || 'Player 2';
-          const p3 = battle.player3Id?.username || 'Player 3';
+          const p1 = battle.player1Id?.username || battle.player1Id?.name || 'Player 1';
+          const p2 = battle.player2Id?.username || battle.player2Id?.name || 'Player 2';
+          const p3 = battle.player3Id?.username || battle.player3Id?.name || 'Player 3';
           const isTriad = battle.isTriad && battle.player3Id;
 
           // Category details mapping

@@ -430,7 +430,7 @@ router.get('/:id/results-dashboard', auth, async (req, res) => {
     const battles = await Battle.find({
       groupId: group._id,
       matchweekId: { $in: matchweekIds }
-    }).populate('player1Id', 'username name').populate('player2Id', 'username name');
+    }).populate('player1Id', 'username name').populate('player2Id', 'username name').populate('player3Id', 'username name');
 
     res.json({ matchweeks, predictions, standings: playerStandings, battles });
   } catch (error) {

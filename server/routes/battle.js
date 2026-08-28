@@ -24,8 +24,9 @@ router.get('/:matchweekId', auth, async (req, res) => {
     }
 
     const battles = await Battle.find({ groupId, matchweekId: req.params.matchweekId })
-      .populate('player1Id', 'username')
-      .populate('player2Id', 'username');
+      .populate('player1Id', 'username name email')
+      .populate('player2Id', 'username name email')
+      .populate('player3Id', 'username name email');
       
     res.json(battles);
   } catch (error) {
