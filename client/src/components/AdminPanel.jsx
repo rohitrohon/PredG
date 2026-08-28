@@ -53,6 +53,7 @@ function AdminPanel({ groupId }) {
 
   // Currently selected matchweek for results/grading
   const [selectedMw, setSelectedMw] = useState(null);
+  const [fetchingApiResults, setFetchingApiResults] = useState(false);
 
   // Group Settings State
   const [groupNameInput, setGroupNameInput] = useState('');
@@ -641,6 +642,40 @@ function AdminPanel({ groupId }) {
       setError(err.message || 'Failed to complete matchweek.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFetchResultsViaAPI = async () => {
+    if (!selectedMw) return;
+    try {
+      setFetchingApiResults(true);
+      setError('');
+      setSuccess('');
+      const res = await api.fetchMatchweekResultsAPI(selectedMw._id);
+      setSelectedMw(res.matchweek);
+
+      const updatedInputs = {};
+      res.matchweek.matches.forEach((m) => {
+        updatedInputs[m._id] = {
+          homeScore: m.actualResults?.homeScore !== null && m.actualResults?.homeScore !== undefined ? m.actualResults.homeScore : 0,
+          awayScore: m.actualResults?.awayScore !== null && m.actualResults?.awayScore !== undefined ? m.actualResults.awayScore : 0,
+          result: m.actualResults?.result || 'Home',
+          firstGoal: m.actualResults?.firstGoal || 'Home',
+          possession: m.actualResults?.possession || 'Home',
+          yellowCards: m.actualResults?.yellowCards !== null && m.actualResults?.yellowCards !== undefined ? m.actualResults.yellowCards : 0,
+          offsides: m.actualResults?.offsides !== null && m.actualResults?.offsides !== undefined ? m.actualResults.offsides : 0,
+          corners: m.actualResults?.corners !== null && m.actualResults?.corners !== undefined ? m.actualResults.corners : 0,
+          shots: m.actualResults?.shots !== null && m.actualResults?.shots !== undefined ? m.actualResults.shots : 0,
+          wildPredictionCorrectUsers: m.actualResults?.wildPredictionCorrectUsers || []
+        };
+      });
+      setResultsInput(updatedInputs);
+      setSuccess(res.message || 'Official match results fetched via API successfully!');
+      await fetchData();
+    } catch (err) {
+      setError(err.message || 'Failed to fetch match results via API.');
+    } finally {
+      setFetchingApiResults(false);
     }
   };
 
@@ -1647,6 +1682,17 @@ function AdminPanel({ groupId }) {
             </div>
 
             <div className="card" style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', background: 'rgba(15, 23, 42, 0.6)', borderColor: 'var(--border-color)' }}>
+              <button 
+                className="btn btn-secondary" 
+                onClick={handleFetchResultsViaAPI} 
+                disabled={fetchingApiResults || loading}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', borderColor: 'var(--accent)', color: 'var(--accent)' }}
+                title="Fetch latest match scorelines & stats from Official Premier League API"
+              >
+                <RefreshCw size={16} className={fetchingApiResults ? 'spin' : ''} />
+                {fetchingApiResults ? 'Fetching API Results...' : '⚡ Fetch Results via API'}
+              </button>
+
               <button className="btn btn-primary" onClick={handleUpdateResults} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <Save size={16} /> Update Results
               </button>

@@ -70,6 +70,51 @@ router.post('/auto-sync-now', auth, async (req, res) => {
   }
 });
 
+// @route   POST api/admin/matchweek/:id/fetch-results
+// @desc    Fetch actual match results from official Premier League ESPN API for all matches in the matchweek
+// @access  Private
+router.post('/matchweek/:id/fetch-results', [auth, verifyMwGroupAdmin], async (req, res) => {
+  const matchweek = req.matchweek;
+  const { fetchMatchResultStats } = require('../utils/plMatchStatsFetcher');
+
+  try {
+    let updatedCount = 0;
+    
+    for (const match of matchweek.matches) {
+      const dateIso = match.kickoffTime ? new Date(match.kickoffTime).toISOString().slice(0, 10) : '';
+      const fetchedStats = await fetchMatchResultStats(match.homeTeam, match.awayTeam, dateIso);
+
+      if (fetchedStats && fetchedStats.actualResults && fetchedStats.actualResults.homeScore !== null) {
+        match.actualResults = {
+          homeScore: fetchedStats.actualResults.homeScore,
+          awayScore: fetchedStats.actualResults.awayScore,
+          result: fetchedStats.actualResults.result,
+          firstGoal: fetchedStats.actualResults.firstGoal,
+          possession: fetchedStats.actualResults.possession,
+          yellowCards: fetchedStats.actualResults.yellowCards,
+          offsides: fetchedStats.actualResults.offsides,
+          corners: fetchedStats.actualResults.corners,
+          shots: fetchedStats.actualResults.shots,
+          wildPredictionCorrectUsers: match.actualResults?.wildPredictionCorrectUsers || []
+        };
+        updatedCount++;
+      }
+    }
+
+    if (updatedCount > 0) {
+      await matchweek.save();
+    }
+
+    res.json({
+      message: `Fetched and updated results for ${updatedCount} out of ${matchweek.matches.length} matches via Official Premier League API!`,
+      matchweek,
+      updatedCount
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching match results via API.', error: error.message });
+  }
+});
+
 // @route   GET api/admin/pl-standings-db
 // @desc    Get cached Premier League standings from database
 // @access  Private
