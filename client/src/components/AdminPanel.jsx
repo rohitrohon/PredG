@@ -3,7 +3,7 @@ import api from '../api';
 import { 
   Shield, Plus, List, Trophy, Sword, Trash, Play, AlertTriangle, 
   UserCheck, UserX, Users, Edit3, Settings, Save, X, UserMinus, 
-  PlusCircle, RefreshCw, Eye, CheckCircle2, ChevronRight, Award, Calendar
+  PlusCircle, RefreshCw, Eye, CheckCircle2, ChevronRight, Award, Calendar, RotateCcw
 } from 'lucide-react';
 
 function getShortTeamName(teamName) {
@@ -676,6 +676,45 @@ function AdminPanel({ groupId }) {
       setError(err.message || 'Failed to fetch match results via API.');
     } finally {
       setFetchingApiResults(false);
+    }
+  };
+
+  const handleResetResultsToNull = async () => {
+    if (!selectedMw) return;
+    if (!window.confirm(`Are you sure you want to reset all 5 match results to NULL for Matchweek #${selectedMw.matchweekNumber}? This will clear all recorded actual scores, outcomes, and stats.`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+
+      const res = await api.resetMatchweekResults(selectedMw._id);
+      setSelectedMw(res.matchweek);
+
+      const nullInputs = {};
+      res.matchweek.matches.forEach((m) => {
+        nullInputs[m._id] = {
+          homeScore: '',
+          awayScore: '',
+          result: 'Home',
+          firstGoal: 'Home',
+          possession: 'Home',
+          yellowCards: '',
+          offsides: '',
+          corners: '',
+          shots: '',
+          wildPredictionCorrectUsers: []
+        };
+      });
+      setResultsInput(nullInputs);
+      setSuccess(res.message || 'All match results reset to null successfully.');
+      await fetchData();
+    } catch (err) {
+      setError(err.message || 'Failed to reset match results.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1691,6 +1730,16 @@ function AdminPanel({ groupId }) {
               >
                 <RefreshCw size={16} className={fetchingApiResults ? 'spin' : ''} />
                 {fetchingApiResults ? 'Fetching API Results...' : '⚡ Fetch Results via API'}
+              </button>
+
+              <button 
+                className="btn btn-secondary" 
+                onClick={handleResetResultsToNull} 
+                disabled={loading}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', borderColor: 'rgba(239, 68, 68, 0.5)', color: 'var(--danger)' }}
+                title="Reset all match scores, outcomes and stats in database to null"
+              >
+                <RotateCcw size={16} /> Reset Results to Null
               </button>
 
               <button className="btn btn-primary" onClick={handleUpdateResults} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>

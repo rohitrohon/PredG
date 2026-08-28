@@ -235,6 +235,12 @@ const api = {
     });
   },
 
+  async resetMatchweekResults(matchweekId) {
+    return this.request(`/admin/matchweek/${matchweekId}/reset-results`, {
+      method: 'POST'
+    });
+  },
+
   async deleteMatchweek(id, groupId) {
     return this.request(`/matchweek/${id}?groupId=${groupId}`, {
       method: 'DELETE'

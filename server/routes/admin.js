@@ -223,6 +223,39 @@ router.post('/matchweek/:id/fetch-results', [auth, verifyMwGroupAdmin], async (r
   }
 });
 
+// @route   POST api/admin/matchweek/:id/reset-results
+// @desc    Reset all match results and actualResults to null for a matchweek (Group Admin only)
+// @access  Private
+router.post('/matchweek/:id/reset-results', [auth, verifyMwGroupAdmin], async (req, res) => {
+  const matchweek = req.matchweek;
+
+  try {
+    matchweek.matches.forEach((m) => {
+      m.actualResults = {
+        homeScore: null,
+        awayScore: null,
+        result: null,
+        firstGoal: null,
+        possession: null,
+        yellowCards: null,
+        offsides: null,
+        corners: null,
+        shots: null,
+        wildPredictionCorrectUsers: []
+      };
+    });
+
+    await matchweek.save();
+
+    res.json({
+      message: `All match results for Matchweek #${matchweek.matchweekNumber} have been reset to null.`,
+      matchweek
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error resetting match results.', error: error.message });
+  }
+});
+
 // @route   POST api/admin/matchweek/:id/results
 // @desc    Enter actual match results for a matchweek (Group Admin only)
 // @access  Private
