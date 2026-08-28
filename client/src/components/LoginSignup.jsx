@@ -20,9 +20,9 @@ function LoginSignup({ onAuthSuccess }) {
     try {
       let data;
       if (isLogin) {
-        data = await api.login(emailOrUsername, password);
+        data = await api.login(emailOrUsername.trim(), password);
       } else {
-        data = await api.signup(name, username, email, password, signupCode);
+        data = await api.signup(name.trim(), username.trim(), email.trim(), password, signupCode.trim());
       }
       onAuthSuccess(data.user);
     } catch (err) {
