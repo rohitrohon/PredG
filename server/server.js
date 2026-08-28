@@ -42,30 +42,37 @@ const { startAutoResultSync } = require('./utils/autoResultFetcher');
 
 // Database Connection with caching for Vercel Serverless Functions
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/prediction_game';
-let isConnected = false;
+let cachedDbPromise = null;
 
 async function connectDB() {
-  if (isConnected && mongoose.connection.readyState === 1) return;
-  try {
-    await mongoose.connect(MONGODB_URI, {
+  const dns = require('dns');
+  try { dns.setDefaultResultOrder('ipv4first'); } catch (e) {}
+
+  if (mongoose.connection.readyState === 1) {
+    return mongoose.connection;
+  }
+
+  if (!cachedDbPromise) {
+    cachedDbPromise = mongoose.connect(MONGODB_URI, {
       serverSelectionTimeoutMS: 5000,
       connectTimeoutMS: 5000
+    }).then(m => {
+      console.log('Connected to MongoDB Database.');
+      try {
+        mongoose.connection.collection('matchweeks').dropIndex('matchweekNumber_1');
+      } catch (e) {}
+      return m;
+    }).catch(err => {
+      cachedDbPromise = null;
+      console.error('Database connection error:', err.message);
+      throw err;
     });
-    isConnected = true;
-    console.log('Connected to MongoDB Database.');
-    try {
-      await mongoose.connection.collection('matchweeks').dropIndex('matchweekNumber_1');
-    } catch (e) {
-      // Ignore if index was already dropped
-    }
-  } catch (err) {
-    isConnected = false;
-    console.error('Database connection error:', err.message);
-    throw err;
   }
+
+  return await cachedDbPromise;
 }
 
-// Middleware to ensure DB connection on every request
+// Middleware to ensure DB connection is 100% complete on every request
 app.use(async (req, res, next) => {
   try {
     await connectDB();
