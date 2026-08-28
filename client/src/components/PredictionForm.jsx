@@ -497,15 +497,13 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
 
                   {/* Team vs Team Header - Mobile Responsive */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
-                    <div style={{ textAlign: 'right', flex: '1 1 120px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                    <div style={{ textAlign: 'right', flex: '1 1 120px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
                       <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{match.homeTeam}</span>
-                      <div className="team-logo-placeholder">{match.homeTeam.substring(0, 2).toUpperCase()}</div>
                     </div>
                     
                     <div style={{ fontWeight: 800, color: 'var(--text-muted)', fontSize: '0.9rem' }}>VS</div>
                     
-                    <div style={{ textAlign: 'left', flex: '1 1 120px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <div className="team-logo-placeholder">{match.awayTeam.substring(0, 2).toUpperCase()}</div>
+                    <div style={{ textAlign: 'left', flex: '1 1 120px', display: 'flex', alignItems: 'center' }}>
                       <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{match.awayTeam}</span>
                     </div>
                   </div>
