@@ -23,10 +23,10 @@ const isMemberOrAdmin = (group, userId, userRole) => {
 // Middleware to verify user is group admin
 const verifyGroupAdmin = async (req, res, next) => {
   try {
-    let groupId = req.body.groupId || req.query.groupId || req.params.groupId;
+    let groupId = req.body?.groupId || req.query?.groupId || req.params?.groupId;
     
     // If groupId is not directly passed, check if req.params.id is a matchweek ID
-    if (!groupId && req.params.id) {
+    if (!groupId && req.params?.id) {
       const mw = await Matchweek.findById(req.params.id);
       if (mw) {
         groupId = mw.groupId;
