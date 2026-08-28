@@ -42,10 +42,20 @@ const api = {
     try {
       const fullUrl = getFullApiUrl(endpoint);
       const response = await fetch(fullUrl, config);
-      const data = await response.json();
+      const text = await response.text();
+
+      let data = {};
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          // If response is HTML or plain text error
+          data = { message: text.slice(0, 200) };
+        }
+      }
       
       if (!response.ok) {
-        throw new Error(data.message || 'Something went wrong');
+        throw new Error(data.message || `Server error (HTTP ${response.status})`);
       }
       
       return data;

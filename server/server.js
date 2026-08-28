@@ -43,7 +43,10 @@ let isConnected = false;
 async function connectDB() {
   if (isConnected && mongoose.connection.readyState === 1) return;
   try {
-    await mongoose.connect(MONGODB_URI);
+    await mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000
+    });
     isConnected = true;
     console.log('Connected to MongoDB Database.');
     try {
@@ -52,14 +55,30 @@ async function connectDB() {
       // Ignore if index was already dropped
     }
   } catch (err) {
-    console.error('Database connection error:', err);
+    isConnected = false;
+    console.error('Database connection error:', err.message);
+    throw err;
   }
 }
 
 // Middleware to ensure DB connection on every request
 app.use(async (req, res, next) => {
-  await connectDB();
-  next();
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    return res.status(500).json({
+      message: `Database connection error: ${err.message}. Please verify MONGODB_URI environment variable on Vercel.`
+    });
+  }
+});
+
+// Global Express Error Handler
+app.use((err, req, res, next) => {
+  console.error('Unhandled server error:', err);
+  res.status(err.status || 500).json({
+    message: err.message || 'An unexpected server error occurred.'
+  });
 });
 
 // Start background match result & scoring auto-poller worker if running long-lived server
@@ -67,7 +86,7 @@ if (!process.env.VERCEL) {
   connectDB().then(() => {
     const intervalMinutes = process.env.AUTO_SYNC_INTERVAL_MINUTES ? Number(process.env.AUTO_SYNC_INTERVAL_MINUTES) : 5;
     startAutoResultSync(intervalMinutes);
-  });
+  }).catch(e => console.error('Failed initial DB connect:', e.message));
 
   const PORT = process.env.PORT || 5001;
   app.listen(PORT, () => {
