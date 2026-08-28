@@ -466,4 +466,34 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
+// @route   PUT api/group/:id
+// @desc    Update group name (Admin only)
+// @access  Private
+router.put('/:id', auth, async (req, res) => {
+  const { name } = req.body;
+
+  try {
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ message: 'Please provide a valid group name.' });
+    }
+
+    const group = await Group.findById(req.params.id);
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found.' });
+    }
+
+    const adminIdStr = group.adminId?._id ? group.adminId._id.toString() : group.adminId?.toString();
+    if (adminIdStr !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied. Only group administrators can update group details.' });
+    }
+
+    group.name = name.trim();
+    await group.save();
+
+    res.json({ message: 'Group name updated successfully!', group });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error updating group name.', error: error.message });
+  }
+});
+
 module.exports = router;

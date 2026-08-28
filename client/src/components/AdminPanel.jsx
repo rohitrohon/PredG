@@ -54,6 +54,10 @@ function AdminPanel({ groupId }) {
   // Currently selected matchweek for results/grading
   const [selectedMw, setSelectedMw] = useState(null);
 
+  // Group Settings State
+  const [groupNameInput, setGroupNameInput] = useState('');
+  const [updatingGroupName, setUpdatingGroupName] = useState(false);
+
   // Tabs: 'list', 'create', 'roster', 'overrides'
   const [adminTab, setAdminTab] = useState('list');
 
@@ -236,6 +240,9 @@ function AdminPanel({ groupId }) {
 
       const roster = await api.getGroupMembers(groupId);
       setGroupDetails(roster);
+      if (roster && roster.name) {
+        setGroupNameInput(roster.name);
+      }
 
       if (mws.length > 0 && !overrideMwId) {
         setOverrideMwId(mws[0]._id);
@@ -244,6 +251,26 @@ function AdminPanel({ groupId }) {
       setError(err.message || 'Failed to fetch admin console data.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateGroupName = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!groupNameInput || !groupNameInput.trim()) {
+      setError('Please enter a valid group name.');
+      return;
+    }
+    try {
+      setUpdatingGroupName(true);
+      setError('');
+      setSuccess('');
+      await api.updateGroupName(groupId, groupNameInput.trim());
+      setSuccess(`Group name updated to "${groupNameInput.trim()}" successfully!`);
+      await fetchData();
+    } catch (err) {
+      setError(err.message || 'Failed to update group name.');
+    } finally {
+      setUpdatingGroupName(false);
     }
   };
 
@@ -722,6 +749,14 @@ function AdminPanel({ groupId }) {
             onClick={() => { setAdminTab('pl-fixtures'); setSelectedMw(null); }}
           >
             🗓️ PL Schedule
+          </button>
+
+          <button 
+            className={`btn ${adminTab === 'settings' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ padding: '0.45rem 0.9rem', fontSize: '0.8rem' }}
+            onClick={() => { setAdminTab('settings'); setSelectedMw(null); }}
+          >
+            <Settings size={15} /> Group Settings
           </button>
         </div>
       </div>
@@ -2040,6 +2075,58 @@ function AdminPanel({ groupId }) {
               Close Quick Glance
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ================= TAB 7: GROUP SETTINGS (RENAME GROUP) ================= */}
+      {adminTab === 'settings' && (
+        <div className="card" style={{ maxWidth: '600px' }}>
+          <h3 style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Settings size={20} style={{ color: 'var(--primary)' }} /> Group Settings
+          </h3>
+          <form onSubmit={handleUpdateGroupName}>
+            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}>
+                Group Name
+              </label>
+              <input
+                type="text"
+                className="form-control"
+                value={groupNameInput}
+                onChange={(e) => setGroupNameInput(e.target.value)}
+                placeholder="Enter group name..."
+                required
+                style={{
+                  width: '100%',
+                  padding: '0.75rem 1rem',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  background: 'rgba(0,0,0,0.25)',
+                  color: 'var(--text-light)',
+                  fontSize: '1rem'
+                }}
+              />
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.5rem' }}>
+                This changes the displayed title of the league across all member dashboards.
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={updatingGroupName}
+              style={{
+                padding: '0.65rem 1.5rem',
+                fontSize: '0.95rem',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}
+            >
+              <Save size={16} /> {updatingGroupName ? 'Saving...' : 'Update Group Name'}
+            </button>
+          </form>
         </div>
       )}
     </div>

@@ -117,6 +117,13 @@ const api = {
     });
   },
 
+  async updateGroupName(groupId, name) {
+    return this.request(`/group/${groupId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ name })
+    });
+  },
+
   async getMyGroups() {
     return this.request('/group/my');
   },
