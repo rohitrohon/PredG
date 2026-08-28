@@ -397,16 +397,52 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', fontSize: '0.9rem', color: 'var(--text-main)' }}>
               
-              {/* Basic Match Predictions */}
+              {/* Match Result, First Goal & Possession Scoring */}
               <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--primary)' }}>
-                <h4 style={{ color: 'var(--primary)', marginBottom: '0.5rem', fontSize: '1rem' }}>⚽ Basic Match Scoring</h4>
-                <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                  <li><strong>Exact Scoreline:</strong> Predict exact home & away goals.</li>
-                  <li><strong>Safe Bet:</strong> Pick the team expected to perform safely (+Points).</li>
-                  <li><strong>Match Result:</strong> Predict Home Win, Away Win, or Draw.</li>
-                  <li><strong>First Goal:</strong> Predict which team scores first (or No Goal).</li>
-                  <li><strong>Greater Possession:</strong> Predict which team controls higher possession % (or Equal).</li>
+                <h4 style={{ color: 'var(--primary)', marginBottom: '0.5rem', fontSize: '1rem' }}>⚽ Match Result, First Goal & Possession Points</h4>
+                <p style={{ marginBottom: '0.5rem', fontSize: '0.85rem' }}>Points awarded when your prediction for <strong>Match Result, First Goal, or Greater Possession</strong> is correct:</p>
+                <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                  <li><strong>Unique Prediction:</strong> <span style={{ color: 'var(--success)', fontWeight: 700 }}>100 pts</span> (Only you picked this outcome)</li>
+                  <li><strong>Minority Group:</strong> <span style={{ color: 'var(--primary)', fontWeight: 700 }}>50 pts</span> (&lt; 50% of group players picked it)</li>
+                  <li><strong>Majority Group:</strong> <span style={{ color: 'var(--warning)', fontWeight: 700 }}>20 pts</span> (&ge; 50% of group players picked it)</li>
+                  <li><strong>Consensus (100%):</strong> <span style={{ color: 'var(--text-muted)', fontWeight: 700 }}>10 pts</span> (Everyone in group made the same pick)</li>
+                  <li><strong>Incorrect Pick:</strong> <span style={{ color: 'var(--danger)', fontWeight: 700 }}>0 pts</span></li>
                 </ul>
+                <p style={{ marginTop: '0.6rem', fontSize: '0.85rem', color: 'var(--primary-glow)' }}>
+                  <strong>Safe Bet:</strong> Pick the team whose goal score you are confident in the scoreline
+                </p>
+              </div>
+
+              {/* Scoreline Scoring */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--primary)' }}>
+                <h4 style={{ color: 'var(--primary)', marginBottom: '0.5rem', fontSize: '1rem' }}>📊 Scoreline Points</h4>
+                <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  <li><strong>Exact Scoreline Match:</strong> <span style={{ color: 'var(--success)', fontWeight: 700 }}>100 pts</span></li>
+                  <li><strong>Safe Bet Team Score Tally Match:</strong> <span style={{ color: 'var(--primary)', fontWeight: 700 }}>50 pts</span></li>
+                  <li><em>If exact scoreline & safe bet are incorrect:</em></li>
+                  <ul style={{ paddingLeft: '1rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                    <li>Away Goal Correct: <span style={{ color: 'var(--warning)', fontWeight: 700 }}>20 pts</span></li>
+                    <li>Home Goal Correct: <span style={{ color: 'var(--text-muted)', fontWeight: 700 }}>10 pts</span></li>
+                    <li>Both Goals Incorrect: <span style={{ color: 'var(--danger)', fontWeight: 700 }}>0 pts</span></li>
+                  </ul>
+                </ul>
+              </div>
+
+              {/* Wild Category */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--success)' }}>
+                <h4 style={{ color: 'var(--success)', marginBottom: '0.5rem', fontSize: '1rem' }}>🎯 Wild Category</h4>
+                <p>Predict exact stats for <em>Yellow Cards, Offsides, Corners, or Total Shots</em>:</p>
+                <ul style={{ paddingLeft: '1.2rem', marginTop: '0.3rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <li><strong>Correct Exact Count:</strong> <span style={{ color: 'var(--success)', fontWeight: 700 }}>100 pts</span></li>
+                  <li><strong>Incorrect Count:</strong> <span style={{ color: 'var(--danger)', fontWeight: 700 }}>0 pts</span></li>
+                </ul>
+                <p style={{ marginTop: '0.4rem', fontWeight: 600, color: 'var(--warning)', fontSize: '0.85rem' }}>⚠️ Category Limit Rule: You can select the same wild category for a maximum of 2 matches per matchweek.</p>
+              </div>
+
+              {/* Consistency Bonus */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--accent)' }}>
+                <h4 style={{ color: 'var(--accent)', marginBottom: '0.5rem', fontSize: '1rem' }}>🎁 Consistency Bonus</h4>
+                <p>If you score points in <strong>any 4 out of 5 prediction categories</strong> for a single match, you receive an extra <strong>Consistency Bonus</strong>!</p>
               </div>
 
               {/* Captain Multiplier */}
@@ -415,28 +451,15 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                 <p>Select 1 match per matchweek as your Captain match. All match points earned from that game are multiplied by <strong>2x</strong>.</p>
               </div>
 
-              {/* Gamble */}
+              {/* Gamble System */}
               <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--danger)' }}>
-                <h4 style={{ color: 'var(--danger)', marginBottom: '0.5rem', fontSize: '1rem' }}>🎲 Gamble System</h4>
-                <p>Stake a portion of your standing points on 1 match per matchweek (Max 10% of total group points; capped at 500 pts for Top 50% players, 1000 pts for Bottom 50% players).</p>
-                <p style={{ marginTop: '0.35rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>If your prediction for that match is correct, you win your staked points. If incorrect, staked points are deducted.</p>
-              </div>
-
-              {/* Market Power-Up Chips */}
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--accent)' }}>
-                <h4 style={{ color: 'var(--accent)', marginBottom: '0.5rem', fontSize: '1rem' }}>⚡ Market Power-Up Chips (Spent via Battle Points BP)</h4>
-                <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                  <li><span className="badge badge-info" style={{ marginRight: '0.3rem' }}>Double (5 BP)</span> Doubles points earned on the chosen match.</li>
-                  <li><span className="badge badge-warning" style={{ marginRight: '0.3rem' }}>Triple (10 BP)</span> Triples points earned on the chosen match.</li>
-                  <li><span className="badge badge-success" style={{ marginRight: '0.3rem' }}>Shield (15 BP)</span> Protects against point deductions or negative scores on that match.</li>
+                <h4 style={{ color: 'var(--danger)', marginBottom: '0.5rem', fontSize: '1rem' }}>🎲 Gamble System Rules</h4>
+                <p style={{ marginBottom: '0.4rem' }}>Stake standing points on 1 match per matchweek (Max 10% of total group points; capped at 500 pts for Top 50% players, 1000 pts for Bottom 50% players).</p>
+                <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  <li><strong>4 or 5 Categories Correct:</strong> Gamble Successful $\rightarrow$ <span style={{ color: 'var(--success)', fontWeight: 700 }}>+Staked Points Added</span></li>
+                  <li><strong>3 Categories Correct:</strong> Gamble Neutral $\rightarrow$ <span style={{ color: 'var(--warning)', fontWeight: 700 }}>0 Net Change (Points Maintained)</span></li>
+                  <li><strong>Less than 3 Categories Correct:</strong> Gamble Failed $\rightarrow$ <span style={{ color: 'var(--danger)', fontWeight: 700 }}>-Staked Points Deducted</span></li>
                 </ul>
-              </div>
-
-              {/* Wild Category */}
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--success)' }}>
-                <h4 style={{ color: 'var(--success)', marginBottom: '0.5rem', fontSize: '1rem' }}>🎯 Wild Category & Rule Limit</h4>
-                <p>Predict exact stats for <em>Yellow Cards, Offsides, Corners, or Total Shots</em>.</p>
-                <p style={{ marginTop: '0.35rem', fontWeight: 600, color: 'var(--warning)' }}>⚠️ Category Limit Rule: You can select the same wild category for a maximum of 2 matches per matchweek.</p>
               </div>
 
               {/* Deadlines & Second Chance */}
