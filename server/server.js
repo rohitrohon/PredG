@@ -24,6 +24,7 @@ const predictionRoutes = require('./routes/predictions');
 const battleRoutes = require('./routes/battle');
 const adminRoutes = require('./routes/admin');
 const groupRoutes = require('./routes/group');
+const { startAutoResultSync } = require('./utils/autoResultFetcher');
 
 // Database Connection with caching for Vercel Serverless Functions
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/prediction_game';
@@ -43,9 +44,7 @@ async function connectDB() {
       connectTimeoutMS: 5000
     }).then(m => {
       console.log('Connected to MongoDB Database.');
-      try {
-        mongoose.connection.collection('matchweeks').dropIndex('matchweekNumber_1');
-      } catch (e) {}
+      mongoose.connection.collection('matchweeks').dropIndex('matchweekNumber_1').catch(() => {});
       return m;
     }).catch(err => {
       cachedDbPromise = null;

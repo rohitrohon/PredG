@@ -3,6 +3,7 @@ const router = express.Router();
 const Matchweek = require('../models/Matchweek');
 const Prediction = require('../models/Prediction');
 const Group = require('../models/Group');
+const { generateBattlePairingsInternal } = require('../utils/battlePairing');
 const { auth } = require('../middleware/auth');
 
 const isGroupAdmin = (group, userId, userRole) => {
@@ -232,9 +233,6 @@ router.put('/:id', [auth, verifyGroupAdmin], async (req, res) => {
     res.status(500).json({ message: 'Server error updating matchweek.', error: error.message });
   }
 });
-
-const { generateBattlePairingsInternal } = require('../utils/battlePairing');
-const Group = require('../models/Group');
 
 // @route   POST api/matchweek/:id/set-active
 // @desc    Set matchweek status to active, and set all others in group to draft (automatically generates battle pairings)
