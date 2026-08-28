@@ -75,6 +75,13 @@ const api = {
     return data;
   },
 
+  async resetPassword(name, email, newPassword) {
+    return this.request('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ name, email, newPassword })
+    });
+  },
+
   async signup(name, username, email, password, signupCode) {
     const data = await this.request('/auth/signup', {
       method: 'POST',

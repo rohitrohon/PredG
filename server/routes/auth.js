@@ -87,11 +87,14 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'Please enter all fields.' });
     }
 
-    // Find by email or username
+    const query = emailOrUsername.trim();
+    const escapedQuery = query.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+
+    // Find by email or username (case-insensitive for both)
     const user = await User.findOne({
       $or: [
-        { email: emailOrUsername.toLowerCase() },
-        { username: emailOrUsername }
+        { email: query.toLowerCase() },
+        { username: new RegExp('^' + escapedQuery + '$', 'i') }
       ]
     });
 
@@ -127,6 +130,46 @@ router.post('/login', async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error during login.', error: error.message });
+  }
+});
+
+// @route   POST api/auth/reset-password
+// @desc    Reset password using Name & Email verification
+// @access  Public
+router.post('/reset-password', async (req, res) => {
+  const { name, email, newPassword } = req.body;
+
+  try {
+    if (!name || !email || !newPassword) {
+      return res.status(400).json({ message: 'Please provide Name, Email, and New Password.' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'New password must be at least 6 characters.' });
+    }
+
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim().toLowerCase();
+    const escapedName = trimmedName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+
+    // Find user matching both email and name (case-insensitive for name)
+    const user = await User.findOne({
+      email: trimmedEmail,
+      name: new RegExp('^' + escapedName + '$', 'i')
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: 'No account found matching this Name and Email combination.' });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    res.json({ message: 'Password successfully reset! You can now log in with your new password.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error during password reset.', error: error.message });
   }
 });
 
