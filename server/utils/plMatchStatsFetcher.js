@@ -34,6 +34,12 @@ async function fetchMatchResultStats(homeTeam, awayTeam, dateStr, eventId) {
         });
 
         if (matchEvent) {
+          const statusState = matchEvent.status?.type?.state;
+          // If match has not kicked off yet (scheduled / 'pre'), no actual results exist yet
+          if (statusState === 'pre') {
+            return null;
+          }
+
           const resSum = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/summary?event=${matchEvent.id}`);
           if (resSum.ok) {
             const sumData = await resSum.json();
@@ -112,6 +118,11 @@ async function fetchMatchResultStats(homeTeam, awayTeam, dateStr, eventId) {
         const dEvent = await resEvent.json();
         const event = dEvent.events ? dEvent.events[0] : null;
         if (event) {
+          const strStatus = (event.strStatus || '').toLowerCase();
+          if (strStatus.includes('not started') || strStatus.includes('postponed') || strStatus.includes('ns')) {
+            return null;
+          }
+
           const homeScore = event.intHomeScore !== null && event.intHomeScore !== undefined ? Number(event.intHomeScore) : null;
           const awayScore = event.intAwayScore !== null && event.intAwayScore !== undefined ? Number(event.intAwayScore) : null;
           
