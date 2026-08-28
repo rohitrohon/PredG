@@ -3,7 +3,7 @@ import api from '../api';
 import { 
   Shield, Plus, List, Trophy, Sword, Trash, Play, AlertTriangle, 
   UserCheck, UserX, Users, Edit3, Settings, Save, X, UserMinus, 
-  PlusCircle, RefreshCw, Eye, CheckCircle2, ChevronRight, Award
+  PlusCircle, RefreshCw, Eye, CheckCircle2, ChevronRight, Award, Calendar
 } from 'lucide-react';
 
 function getShortTeamName(teamName) {
