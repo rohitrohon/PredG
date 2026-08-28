@@ -261,10 +261,35 @@ router.post('/submit/:matchweekId', auth, async (req, res) => {
       }
     }
 
+    // Validate wild prediction category counts: max 2 matches per wild category
+    const catCounts = {};
+    for (const p of predictions) {
+      const cat = p.wildPredictionCategory;
+      if (cat && cat !== 'None') {
+        catCounts[cat] = (catCounts[cat] || 0) + 1;
+        if (catCounts[cat] > 2) {
+          return res.status(400).json({ message: `You can select "${cat}" as the wild category for a maximum of 2 matches per matchweek.` });
+        }
+      }
+    }
+
+    // Sanitize numeric fields: ensure non-negative absolute values
+    const sanitizedPredictions = predictions.map((p) => ({
+      ...p,
+      homeScore: Math.abs(Number(p.homeScore) || 0),
+      awayScore: Math.abs(Number(p.awayScore) || 0),
+      wildPredictionValue: Math.abs(Number(p.wildPredictionValue) || 0)
+    }));
+
+    let sanitizedGamble = gamble;
+    if (sanitizedGamble && sanitizedGamble.active) {
+      sanitizedGamble.points = Math.abs(Number(sanitizedGamble.points) || 0);
+    }
+
     // Apply updates
-    predictionDoc.predictions = predictions;
+    predictionDoc.predictions = sanitizedPredictions;
     predictionDoc.captainMatchId = captainMatchId;
-    predictionDoc.gamble = gamble;
+    predictionDoc.gamble = sanitizedGamble;
     predictionDoc.marketPowerUps = marketPowerUps || [];
     predictionDoc.isSubmitted = true;
 

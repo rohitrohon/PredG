@@ -104,6 +104,17 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
   const handlePredictionChange = (matchId, field, value) => {
     if (deadlinePassed) return;
 
+    if (field === 'wildPredictionCategory' && value && value !== 'None') {
+      const existingCount = prediction.predictions.filter(
+        (p) => p.matchId.toString() !== matchId.toString() && p.wildPredictionCategory === value
+      ).length;
+
+      if (existingCount >= 2) {
+        alert(`Rule Limit: You can select "${value}" as the wild category for a maximum of 2 matches per matchweek.`);
+        return;
+      }
+    }
+
     const updatedPreds = prediction.predictions.map((p) => {
       if (p.matchId.toString() === matchId.toString()) {
         return { ...p, [field]: value };
@@ -168,6 +179,35 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
   const handleSubmitPredictions = async () => {
     if (deadlinePassed) return;
 
+    // Validate Wild Category max-2 limit
+    const catCounts = {};
+    for (const p of prediction.predictions) {
+      const cat = p.wildPredictionCategory;
+      if (cat && cat !== 'None') {
+        catCounts[cat] = (catCounts[cat] || 0) + 1;
+        if (catCounts[cat] > 2) {
+          setError(`Validation error: "${cat}" wild category can be selected for at most 2 matches per matchweek.`);
+          return;
+        }
+      }
+    }
+
+    // Ensure non-negative numbers via Math.abs
+    const sanitizedPredictions = prediction.predictions.map((p) => ({
+      ...p,
+      homeScore: Math.abs(Number(p.homeScore) || 0),
+      awayScore: Math.abs(Number(p.awayScore) || 0),
+      wildPredictionValue: Math.abs(Number(p.wildPredictionValue) || 0)
+    }));
+
+    let sanitizedGamble = prediction.gamble;
+    if (sanitizedGamble && sanitizedGamble.active) {
+      sanitizedGamble = {
+        ...sanitizedGamble,
+        points: Math.abs(Number(sanitizedGamble.points) || 0)
+      };
+    }
+
     setSubmitting(true);
     setError('');
     setSuccessMsg('');
@@ -175,9 +215,9 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
     try {
       const res = await api.submitPredictions(matchweek._id, {
         groupId,
-        predictions: prediction.predictions,
+        predictions: sanitizedPredictions,
         captainMatchId: prediction.captainMatchId,
-        gamble: prediction.gamble,
+        gamble: sanitizedGamble,
         marketPowerUps: prediction.marketPowerUps
       });
       setPrediction(res.prediction);
@@ -193,18 +233,16 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
     }
   };
 
-  if (loading) {
-    return <div style={{ textAlign: 'center', padding: '2rem' }}>Loading predictions form...</div>;
-  }
-
   const handleCleanNumericChange = (matchId, field, rawValue) => {
     if (rawValue === '' || rawValue === null || rawValue === undefined) {
       handlePredictionChange(matchId, field, 0);
       return;
     }
     const cleanStr = String(rawValue).replace(/^0+(?=\d)/, '');
-    const parsed = parseInt(cleanStr, 10);
-    handlePredictionChange(matchId, field, isNaN(parsed) ? 0 : parsed);
+    let parsed = parseInt(cleanStr, 10);
+    if (isNaN(parsed)) parsed = 0;
+    parsed = Math.abs(parsed); // Enforce non-negative absolute value
+    handlePredictionChange(matchId, field, parsed);
   };
 
   if (loading) {
