@@ -9,7 +9,8 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  const [deadlinePassed, setDeadlinePassed] = useState(false);
+  const [deadline1Passed, setDeadline1Passed] = useState(false);
+  const [deadline2Passed, setDeadline2Passed] = useState(false);
 
   // Total players count in group to compute Top/Bottom 50%
   const [totalPlayers, setTotalPlayers] = useState(8);
@@ -24,23 +25,42 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
   useEffect(() => {
     if (!matchweek) return;
     
-    const checkDeadline = () => {
-      const passed = new Date() > new Date(matchweek.deadline);
-      setDeadlinePassed(passed);
-      
-      if (passed) {
-        setCountdown('LOCKED (Deadline Passed)');
-      } else {
-        const diff = new Date(matchweek.deadline) - new Date();
+    const checkDeadlines = () => {
+      const d1Time = matchweek.matches && matchweek.matches[0] && matchweek.matches[0].kickoffTime 
+        ? new Date(matchweek.matches[0].kickoffTime) 
+        : new Date(matchweek.deadline);
+
+      const d2Time = matchweek.matches && matchweek.matches[3] && matchweek.matches[3].kickoffTime 
+        ? new Date(matchweek.matches[3].kickoffTime) 
+        : d1Time;
+
+      const now = new Date();
+      const d1Passed = now > d1Time;
+      const d2Passed = now > d2Time;
+
+      setDeadline1Passed(d1Passed);
+      setDeadline2Passed(d2Passed);
+      setDeadlinePassed(d1Passed);
+
+      if (d2Passed) {
+        setCountdown('LOCKED (Deadline 2 Passed)');
+      } else if (d1Passed) {
+        const diff = d2Time - now;
         const hrs = Math.floor(diff / (1000 * 60 * 60));
         const mins = Math.floor((diff / (1000 * 60)) % 60);
         const secs = Math.floor((diff / 1000) % 60);
-        setCountdown(`${hrs}h ${mins}m ${secs}s remaining`);
+        setCountdown(`2nd Deadline (Games 4 & 5): ${hrs}h ${mins}m ${secs}s remaining`);
+      } else {
+        const diff = d1Time - now;
+        const hrs = Math.floor(diff / (1000 * 60 * 60));
+        const mins = Math.floor((diff / (1000 * 60)) % 60);
+        const secs = Math.floor((diff / 1000) % 60);
+        setCountdown(`Main Deadline (Game 1 Kickoff): ${hrs}h ${mins}m ${secs}s remaining`);
       }
     };
 
-    checkDeadline();
-    const interval = setInterval(checkDeadline, 1000);
+    checkDeadlines();
+    const interval = setInterval(checkDeadlines, 1000);
     return () => clearInterval(interval);
   }, [matchweek]);
 
@@ -184,7 +204,10 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
     return <div className="card" style={{ textAlign: 'center' }}>No active matchweeks currently scheduled.</div>;
   }
 
-  const isLocked = deadlinePassed;
+  const isSecondChanceActive = deadline1Passed && !deadline2Passed && prediction?.isAutofilled;
+  const isFullyLocked = deadline2Passed || (deadline1Passed && !prediction?.isAutofilled);
+  const isLocked = isFullyLocked;
+
   const powerUpCost = prediction ? calculatePowerUpCost(prediction.marketPowerUps) : 0;
 
   // Find max gamble limit scoped to group standing points
@@ -209,7 +232,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
             Matchweek <span className="text-gradient">#{matchweek.matchweekNumber}</span> Predictions
           </h2>
           <p style={{ color: 'var(--text-muted)' }}>
-            Deadline: {new Date(matchweek.deadline).toLocaleString()}
+            Kickoff Game 1: {new Date(matchweek.matches[0]?.kickoffTime || matchweek.deadline).toLocaleString()} | Kickoff Game 4: {new Date(matchweek.matches[3]?.kickoffTime || matchweek.deadline).toLocaleString()}
           </p>
         </div>
 
@@ -218,35 +241,27 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
           
           {/* Market items and Gamble limit details */}
           {prediction && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.15rem', fontSize: '0.85rem' }}>
-              <div style={{ color: 'var(--text-muted)' }}>
-                Power-ups Cost: <strong style={{ color: 'var(--accent)' }}>{powerUpCost} BP</strong> (Avail: {standing?.battlePoints || 0} BP)
+            <div className="card" style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '1.25rem', background: 'rgba(0,0,0,0.3)', margin: 0 }}>
+              <div style={{ fontSize: '0.85rem' }}>
+                Net BP Spent: <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{powerUpCost} BP</span>
               </div>
-              <div style={{ color: 'var(--text-muted)' }}>
-                Gamble Limit: <strong style={{ color: 'var(--warning)' }}>{maxGamble} pts</strong> (10% cap)
+              <div style={{ borderLeft: '1px solid var(--border-color)', height: '16px' }}></div>
+              <div style={{ fontSize: '0.85rem' }}>
+                Max Gamble: <span style={{ color: 'var(--danger)', fontWeight: 700 }}>{maxGamble} pts</span>
               </div>
             </div>
           )}
 
-          {!isLocked && (
-            <button
-              className="btn btn-primary"
-              onClick={handleSubmitPredictions}
-              disabled={submitting}
-              style={{ padding: '0.6rem 1.25rem', fontSize: '0.9rem' }}
-            >
-              {submitting ? 'Submitting...' : 'Submit/Update Predictions'}
-            </button>
-          )}
+          <button 
+            className={`btn ${isLocked ? 'btn-secondary' : 'btn-primary'}`}
+            style={{ padding: '0.6rem 1.25rem' }}
+            onClick={handleSubmitPredictions}
+            disabled={submitting || isLocked}
+          >
+            {submitting ? 'Saving...' : (isSecondChanceActive ? 'Save Second Chance Predictions' : 'Submit / Save Predictions')}
+          </button>
 
-          <div className="card" style={{ 
-            padding: '0.5rem 1rem', 
-            background: isLocked ? 'var(--danger-glow)' : 'var(--warning-glow)', 
-            borderColor: isLocked ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem'
-          }}>
+          <div className="card" style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(0,0,0,0.3)', margin: 0 }}>
             {isLocked ? <Lock size={16} style={{ color: 'var(--danger)' }} /> : <Unlock size={16} style={{ color: 'var(--warning)' }} />}
             <span style={{ fontWeight: 700, color: isLocked ? 'var(--danger)' : 'var(--warning)' }}>
               {countdown}
@@ -254,6 +269,12 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
           </div>
         </div>
       </div>
+
+      {prediction?.isAutofilled && (
+        <div className="card" style={{ background: 'rgba(56, 189, 248, 0.1)', color: 'var(--primary)', border: '1px solid rgba(56, 189, 248, 0.3)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <AlertCircle size={16} /> Default predictions autofilled based on team ranks. {isSecondChanceActive ? 'Second Chance Deadline is active: Games 1-3 are locked, but you can edit Games 4 & 5 before Deadline 2!' : ''}
+        </div>
+      )}
 
       {error && (
         <div className="card" style={{ background: 'var(--danger-glow)', color: 'var(--danger)', marginBottom: '1.5rem', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
@@ -274,6 +295,8 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
               const match = matchweek.matches[idx];
               if (!match) return null;
 
+              const isMatchLocked = isFullyLocked || (isSecondChanceActive && idx < 3);
+
               const isCaptain = prediction.captainMatchId === match._id;
               const isGamble = prediction.gamble?.active && 
                                prediction.gamble?.matchId?.toString() === match._id.toString();
@@ -289,7 +312,8 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
               return (
                 <div key={match._id} className="card" style={{ 
                   borderLeft: isCaptain ? '5px solid var(--warning)' : (isGamble ? '5px solid var(--danger)' : (match._id === matchweek.battleMatchId ? '5px solid var(--accent)' : '1px solid var(--border-color)')),
-                  background: isGamble ? 'rgba(239, 68, 68, 0.01)' : 'var(--card-bg)'
+                  background: isGamble ? 'rgba(239, 68, 68, 0.01)' : 'var(--card-bg)',
+                  opacity: isMatchLocked ? 0.75 : 1
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -299,6 +323,9 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                       </span>
                       {match._id === matchweek.battleMatchId && (
                         <span className="badge badge-danger" style={{ fontSize: '0.7rem' }}>BATTLE MATCH</span>
+                      )}
+                      {isMatchLocked && (
+                        <span className="badge badge-warning" style={{ fontSize: '0.7rem' }}>LOCKED</span>
                       )}
                     </div>
 
@@ -310,10 +337,10 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                         className={`btn ${isCaptain ? 'btn-primary' : 'btn-secondary'}`}
                         style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', borderColor: isCaptain ? 'transparent' : 'rgba(245, 158, 11, 0.3)', color: isCaptain ? 'var(--bg-darker)' : 'var(--warning)' }}
                         onClick={() => {
-                          if (isLocked) return;
+                          if (isMatchLocked) return;
                           setPrediction({ ...prediction, captainMatchId: match._id });
                         }}
-                        disabled={isLocked}
+                        disabled={isMatchLocked}
                       >
                         ★ Captain (2x)
                       </button>

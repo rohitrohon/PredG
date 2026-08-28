@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const api = {
   getToken() {
@@ -167,6 +167,34 @@ const api = {
     });
   },
 
+  async fetchPLFixtures(matchweekNumber) {
+    return this.request(`/admin/pl-fixtures/${matchweekNumber}`);
+  },
+
+  async fetchPLMatchStats(eventId) {
+    return this.request(`/admin/pl-match-stats/${eventId}`);
+  },
+
+  async getPLStandingsDB() {
+    return this.request('/admin/pl-standings-db');
+  },
+
+  async refreshPLStandingsDB() {
+    return this.request('/admin/pl-standings-db/refresh', {
+      method: 'POST'
+    });
+  },
+
+  async getPLFixturesDB(matchweekNumber) {
+    return this.request(`/admin/pl-fixtures-db/${matchweekNumber}`);
+  },
+
+  async refreshPLFixturesDB(matchweekNumber) {
+    return this.request(`/admin/pl-fixtures-db/refresh/${matchweekNumber}`, {
+      method: 'POST'
+    });
+  },
+
   async deleteMatchweek(id, groupId) {
     return this.request(`/matchweek/${id}?groupId=${groupId}`, {
       method: 'DELETE'
@@ -257,6 +285,12 @@ const api = {
     return this.request(`/admin/battle/${battleId}/override`, {
       method: 'PUT',
       body: JSON.stringify(data)
+    });
+  },
+
+  async triggerAutoSyncNow() {
+    return this.request('/admin/auto-sync-now', {
+      method: 'POST'
     });
   }
 };

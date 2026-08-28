@@ -34,21 +34,45 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'Prediction Game 3.0 server is running.' });
 });
 
-// Database Connection
+const { startAutoResultSync } = require('./utils/autoResultFetcher');
+
+// Database Connection with caching for Vercel Serverless Functions
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/prediction_game';
-mongoose.connect(MONGODB_URI)
-  .then(async () => {
+let isConnected = false;
+
+async function connectDB() {
+  if (isConnected && mongoose.connection.readyState === 1) return;
+  try {
+    await mongoose.connect(MONGODB_URI);
+    isConnected = true;
     console.log('Connected to MongoDB Database.');
     try {
       await mongoose.connection.collection('matchweeks').dropIndex('matchweekNumber_1');
     } catch (e) {
-      // Ignore if index was already dropped or doesn't exist
+      // Ignore if index was already dropped
     }
-  })
-  .catch((err) => console.error('Database connection error:', err));
+  } catch (err) {
+    console.error('Database connection error:', err);
+  }
+}
 
-// Start Server
-const PORT = process.env.PORT || 5001;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+// Middleware to ensure DB connection on every request
+app.use(async (req, res, next) => {
+  await connectDB();
+  next();
 });
+
+// Start background match result & scoring auto-poller worker if running long-lived server
+if (!process.env.VERCEL) {
+  connectDB().then(() => {
+    const intervalMinutes = process.env.AUTO_SYNC_INTERVAL_MINUTES ? Number(process.env.AUTO_SYNC_INTERVAL_MINUTES) : 5;
+    startAutoResultSync(intervalMinutes);
+  });
+
+  const PORT = process.env.PORT || 5001;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+module.exports = app;

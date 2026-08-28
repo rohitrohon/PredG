@@ -118,7 +118,7 @@ router.get('/:id', auth, async (req, res) => {
 // @desc    Create a new matchweek for a group
 // @access  Private/GroupAdmin
 router.post('/', [auth, verifyGroupAdmin], async (req, res) => {
-  const { groupId, matchweekNumber, deadline, matches, battleMatchId } = req.body;
+  const { groupId, matchweekNumber, deadline, matches, battleMatchId, battleMatchIndex } = req.body;
 
   try {
     if (!matchweekNumber || !deadline || !matches || !Array.isArray(matches) || matches.length === 0) {
@@ -161,6 +161,12 @@ router.post('/', [auth, verifyGroupAdmin], async (req, res) => {
     });
 
     await matchweek.save();
+
+    if (battleMatchIndex !== undefined && matchweek.matches[battleMatchIndex]) {
+      matchweek.battleMatchId = matchweek.matches[battleMatchIndex]._id;
+      await matchweek.save();
+    }
+
     res.status(201).json(matchweek);
   } catch (error) {
     console.error('Error creating matchweek:', error);
@@ -172,7 +178,7 @@ router.post('/', [auth, verifyGroupAdmin], async (req, res) => {
 // @desc    Update matchweek details (Admin only - verified via body groupId)
 // @access  Private/GroupAdmin
 router.put('/:id', [auth, verifyGroupAdmin], async (req, res) => {
-  const { deadline, matches, status, battleMatchId } = req.body;
+  const { matchweekNumber, deadline, matches, status, battleMatchId, battleMatchIndex } = req.body;
 
   try {
     let matchweek = await Matchweek.findById(req.params.id);
@@ -180,12 +186,26 @@ router.put('/:id', [auth, verifyGroupAdmin], async (req, res) => {
       return res.status(404).json({ message: 'Matchweek not found.' });
     }
 
+    if (matchweekNumber !== undefined) matchweek.matchweekNumber = matchweekNumber;
     if (deadline) matchweek.deadline = new Date(deadline);
     if (status) matchweek.status = status;
-    if (matches) matchweek.matches = matches;
-    if (battleMatchId !== undefined) matchweek.battleMatchId = battleMatchId;
+    if (matches) {
+      matchweek.matches = matches.map(m => ({
+        ...m,
+        kickoffTime: new Date(m.kickoffTime)
+      }));
+    }
 
     await matchweek.save();
+
+    if (battleMatchIndex !== undefined && matchweek.matches[battleMatchIndex]) {
+      matchweek.battleMatchId = matchweek.matches[battleMatchIndex]._id;
+      await matchweek.save();
+    } else if (battleMatchId !== undefined) {
+      matchweek.battleMatchId = battleMatchId;
+      await matchweek.save();
+    }
+
     res.json(matchweek);
   } catch (error) {
     res.status(500).json({ message: 'Server error updating matchweek.', error: error.message });

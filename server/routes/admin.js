@@ -7,10 +7,144 @@ const Group = require('../models/Group');
 const GroupStanding = require('../models/GroupStanding');
 const Battle = require('../models/Battle');
 const { auth } = require('../middleware/auth');
-const { scoreMatchweek } = require('../utils/scoringEngine');
+const PLCache = require('../models/PLCache');
+const { getPremierLeagueStandings } = require('../utils/premierLeagueStandings');
+const { fetchPLMatchweekFixtures } = require('../utils/plFixturesFetcher');
+const { fetchMatchResultStats } = require('../utils/plMatchStatsFetcher');
 
 // Dummy ID for Average Player (in case of odd player count)
 const AVERAGE_PLAYER_ID = '600000000000000000000000';
+
+// @route   GET api/admin/pl-fixtures/:matchweekNumber
+// @desc    Fetch scheduled Premier League fixtures for a matchweek with IST kickoff times
+// @access  Private
+router.get('/pl-fixtures/:matchweekNumber', auth, async (req, res) => {
+  try {
+    const fixtures = await fetchPLMatchweekFixtures(req.params.matchweekNumber);
+    res.json({ matchweekNumber: req.params.matchweekNumber, count: fixtures.length, fixtures });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching PL fixtures.', error: error.message });
+  }
+});
+
+// @route   GET api/admin/pl-match-stats
+// @desc    Fetch official Premier League actual match result stats (scores, cards, shots, offsides, corners)
+// @access  Private
+router.get('/pl-match-stats', auth, async (req, res) => {
+  try {
+    const { homeTeam, awayTeam, date, eventId } = req.query;
+    const stats = await fetchMatchResultStats(homeTeam, awayTeam, date, eventId);
+    if (!stats) {
+      return res.status(404).json({ message: 'Match result stats not found.' });
+    }
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching PL match stats.', error: error.message });
+  }
+});
+
+router.get('/pl-match-stats/:eventId', auth, async (req, res) => {
+  try {
+    const { homeTeam, awayTeam, date } = req.query;
+    const stats = await fetchMatchResultStats(homeTeam, awayTeam, date, req.params.eventId);
+    if (!stats) {
+      return res.status(404).json({ message: 'Match result stats not found.' });
+    }
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching PL match stats.', error: error.message });
+  }
+});
+
+const { checkAndSyncActiveMatchweeks } = require('../utils/autoResultFetcher');
+
+// @route   POST api/admin/auto-sync-now
+// @desc    Manually trigger immediate background result sync and auto-scoring for all active matchweeks
+// @access  Private
+router.post('/auto-sync-now', auth, async (req, res) => {
+  try {
+    const result = await checkAndSyncActiveMatchweeks();
+    res.json({ message: 'Auto-sync cycle executed successfully.', ...result });
+  } catch (error) {
+    res.status(500).json({ message: 'Error running auto-sync.', error: error.message });
+  }
+});
+
+// @route   GET api/admin/pl-standings-db
+// @desc    Get cached Premier League standings from database
+// @access  Private
+router.get('/pl-standings-db', auth, async (req, res) => {
+  try {
+    let record = await PLCache.findOne({ dataType: 'standings' });
+    if (!record) {
+      const standings = await getPremierLeagueStandings();
+      record = await PLCache.findOneAndUpdate(
+        { dataType: 'standings' },
+        { dataType: 'standings', data: standings, lastRefreshedAt: new Date() },
+        { upsert: true, new: true }
+      );
+    }
+    res.json(record);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching PL standings from DB.', error: error.message });
+  }
+});
+
+// @route   POST api/admin/pl-standings-db/refresh
+// @desc    Trigger API call to refresh Premier League standings & update DB
+// @access  Private
+router.post('/pl-standings-db/refresh', auth, async (req, res) => {
+  try {
+    const standings = await getPremierLeagueStandings(true);
+    const record = await PLCache.findOneAndUpdate(
+      { dataType: 'standings' },
+      { dataType: 'standings', data: standings, lastRefreshedAt: new Date() },
+      { upsert: true, new: true }
+    );
+    res.json({ message: 'Premier League standings updated in DB successfully!', record });
+  } catch (error) {
+    res.status(500).json({ message: 'Error refreshing PL standings API.', error: error.message });
+  }
+});
+
+// @route   GET api/admin/pl-fixtures-db/:matchweekNumber
+// @desc    Get cached PL fixtures for a matchweek from database
+// @access  Private
+router.get('/pl-fixtures-db/:matchweekNumber', auth, async (req, res) => {
+  try {
+    const mwNum = Number(req.params.matchweekNumber);
+    let record = await PLCache.findOne({ dataType: 'fixtures', matchweekNumber: mwNum });
+    if (!record) {
+      const fixtures = await fetchPLMatchweekFixtures(mwNum);
+      record = await PLCache.findOneAndUpdate(
+        { dataType: 'fixtures', matchweekNumber: mwNum },
+        { dataType: 'fixtures', matchweekNumber: mwNum, data: fixtures, lastRefreshedAt: new Date() },
+        { upsert: true, new: true }
+      );
+    }
+    res.json(record);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching PL fixtures from DB.', error: error.message });
+  }
+});
+
+// @route   POST api/admin/pl-fixtures-db/refresh/:matchweekNumber
+// @desc    Trigger API call to refresh PL fixtures for a matchweek & update DB
+// @access  Private
+router.post('/pl-fixtures-db/refresh/:matchweekNumber', auth, async (req, res) => {
+  try {
+    const mwNum = Number(req.params.matchweekNumber);
+    const fixtures = await fetchPLMatchweekFixtures(mwNum);
+    const record = await PLCache.findOneAndUpdate(
+      { dataType: 'fixtures', matchweekNumber: mwNum },
+      { dataType: 'fixtures', matchweekNumber: mwNum, data: fixtures, lastRefreshedAt: new Date() },
+      { upsert: true, new: true }
+    );
+    res.json({ message: `Matchweek #${mwNum} PL fixtures updated in DB successfully!`, record });
+  } catch (error) {
+    res.status(500).json({ message: 'Error refreshing PL fixtures API.', error: error.message });
+  }
+});
 
 // Middleware to verify user is group admin of the matchweek
 const verifyMwGroupAdmin = async (req, res, next) => {
@@ -154,6 +288,52 @@ router.post('/matchweek/:id/pair-battles', [auth, verifyMwGroupAdmin], async (re
   }
 });
 
+async function generateBattlePairingsInternal(matchweek, group) {
+  const standings = await GroupStanding.find({ groupId: group._id })
+    .populate('userId', 'username email role')
+    .sort({ totalPoints: -1 });
+
+  const activeStandings = standings.filter(s => s.userId && s.userId._id.toString() !== AVERAGE_PLAYER_ID);
+  if (activeStandings.length < 2) return;
+
+  await Battle.deleteMany({ groupId: group._id, matchweekId: matchweek._id });
+
+  const pairedStandings = [...activeStandings];
+  if (pairedStandings.length % 2 !== 0) {
+    let averagePlayer = await User.findById(AVERAGE_PLAYER_ID);
+    if (!averagePlayer) {
+      averagePlayer = new User({
+        _id: AVERAGE_PLAYER_ID,
+        username: 'Average Player',
+        email: 'average.player@predg.com',
+        password: 'dummy_hash_not_usable',
+        role: 'player'
+      });
+      await averagePlayer.save();
+    }
+    pairedStandings.push({
+      groupId: group._id,
+      userId: averagePlayer,
+      totalPoints: 0,
+      battlePoints: 0,
+      rank: 999
+    });
+  }
+
+  const n = pairedStandings.length;
+  for (let i = 0; i < Math.floor(n / 2); i++) {
+    const p1 = pairedStandings[i].userId;
+    const p2 = pairedStandings[n - 1 - i].userId;
+    const battle = new Battle({
+      groupId: group._id,
+      matchweekId: matchweek._id,
+      player1Id: p1._id,
+      player2Id: p2._id
+    });
+    await battle.save();
+  }
+}
+
 // @route   POST api/admin/matchweek/:id/calculate
 // @desc    Apply Autofills, calculate scores, battle outcomes, and update group standings
 // @access  Private
@@ -162,10 +342,10 @@ router.post('/matchweek/:id/calculate', [auth, verifyMwGroupAdmin], async (req, 
   const group = req.group;
 
   try {
-    // 1. Verify that results have been entered for all matches
-    const incompleteMatch = matchweek.matches.find(m => m.actualResults.result === null);
-    if (incompleteMatch) {
-      return res.status(400).json({ message: 'Cannot calculate points. Some matches do not have actual results entered yet.' });
+    // Auto-generate battle pairings if not present
+    let existingBattles = await Battle.find({ groupId: group._id, matchweekId: matchweek._id });
+    if (existingBattles.length === 0) {
+      await generateBattlePairingsInternal(matchweek, group);
     }
 
     // 2. Fetch all real players in the group

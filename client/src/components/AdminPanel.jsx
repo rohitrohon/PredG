@@ -6,6 +6,44 @@ import {
   PlusCircle, RefreshCw, Eye, CheckCircle2, ChevronRight, Award
 } from 'lucide-react';
 
+function getShortTeamName(teamName) {
+  if (!teamName || typeof teamName !== 'string') return '';
+  const words = teamName.trim().split(/\s+/);
+  if (words.length >= 2) {
+    const w1 = words[0];
+    const w2 = words[1];
+    if (w1.length >= 1 && w2.length >= 2) {
+      return (w1[0] + w2.slice(0, 2)).toUpperCase();
+    }
+  }
+  return teamName.trim().slice(0, 3).toUpperCase();
+}
+
+function renderChoiceAbbreviation(choice, homeTeam, awayTeam) {
+  if (!choice) return '-';
+  if (choice === 'Home') return getShortTeamName(homeTeam);
+  if (choice === 'Away') return getShortTeamName(awayTeam);
+  if (choice === 'Draw') return 'DRAW';
+  if (choice === 'Equal') return 'EQUAL';
+  if (choice === 'No goal') return 'NO GOAL';
+  if (homeTeam && choice.toLowerCase() === homeTeam.toLowerCase()) return getShortTeamName(homeTeam);
+  if (awayTeam && choice.toLowerCase() === awayTeam.toLowerCase()) return getShortTeamName(awayTeam);
+  return getShortTeamName(choice);
+}
+
+function getMatchWinnerChoice(actualResults, homeTeam, awayTeam) {
+  if (!actualResults) return null;
+  if (actualResults.result === 'Home' || actualResults.result === 'Away' || actualResults.result === 'Draw') {
+    return actualResults.result;
+  }
+  const h = Number(actualResults.homeScore);
+  const a = Number(actualResults.awayScore);
+  if (isNaN(h) || isNaN(a)) return null;
+  if (h > a) return 'Home';
+  if (a > h) return 'Away';
+  return 'Draw';
+}
+
 function AdminPanel({ groupId }) {
   const [matchweeks, setMatchweeks] = useState([]);
   const [groupDetails, setGroupDetails] = useState({ members: [], pendingJoins: [], pendingLeaves: [] });
@@ -23,9 +61,82 @@ function AdminPanel({ groupId }) {
   const [newMwNum, setNewMwNum] = useState('');
   const [newMwDeadline, setNewMwDeadline] = useState('');
   const [isManualDeadline, setIsManualDeadline] = useState(false);
+  const [newMwBattleIndex, setNewMwBattleIndex] = useState(0);
   const [newMwMatches, setNewMwMatches] = useState(
     Array.from({ length: 5 }, () => ({ homeTeam: '', awayTeam: '', kickoffTime: '' }))
   );
+
+  // Premier League official fixtures fetcher state
+  const [fetchedPlFixtures, setFetchedPlFixtures] = useState([]);
+  const [selectedPlIndices, setSelectedPlIndices] = useState([]);
+  const [fetchingPl, setFetchingPl] = useState(false);
+
+  const handleFetchPLFixtures = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!newMwNum) {
+      setError('Please enter a matchweek number first.');
+      return;
+    }
+    try {
+      setFetchingPl(true);
+      setError('');
+      setSuccess('');
+      const data = await api.fetchPLFixtures(newMwNum);
+      const fixturesList = data.fixtures || [];
+      setFetchedPlFixtures(fixturesList);
+      setSelectedPlIndices([]);
+      if (fixturesList.length === 0) {
+        setError(`No official fixtures found for Matchweek #${newMwNum}.`);
+      } else {
+        setSuccess(`Successfully fetched ${fixturesList.length} PL fixtures for Matchweek #${newMwNum}! Select 5 matches below.`);
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to fetch PL fixtures.');
+    } finally {
+      setFetchingPl(false);
+    }
+  };
+
+  const handleTogglePlMatch = (index) => {
+    let updated;
+    if (selectedPlIndices.includes(index)) {
+      updated = selectedPlIndices.filter(i => i !== index);
+    } else {
+      if (selectedPlIndices.length >= 5) {
+        setError('You can select a maximum of 5 matches for the matchweek.');
+        return;
+      }
+      updated = [...selectedPlIndices, index];
+    }
+    setSelectedPlIndices(updated);
+
+    const selectedFixtures = updated.map(i => fetchedPlFixtures[i]);
+    const newMatches = Array.from({ length: 5 }, (_, idx) => {
+      if (idx < selectedFixtures.length) {
+        return {
+          homeTeam: selectedFixtures[idx].homeTeam,
+          awayTeam: selectedFixtures[idx].awayTeam,
+          kickoffTime: selectedFixtures[idx].kickoffTime
+        };
+      }
+      return { homeTeam: '', awayTeam: '', kickoffTime: '' };
+    });
+
+    setNewMwMatches(newMatches);
+
+    const validKickoffs = selectedFixtures.map(f => f.kickoffTime).filter(Boolean);
+    if (validKickoffs.length > 0) {
+      validKickoffs.sort();
+      setNewMwDeadline(validKickoffs[0]);
+    }
+  };
+
+  // Edit matchweek modal state
+  const [editingMw, setEditingMw] = useState(null);
+  const [editMwForm, setEditMwForm] = useState(null);
+
+  // Quick Glance modal state
+  const [viewDetailsMw, setViewDetailsMw] = useState(null);
 
   // Results inputs state
   const [resultsInput, setResultsInput] = useState({});
@@ -42,9 +153,72 @@ function AdminPanel({ groupId }) {
   const [selectedBattle, setSelectedBattle] = useState(null);
   const [editBattleData, setEditBattleData] = useState(null);
 
+  // PL Database Cache State
+  const [plStandingsRecord, setPlStandingsRecord] = useState(null);
+  const [refreshingPlStandings, setRefreshingPlStandings] = useState(false);
+  const [plFixturesMw, setPlFixturesMw] = useState(1);
+  const [plFixturesRecord, setPlFixturesRecord] = useState(null);
+  const [refreshingPlFixtures, setRefreshingPlFixtures] = useState(false);
+
   useEffect(() => {
     fetchData();
   }, [groupId]);
+
+  useEffect(() => {
+    if (adminTab === 'pl-standings') {
+      fetchPLStandingsDB();
+    } else if (adminTab === 'pl-fixtures') {
+      fetchPLFixturesDB(plFixturesMw);
+    }
+  }, [adminTab, plFixturesMw]);
+
+  const fetchPLStandingsDB = async () => {
+    try {
+      const record = await api.getPLStandingsDB();
+      setPlStandingsRecord(record);
+    } catch (err) {
+      console.error('Error loading DB PL standings:', err);
+    }
+  };
+
+  const handleRefreshPLStandingsDB = async () => {
+    try {
+      setRefreshingPlStandings(true);
+      setError('');
+      setSuccess('');
+      const res = await api.refreshPLStandingsDB();
+      setPlStandingsRecord(res.record);
+      setSuccess('Premier League standings updated in DB successfully!');
+    } catch (err) {
+      setError(err.message || 'Failed to refresh PL standings.');
+    } finally {
+      setRefreshingPlStandings(false);
+    }
+  };
+
+  const fetchPLFixturesDB = async (mwNum) => {
+    try {
+      const record = await api.getPLFixturesDB(mwNum);
+      setPlFixturesRecord(record);
+    } catch (err) {
+      console.error('Error loading DB PL fixtures:', err);
+    }
+  };
+
+  const handleRefreshPLFixturesDB = async (mwNum) => {
+    try {
+      setRefreshingPlFixtures(true);
+      setError('');
+      setSuccess('');
+      const res = await api.refreshPLFixturesDB(mwNum || plFixturesMw);
+      setPlFixturesRecord(res.record);
+      setSuccess(`Matchweek #${mwNum || plFixturesMw} PL fixtures updated in DB successfully!`);
+    } catch (err) {
+      setError(err.message || 'Failed to refresh PL fixtures.');
+    } finally {
+      setRefreshingPlFixtures(false);
+    }
+  };
 
   useEffect(() => {
     if (overrideMwId) {
@@ -67,7 +241,7 @@ function AdminPanel({ groupId }) {
         setOverrideMwId(mws[0]._id);
       }
     } catch (err) {
-      setError('Failed to fetch admin console data.');
+      setError(err.message || 'Failed to fetch admin console data.');
     } finally {
       setLoading(false);
     }
@@ -129,13 +303,15 @@ function AdminPanel({ groupId }) {
         groupId,
         matchweekNumber: parseInt(newMwNum),
         deadline: newMwDeadline,
-        matches: newMwMatches
+        matches: newMwMatches,
+        battleMatchIndex: newMwBattleIndex
       });
 
       setSuccess(`Matchweek #${newMwNum} fixtures created successfully!`);
       setNewMwNum('');
       setNewMwDeadline('');
       setIsManualDeadline(false);
+      setNewMwBattleIndex(0);
       setNewMwMatches(
         Array.from({ length: 5 }, () => ({ homeTeam: '', awayTeam: '', kickoffTime: '' }))
       );
@@ -143,6 +319,52 @@ function AdminPanel({ groupId }) {
       fetchData();
     } catch (err) {
       setError(err.message || 'Failed to create matchweek.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStartEditMw = (mw) => {
+    setEditingMw(mw);
+    let bIndex = 0;
+    if (mw.battleMatchId) {
+      const idx = mw.matches.findIndex(m => m._id.toString() === mw.battleMatchId.toString());
+      if (idx !== -1) bIndex = idx;
+    }
+    setEditMwForm({
+      matchweekNumber: mw.matchweekNumber,
+      deadline: mw.deadline ? new Date(mw.deadline).toISOString().slice(0, 16) : '',
+      battleMatchIndex: bIndex,
+      matches: mw.matches.map(m => ({
+        _id: m._id,
+        homeTeam: m.homeTeam,
+        awayTeam: m.awayTeam,
+        kickoffTime: m.kickoffTime ? new Date(m.kickoffTime).toISOString().slice(0, 16) : ''
+      }))
+    });
+  };
+
+  const handleSaveMwEdit = async () => {
+    if (!editingMw || !editMwForm) return;
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+
+      await api.updateMatchweek(editingMw._id, {
+        groupId,
+        matchweekNumber: parseInt(editMwForm.matchweekNumber),
+        deadline: editMwForm.deadline,
+        matches: editMwForm.matches,
+        battleMatchIndex: editMwForm.battleMatchIndex
+      });
+
+      setSuccess(`Matchweek #${editMwForm.matchweekNumber} updated successfully!`);
+      setEditingMw(null);
+      setEditMwForm(null);
+      fetchData();
+    } catch (err) {
+      setError(err.message || 'Failed to update matchweek.');
     } finally {
       setLoading(false);
     }
@@ -283,58 +505,55 @@ function AdminPanel({ groupId }) {
   };
 
   const handleUpdateResults = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      setSuccess('');
-      await api.updateResults(selectedMw._id, {
-        matchesResults: resultsInput
-      });
-      setSuccess('Match results draft saved successfully.');
-      fetchData();
-    } catch (err) {
-      setError(err.message || 'Failed to save results.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePairBattles = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      setSuccess('');
-      const data = await api.pairBattles(selectedMw._id);
-      setSuccess(data.message || 'Battles paired successfully!');
-      fetchData();
-    } catch (err) {
-      setError(err.message || 'Failed to pair battles.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCalculateScores = async () => {
-    const confirmCalc = window.confirm(
-      'WARNING: This will finalize calculations, distribute points/battle points, update standings, and mark this matchweek as COMPLETED. Proceed?'
-    );
-    if (!confirmCalc) return;
-
+    if (!selectedMw) return;
     try {
       setLoading(true);
       setError('');
       setSuccess('');
       
+      // 1. Save match results
       await api.updateResults(selectedMw._id, {
         matchesResults: resultsInput
       });
 
-      const data = await api.calculateScores(selectedMw._id);
-      setSuccess(data.message || 'Calculated scores and battle outcomes successfully!');
+      // 2. Automatically calculate scores for updated matches so far
+      await api.calculateScores(selectedMw._id);
+
+      setSuccess('Match results updated! Points calculated and updated in Home & Standings.');
+      fetchData();
+    } catch (err) {
+      setError(err.message || 'Failed to update match results.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCompleteMatchweek = async () => {
+    if (!selectedMw) return;
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      
+      // 1. Save match results
+      await api.updateResults(selectedMw._id, {
+        matchesResults: resultsInput
+      });
+
+      // 2. Calculate scores & battles
+      await api.calculateScores(selectedMw._id);
+
+      // 3. Update status to completed
+      await api.updateMatchweek(selectedMw._id, {
+        groupId,
+        status: 'completed'
+      });
+
+      setSuccess(`Matchweek #${selectedMw.matchweekNumber} Completed! Results are now available in the Results section.`);
       setSelectedMw(null);
       fetchData();
     } catch (err) {
-      setError(err.message || 'Failed to calculate scores.');
+      setError(err.message || 'Failed to complete matchweek.');
     } finally {
       setLoading(false);
     }
@@ -488,6 +707,22 @@ function AdminPanel({ groupId }) {
           >
             <Edit3 size={15} /> Edit & Overrides
           </button>
+
+          <button 
+            className={`btn ${adminTab === 'pl-standings' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ padding: '0.45rem 0.9rem', fontSize: '0.8rem' }}
+            onClick={() => { setAdminTab('pl-standings'); setSelectedMw(null); }}
+          >
+            🏆 PL Points Table
+          </button>
+
+          <button 
+            className={`btn ${adminTab === 'pl-fixtures' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ padding: '0.45rem 0.9rem', fontSize: '0.8rem' }}
+            onClick={() => { setAdminTab('pl-fixtures'); setSelectedMw(null); }}
+          >
+            🗓️ PL Schedule
+          </button>
         </div>
       </div>
 
@@ -513,6 +748,12 @@ function AdminPanel({ groupId }) {
                   className="form-input" 
                   value={newMwNum} 
                   onChange={(e) => setNewMwNum(e.target.value)} 
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleFetchPLFixtures(e);
+                    }
+                  }}
                   placeholder="e.g. 6"
                   required 
                 />
@@ -538,8 +779,84 @@ function AdminPanel({ groupId }) {
               </div>
             </div>
 
+            {/* OFFICIAL PL FIXTURES SELECTOR GRID */}
+            <div className="card" style={{ background: 'rgba(56, 189, 248, 0.05)', borderColor: 'rgba(56, 189, 248, 0.2)', marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>
+                  <h4 style={{ margin: 0, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <RefreshCw size={16} /> Official Premier League Schedule Fetcher (IST)
+                  </h4>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    Enter matchweek number above and click fetch to load all 10 scheduled games with kickoff times corrected to IST (+05:30).
+                  </span>
+                </div>
+
+                <button 
+                  type="button" 
+                  className="btn btn-accent" 
+                  onClick={(e) => handleFetchPLFixtures(e)} 
+                  disabled={fetchingPl || !newMwNum}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1rem' }}
+                >
+                  <RefreshCw size={15} className={fetchingPl ? 'spin' : ''} /> {fetchingPl ? 'Fetching PL Games...' : 'Fetch PL Schedule'}
+                </button>
+              </div>
+
+              {fetchedPlFixtures.length > 0 && (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+                      Select 5 Games: <strong style={{ color: selectedPlIndices.length === 5 ? 'var(--success)' : 'var(--warning)' }}>{selectedPlIndices.length} / 5 Selected</strong>
+                    </span>
+                    {selectedPlIndices.length === 5 && (
+                      <span className="badge badge-success" style={{ fontSize: '0.75rem' }}>✓ 5 Matches Selected! Fixtures populated below.</span>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.75rem' }}>
+                    {fetchedPlFixtures.map((f, idx) => {
+                      const isSelected = selectedPlIndices.includes(idx);
+
+                      return (
+                        <div 
+                          key={idx}
+                          onClick={() => handleTogglePlMatch(idx)}
+                          style={{
+                            padding: '0.75rem',
+                            borderRadius: '8px',
+                            border: isSelected ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+                            background: isSelected ? 'rgba(56, 189, 248, 0.15)' : 'rgba(0,0,0,0.2)',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.75rem'
+                          }}
+                        >
+                          <input 
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {}}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                          />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '0.2rem' }}>
+                              {f.homeTeam} <span style={{ color: 'var(--text-muted)' }}>vs</span> {f.awayTeam}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <Calendar size={12} /> {f.kickoffDisplayIST || f.kickoffTime}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <h4 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
-              Matchweek Games (Exactly 5 Fixtures)
+              Matchweek Games (Exactly 5 Selected Fixtures)
             </h4>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -547,6 +864,15 @@ function AdminPanel({ groupId }) {
                 <div key={idx} className="card" style={{ background: 'rgba(0,0,0,0.15)', margin: 0, padding: '1rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                     <span style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '0.9rem' }}>Fixture #{idx + 1}</span>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', cursor: 'pointer', color: newMwBattleIndex === idx ? 'var(--accent)' : 'var(--text-muted)', fontWeight: 600 }}>
+                      <input 
+                        type="radio" 
+                        name="newMwBattleRadio" 
+                        checked={newMwBattleIndex === idx} 
+                        onChange={() => setNewMwBattleIndex(idx)} 
+                      />
+                      ⚔️ Designate as Battle Match
+                    </label>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
                     <div className="form-group">
@@ -609,10 +935,18 @@ function AdminPanel({ groupId }) {
               </thead>
               <tbody>
                 {matchweeks.map((mw) => (
-                  <tr key={mw._id}>
+                  <tr 
+                    key={mw._id}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => setViewDetailsMw(mw)}
+                    title="Click to view matchweek details quick glance"
+                  >
                     <td style={{ textAlign: 'center', fontWeight: 700 }}>#{mw.matchweekNumber}</td>
                     <td>{new Date(mw.deadline).toLocaleString()}</td>
-                    <td>{mw.matches?.length || 0} Games</td>
+                    <td>
+                      {mw.matches?.length || 0} Games
+                      {mw.battleMatchId && <span style={{ marginLeft: '0.4rem', color: 'var(--accent)' }} title="Battle Match Designated">⚔️</span>}
+                    </td>
                     <td>
                       <span className={`badge ${
                         mw.status === 'active' ? 'badge-success' : mw.status === 'completed' ? 'badge-info' : 'badge-warning'
@@ -620,7 +954,7 @@ function AdminPanel({ groupId }) {
                         {mw.status}
                       </span>
                     </td>
-                    <td>
+                    <td onClick={(e) => e.stopPropagation()}>
                       <div style={{ display: 'flex', justifyContent: 'center', gap: '0.4rem' }}>
                         {mw.status !== 'active' && mw.status !== 'completed' && (
                           <button className="btn btn-secondary" style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem' }} onClick={() => handleSetActive(mw._id)}>
@@ -628,9 +962,12 @@ function AdminPanel({ groupId }) {
                           </button>
                         )}
                         <button className="btn btn-primary" style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem' }} onClick={() => handleSelectMwForScoring(mw)}>
-                          Input Results / Grade
+                          Input Results
                         </button>
-                        <button className="btn btn-secondary" style={{ padding: '0.35rem', color: 'var(--danger)' }} onClick={() => handleDelete(mw._id)}>
+                        <button className="btn btn-secondary" style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem' }} onClick={() => handleStartEditMw(mw)} title="Edit Matchweek">
+                          <Edit3 size={13} style={{ marginRight: '0.2rem' }} /> Edit
+                        </button>
+                        <button className="btn btn-secondary" style={{ padding: '0.35rem', color: 'var(--danger)' }} onClick={() => handleDelete(mw._id)} title="Delete Matchweek">
                           <Trash size={14} />
                         </button>
                       </div>
@@ -1149,24 +1486,46 @@ function AdminPanel({ groupId }) {
       )}
 
       {/* ================= RESULTS & CALCULATIONS MODAL / INPUT PANEL ================= */}
-      {selectedMw && (
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <h3 style={{ margin: 0 }}>Input Results: Matchweek #{selectedMw.matchweekNumber}</h3>
-            <button className="btn btn-secondary" onClick={() => setSelectedMw(null)}>Back to list</button>
-          </div>
+      {selectedMw && (() => {
+        const allMatchesScored = selectedMw.matches && selectedMw.matches.length > 0 && selectedMw.matches.every(m => {
+          const input = resultsInput[m._id];
+          return input && input.homeScore !== null && input.homeScore !== undefined && input.homeScore !== '';
+        });
 
-          <div className="card" style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', background: 'rgba(245, 158, 11, 0.05)', borderColor: 'rgba(245, 158, 11, 0.2)' }}>
-            <button className="btn btn-accent" onClick={handlePairBattles}>
-              <Sword size={16} /> 1. Generate & Save Battle Pairings
-            </button>
-            <button className="btn btn-primary" onClick={handleCalculateScores}>
-              <Play size={16} /> 2. Finalize & Calculate Weekly Points
-            </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--warning)', fontSize: '0.85rem' }}>
-              <AlertTriangle size={16} /> Save match results draft below before calculating final scores!
+        return (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ margin: 0 }}>Input Results: Matchweek #{selectedMw.matchweekNumber}</h3>
+              <button className="btn btn-secondary" onClick={() => setSelectedMw(null)}>Back to list</button>
             </div>
-          </div>
+
+            <div className="card" style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', background: 'rgba(15, 23, 42, 0.6)', borderColor: 'var(--border-color)' }}>
+              <button className="btn btn-primary" onClick={handleUpdateResults} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Save size={16} /> Update Results
+              </button>
+              
+              <button 
+                className={`btn ${allMatchesScored ? 'btn-accent' : 'btn-secondary'}`} 
+                onClick={handleCompleteMatchweek} 
+                disabled={!allMatchesScored || loading}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', opacity: !allMatchesScored ? 0.6 : 1 }}
+                title={allMatchesScored ? 'Mark matchweek as completed and unlock in Results section' : 'Enter results for all 5 matches to enable completion'}
+              >
+                <CheckCircle2 size={16} /> Matchweek Completed
+              </button>
+
+              <div style={{ fontSize: '0.85rem', color: allMatchesScored ? 'var(--success)' : 'var(--warning)', display: 'flex', alignItems: 'center', gap: '0.4rem', marginLeft: 'auto' }}>
+                {allMatchesScored ? (
+                  <>
+                    <CheckCircle2 size={15} /> All matches scored! Ready to complete matchweek.
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle size={15} /> Click "Update Results" for partial match points (updates Home & Standings). Fill all matches to enable "Matchweek Completed".
+                  </>
+                )}
+              </div>
+            </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '2rem' }}>
             {selectedMw.matches.map((match, idx) => {
@@ -1177,25 +1536,10 @@ function AdminPanel({ groupId }) {
               return (
                 <div key={mId} className="card" style={{ borderLeft: isBattleMatch ? '5px solid var(--accent)' : '1px solid var(--border-color)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <h4 style={{ margin: 0 }}>{match.homeTeam} vs {match.awayTeam}</h4>
-                    
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer' }}>
-                      <input 
-                        type="checkbox"
-                        checked={isBattleMatch}
-                        onChange={async (e) => {
-                          const updatedBattleId = e.target.checked ? mId : null;
-                          try {
-                            const res = await api.updateMatchweek(selectedMw._id, { groupId, battleMatchId: updatedBattleId });
-                            setSelectedMw(res);
-                            setSuccess('Battle Match designated.');
-                          } catch (err) {
-                            setError('Failed to update Battle Match.');
-                          }
-                        }}
-                      />
-                      Designate as Battle Match
-                    </label>
+                    <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {match.homeTeam} vs {match.awayTeam}
+                      {isBattleMatch && <span style={{ color: 'var(--accent)', fontSize: '0.85rem' }} title="Battle Match of the Week">⚔️ Battle Match</span>}
+                    </h4>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
@@ -1314,9 +1658,388 @@ function AdminPanel({ groupId }) {
             })}
           </div>
 
-          <button className="btn btn-accent" onClick={handleUpdateResults} style={{ width: '100%' }}>
-            Save Match Results Draft
-          </button>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+              <button className="btn btn-primary" onClick={handleUpdateResults} disabled={loading} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                <Save size={16} /> Update Results
+              </button>
+              
+              <button 
+                className={`btn ${allMatchesScored ? 'btn-accent' : 'btn-secondary'}`} 
+                onClick={handleCompleteMatchweek} 
+                disabled={!allMatchesScored || loading}
+                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', opacity: !allMatchesScored ? 0.6 : 1 }}
+              >
+                <CheckCircle2 size={16} /> Matchweek Completed
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ================= EDIT MATCHWEEK MODAL POPUP ================= */}
+      {editingMw && editMwForm && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }}>
+          <div className="card" style={{
+            maxWidth: '750px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            border: '2px solid var(--accent)',
+            background: '#0f172a',
+            padding: '1.5rem'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+              <h3 style={{ margin: 0, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Edit3 size={20} /> Edit Matchweek #{editingMw.matchweekNumber} Fixtures
+              </h3>
+              <button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem' }} onClick={() => setEditingMw(null)}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
+              <div className="form-group">
+                <label className="form-label">Matchweek Number</label>
+                <input 
+                  type="number"
+                  className="form-input"
+                  value={editMwForm.matchweekNumber}
+                  onChange={(e) => setEditMwForm({ ...editMwForm, matchweekNumber: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Submission Deadline</label>
+                <input 
+                  type="datetime-local"
+                  className="form-input"
+                  value={editMwForm.deadline}
+                  onChange={(e) => setEditMwForm({ ...editMwForm, deadline: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <h4 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
+              Fixtures & Designated Battle Match
+            </h4>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+              {editMwForm.matches.map((match, idx) => (
+                <div key={idx} className="card" style={{ background: 'rgba(0,0,0,0.25)', margin: 0, padding: '1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                    <span style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '0.9rem' }}>Fixture #{idx + 1}</span>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', cursor: 'pointer', color: editMwForm.battleMatchIndex === idx ? 'var(--accent)' : 'var(--text-muted)', fontWeight: 600 }}>
+                      <input 
+                        type="radio" 
+                        name="editBattleMatchRadio" 
+                        checked={editMwForm.battleMatchIndex === idx} 
+                        onChange={() => setEditMwForm({ ...editMwForm, battleMatchIndex: idx })} 
+                      />
+                      ⚔️ Designate as Battle Match
+                    </label>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem' }}>
+                    <div className="form-group">
+                      <label className="form-label">Home Team</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        value={match.homeTeam} 
+                        onChange={(e) => {
+                          const updated = [...editMwForm.matches];
+                          updated[idx].homeTeam = e.target.value;
+                          setEditMwForm({ ...editMwForm, matches: updated });
+                        }} 
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Away Team</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        value={match.awayTeam} 
+                        onChange={(e) => {
+                          const updated = [...editMwForm.matches];
+                          updated[idx].awayTeam = e.target.value;
+                          setEditMwForm({ ...editMwForm, matches: updated });
+                        }} 
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Kickoff Time</label>
+                      <input 
+                        type="datetime-local" 
+                        className="form-input" 
+                        value={match.kickoffTime} 
+                        onChange={(e) => {
+                          const updated = [...editMwForm.matches];
+                          updated[idx].kickoffTime = e.target.value;
+                          setEditMwForm({ ...editMwForm, matches: updated });
+                        }} 
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button className="btn btn-accent" style={{ flex: 1 }} onClick={handleSaveMwEdit} disabled={loading}>
+                Save Fixture Updates
+              </button>
+              <button className="btn btn-secondary" onClick={() => setEditingMw(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= TAB 5: OFFICIAL PL STANDINGS DB CACHE ================= */}
+      {adminTab === 'pl-standings' && (
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <h3 style={{ margin: 0, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                🏆 Official Premier League Points Table (Database Cache)
+              </h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '0.25rem 0 0 0' }}>
+                Stored in MongoDB for maximum robustness. Click refresh to perform API call and update database table.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+              {plStandingsRecord?.lastRefreshedAt && (
+                <span className="badge badge-info" style={{ fontSize: '0.75rem' }}>
+                  Last Synced DB: {new Date(plStandingsRecord.lastRefreshedAt).toLocaleString()}
+                </span>
+              )}
+              <button 
+                className="btn btn-accent" 
+                onClick={handleRefreshPLStandingsDB} 
+                disabled={refreshingPlStandings}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+              >
+                <RefreshCw size={15} className={refreshingPlStandings ? 'spin' : ''} />
+                {refreshingPlStandings ? 'Syncing API to DB...' : 'Refresh & Sync Standings to DB'}
+              </button>
+            </div>
+          </div>
+
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th style={{ width: '60px', textAlign: 'center' }}>Rank</th>
+                  <th>Premier League Club</th>
+                  <th style={{ textAlign: 'center' }}>Points</th>
+                  <th style={{ textAlign: 'center' }}>Goal Diff (GD)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {plStandingsRecord?.data && plStandingsRecord.data.length > 0 ? (
+                  plStandingsRecord.data.map((s, idx) => (
+                    <tr key={idx} style={{ background: s.rank <= 4 ? 'rgba(16, 185, 129, 0.05)' : 'transparent' }}>
+                      <td style={{ textAlign: 'center', fontWeight: 800 }}>
+                        <span className={`badge ${s.rank <= 4 ? 'badge-success' : (s.rank >= 18 ? 'badge-danger' : 'badge-secondary')}`}>
+                          #{s.rank}
+                        </span>
+                      </td>
+                      <td style={{ fontWeight: 700, fontSize: '0.95rem' }}>{s.teamName}</td>
+                      <td style={{ textAlign: 'center', fontWeight: 800, color: 'var(--accent)', fontSize: '1rem' }}>{s.points} pts</td>
+                      <td style={{ textAlign: 'center', fontWeight: 600 }}>{s.goalDifference > 0 ? `+${s.goalDifference}` : s.goalDifference}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="4" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                      No Premier League standings cached in database yet. Click "Refresh & Sync Standings to DB" above!
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ================= TAB 6: OFFICIAL PL FIXTURES DB CACHE ================= */}
+      {adminTab === 'pl-fixtures' && (
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <h3 style={{ margin: 0, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                🗓️ Premier League Matchweek Schedule (Database Cache)
+              </h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '0.25rem 0 0 0' }}>
+                Stored in MongoDB with IST kickoff timestamps. Select matchweek and click sync to update database table.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Matchweek:</label>
+                <select 
+                  className="form-input" 
+                  style={{ width: '80px', padding: '0.4rem' }}
+                  value={plFixturesMw}
+                  onChange={(e) => setPlFixturesMw(Number(e.target.value))}
+                >
+                  {Array.from({ length: 38 }, (_, i) => i + 1).map(n => (
+                    <option key={n} value={n}>#{n}</option>
+                  ))}
+                </select>
+              </div>
+
+              {plFixturesRecord?.lastRefreshedAt && (
+                <span className="badge badge-info" style={{ fontSize: '0.75rem' }}>
+                  Last Synced DB: {new Date(plFixturesRecord.lastRefreshedAt).toLocaleString()}
+                </span>
+              )}
+
+              <button 
+                className="btn btn-accent" 
+                onClick={() => handleRefreshPLFixturesDB(plFixturesMw)} 
+                disabled={refreshingPlFixtures}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+              >
+                <RefreshCw size={15} className={refreshingPlFixtures ? 'spin' : ''} />
+                {refreshingPlFixtures ? 'Syncing API to DB...' : `Sync Matchweek #${plFixturesMw} Fixtures to DB`}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+            {plFixturesRecord?.data && plFixturesRecord.data.length > 0 ? (
+              plFixturesRecord.data.map((f, idx) => (
+                <div key={idx} className="card" style={{ background: 'rgba(0,0,0,0.2)', margin: 0, padding: '1rem', borderLeft: '4px solid var(--primary)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Game #{idx + 1}</span>
+                    <span className="badge badge-secondary" style={{ fontSize: '0.7rem' }}>IST +05:30</span>
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '0.4rem' }}>
+                    {f.homeTeam} <span style={{ color: 'var(--accent)' }}>vs</span> {f.awayTeam}
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <Calendar size={13} /> {f.kickoffDisplayIST || f.kickoffTime}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                No fixtures cached in database for Matchweek #{plFixturesMw} yet. Click "Sync Matchweek #{plFixturesMw} Fixtures to DB" above!
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ================= QUICK GLANCE DETAILS MODAL POPUP ================= */}
+      {viewDetailsMw && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }}>
+          <div className="card" style={{
+            maxWidth: '900px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            border: '2px solid var(--primary)',
+            background: '#0f172a',
+            padding: '1.5rem'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+              <h3 style={{ margin: 0, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Eye size={20} /> Matchweek #{viewDetailsMw.matchweekNumber} Quick Glance
+              </h3>
+              <button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem' }} onClick={() => setViewDetailsMw(null)}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.25rem', flexWrap: 'wrap', fontSize: '0.85rem' }}>
+              <div><strong>Deadline:</strong> {new Date(viewDetailsMw.deadline).toLocaleString()}</div>
+              <div><strong>Status:</strong> <span className={`badge ${viewDetailsMw.status === 'active' ? 'badge-success' : viewDetailsMw.status === 'completed' ? 'badge-info' : 'badge-warning'}`}>{viewDetailsMw.status}</span></div>
+            </div>
+
+            <div className="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{ width: '60px', textAlign: 'center' }}>No.</th>
+                    <th>Fixture</th>
+                    <th style={{ textAlign: 'center' }}>Kickoff</th>
+                    <th style={{ textAlign: 'center' }}>Score / Outcome</th>
+                    <th>1st Goal</th>
+                    <th>Possession</th>
+                    <th style={{ textAlign: 'center' }}>Y. Cards</th>
+                    <th style={{ textAlign: 'center' }}>Offsides</th>
+                    <th style={{ textAlign: 'center' }}>Corners</th>
+                    <th style={{ textAlign: 'center' }}>Shots</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {viewDetailsMw.matches?.map((m, idx) => {
+                    const hasScore = m.actualResults && m.actualResults.homeScore !== null;
+                    const isBattle = viewDetailsMw.battleMatchId?.toString() === m._id?.toString();
+
+                    return (
+                      <tr key={m._id || idx}>
+                        <td style={{ textAlign: 'center', fontWeight: 700 }}>#{idx + 1}</td>
+                        <td style={{ fontWeight: 700 }}>
+                          {m.homeTeam} vs {m.awayTeam}
+                          {isBattle && <span style={{ marginLeft: '0.4rem', color: 'var(--accent)' }} title="Battle Match">⚔️</span>}
+                        </td>
+                        <td style={{ textAlign: 'center', fontSize: '0.8rem' }}>
+                          {new Date(m.kickoffTime).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          {hasScore ? (
+                            <span className="badge badge-success" style={{ fontWeight: 800 }}>
+                              {m.actualResults.homeScore} - {m.actualResults.awayScore} ({renderChoiceAbbreviation(getMatchWinnerChoice(m.actualResults, m.homeTeam, m.awayTeam), m.homeTeam, m.awayTeam)})
+                            </span>
+                          ) : (
+                            <span className="badge badge-warning" style={{ fontSize: '0.7rem' }}>Not Entered</span>
+                          )}
+                        </td>
+                        <td>{hasScore ? renderChoiceAbbreviation(m.actualResults.firstGoal, m.homeTeam, m.awayTeam) : '-'}</td>
+                        <td>{hasScore ? renderChoiceAbbreviation(m.actualResults.possession, m.homeTeam, m.awayTeam) : '-'}</td>
+                        <td style={{ textAlign: 'center' }}>{hasScore && m.actualResults.yellowCards !== null ? m.actualResults.yellowCards : '-'}</td>
+                        <td style={{ textAlign: 'center' }}>{hasScore && m.actualResults.offsides !== null ? m.actualResults.offsides : '-'}</td>
+                        <td style={{ textAlign: 'center' }}>{hasScore && m.actualResults.corners !== null ? m.actualResults.corners : '-'}</td>
+                        <td style={{ textAlign: 'center' }}>{hasScore && m.actualResults.shots !== null ? m.actualResults.shots : '-'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <button className="btn btn-secondary" style={{ width: '100%', marginTop: '1.25rem' }} onClick={() => setViewDetailsMw(null)}>
+              Close Quick Glance
+            </button>
+          </div>
         </div>
       )}
     </div>

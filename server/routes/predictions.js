@@ -5,6 +5,19 @@ const Matchweek = require('../models/Matchweek');
 const GroupStanding = require('../models/GroupStanding');
 const Group = require('../models/Group');
 const { auth } = require('../middleware/auth');
+const { generateIntelligentDefaultPrediction } = require('../utils/autofillHelper');
+
+function getMatchweekDeadlines(matchweek) {
+  const d1 = matchweek.matches && matchweek.matches[0] && matchweek.matches[0].kickoffTime 
+    ? new Date(matchweek.matches[0].kickoffTime) 
+    : new Date(matchweek.deadline);
+
+  const d2 = matchweek.matches && matchweek.matches[3] && matchweek.matches[3].kickoffTime 
+    ? new Date(matchweek.matches[3].kickoffTime) 
+    : d1;
+
+  return { d1, d2 };
+}
 
 function isDeadlinePassed(deadline) {
   return new Date() > new Date(deadline);
@@ -32,6 +45,9 @@ router.get('/my/:matchweekId', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied. You are not a member of this group.' });
     }
 
+    const { d1, d2 } = getMatchweekDeadlines(matchweek);
+    const now = new Date();
+
     let prediction = await Prediction.findOne({
       groupId,
       userId: req.user.id,
@@ -39,31 +55,42 @@ router.get('/my/:matchweekId', auth, async (req, res) => {
     });
 
     if (!prediction) {
-      if (isDeadlinePassed(matchweek.deadline)) {
-        return res.status(400).json({ message: 'Submission deadline has passed. Cannot create new prediction.' });
+      if (now > d1) {
+        // Automatically generate intelligent default predictions for player who missed Deadline 1
+        const defaultData = await generateIntelligentDefaultPrediction(groupId, matchweek, req.user.id);
+        prediction = new Prediction(defaultData);
+        await prediction.save();
+      } else {
+        const predictionsTemplate = matchweek.matches.map((m) => ({
+          matchId: m._id,
+          result: 'Home',
+          homeScore: 0,
+          awayScore: 0,
+          safeBet: 'Home',
+          firstGoal: 'Home',
+          possession: 'Home',
+          wildPredictionCategory: 'None',
+          wildPredictionValue: 0
+        }));
+
+        prediction = new Prediction({
+          groupId,
+          userId: req.user.id,
+          matchweekId: req.params.matchweekId,
+          isSubmitted: false,
+          predictions: predictionsTemplate,
+          captainMatchId: matchweek.matches[0] ? matchweek.matches[0]._id : null
+        });
+
+        await prediction.save();
       }
-
-      const predictionsTemplate = matchweek.matches.map((m) => ({
-        matchId: m._id,
-        result: 'Home',
-        homeScore: 0,
-        awayScore: 0,
-        safeBet: 'Home',
-        firstGoal: 'Home',
-        possession: 'Home',
-        wildPredictionCategory: 'None',
-        wildPredictionValue: 0
-      }));
-
-      prediction = new Prediction({
-        groupId,
-        userId: req.user.id,
-        matchweekId: req.params.matchweekId,
-        isSubmitted: false,
-        predictions: predictionsTemplate,
-        captainMatchId: matchweek.matches[0] ? matchweek.matches[0]._id : null
-      });
-
+    } else if (now > d1 && !prediction.isSubmitted) {
+      // If user had an unsubmitted draft when Deadline 1 passed, replace with intelligent defaults
+      const defaultData = await generateIntelligentDefaultPrediction(groupId, matchweek, req.user.id);
+      prediction.predictions = defaultData.predictions;
+      prediction.captainMatchId = defaultData.captainMatchId;
+      prediction.isSubmitted = true;
+      prediction.isAutofilled = true;
       await prediction.save();
     }
 
@@ -94,15 +121,68 @@ router.post('/submit/:matchweekId', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied. You are not a member of this group.' });
     }
 
-    if (isDeadlinePassed(matchweek.deadline)) {
-      return res.status(400).json({ message: 'Submission deadline has passed. Predictions are locked.' });
+    const { d1, d2 } = getMatchweekDeadlines(matchweek);
+    const now = new Date();
+
+    if (now > d2) {
+      return res.status(400).json({ message: 'Deadline 2 has passed. Predictions are permanently locked for this matchweek.' });
     }
+
+    const isSecondChanceWindow = now > d1 && now <= d2;
 
     let predictionDoc = await Prediction.findOne({
       groupId,
       userId: req.user.id,
       matchweekId: req.params.matchweekId
     });
+
+    if (isSecondChanceWindow) {
+      if (!predictionDoc || !predictionDoc.isAutofilled) {
+        return res.status(400).json({ message: 'Deadline 1 has passed. Only players with default predictions can edit games 4 & 5 during the second chance deadline.' });
+      }
+
+      // Validate that matches 1, 2, and 3 (index 0, 1, 2) were NOT changed
+      for (let i = 0; i < Math.min(3, matchweek.matches.length); i++) {
+        const origPred = predictionDoc.predictions[i];
+        const newPred = predictions[i];
+        if (
+          !newPred ||
+          newPred.result !== origPred.result ||
+          newPred.homeScore !== origPred.homeScore ||
+          newPred.awayScore !== origPred.awayScore ||
+          newPred.safeBet !== origPred.safeBet ||
+          newPred.firstGoal !== origPred.firstGoal ||
+          newPred.possession !== origPred.possession
+        ) {
+          return res.status(400).json({ message: 'Games 1, 2, and 3 are locked. You can only edit Games 4 and 5 during the second chance deadline.' });
+        }
+      }
+
+      // Validate Captain: Must be match 4 or match 5
+      const allowedMatchIds = [
+        matchweek.matches[3] ? matchweek.matches[3]._id.toString() : null,
+        matchweek.matches[4] ? matchweek.matches[4]._id.toString() : null
+      ].filter(Boolean);
+
+      if (!captainMatchId || !allowedMatchIds.includes(captainMatchId.toString())) {
+        return res.status(400).json({ message: 'During Second Chance Deadline, Captain can only be selected for Game 4 or Game 5.' });
+      }
+
+      // Validate Gamble: Must target match 4 or match 5
+      if (gamble && gamble.active && gamble.matchId) {
+        if (!allowedMatchIds.includes(gamble.matchId.toString())) {
+          return res.status(400).json({ message: 'Gamble can only be applied to Game 4 or Game 5 during Second Chance Deadline.' });
+        }
+      }
+
+      // Validate PowerUps: Must target match 4 or match 5
+      if (marketPowerUps && marketPowerUps.length > 0) {
+        const invalidChip = marketPowerUps.find(pu => !allowedMatchIds.includes(pu.matchId.toString()));
+        if (invalidChip) {
+          return res.status(400).json({ message: 'Power-up chips can only be applied to Game 4 or Game 5 during Second Chance Deadline.' });
+        }
+      }
+    }
 
     if (!predictionDoc) {
       predictionDoc = new Prediction({

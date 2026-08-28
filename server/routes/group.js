@@ -319,6 +319,13 @@ router.post('/:id/remove-member', auth, async (req, res) => {
   }
 });
 
+const isMemberOrAdminUser = (group, userId, userRole) => {
+  if (!group) return false;
+  if (userRole === 'admin') return true;
+  const adminIdStr = group.adminId?._id ? group.adminId._id.toString() : group.adminId?.toString();
+  return group.members.some(id => (id._id || id).toString() === userId) || adminIdStr === userId;
+};
+
 // @route   GET api/group/:id/members
 // @desc    Get members and pending requests for group
 // @access  Private
@@ -335,9 +342,7 @@ router.get('/:id/members', auth, async (req, res) => {
     }
 
     // Verify requesting user is member or admin of the group
-    const adminIdStr = group.adminId?._id ? group.adminId._id.toString() : group.adminId?.toString();
-    const isMemberOrAdmin = group.members.some(m => (m._id || m).toString() === req.user.id) || adminIdStr === req.user.id || req.user.role === 'admin';
-    if (!isMemberOrAdmin) {
+    if (!isMemberOrAdminUser(group, req.user.id, req.user.role)) {
       return res.status(403).json({ message: 'Access denied. You are not a member of this group.' });
     }
 
@@ -357,8 +362,7 @@ router.get('/:id/standings', auth, async (req, res) => {
       return res.status(404).json({ message: 'Group not found.' });
     }
 
-    const isMemberOrAdmin = group.members.some(id => id.toString() === req.user.id) || group.adminId.toString() === req.user.id;
-    if (!isMemberOrAdmin) {
+    if (!isMemberOrAdminUser(group, req.user.id, req.user.role)) {
       return res.status(403).json({ message: 'Access denied. You are not a member of this group.' });
     }
 
@@ -402,8 +406,7 @@ router.get('/:id/results-dashboard', auth, async (req, res) => {
       return res.status(404).json({ message: 'Group not found.' });
     }
 
-    const isMemberOrAdmin = group.members.some(id => id.toString() === req.user.id) || group.adminId.toString() === req.user.id;
-    if (!isMemberOrAdmin) {
+    if (!isMemberOrAdminUser(group, req.user.id, req.user.role)) {
       return res.status(403).json({ message: 'Access denied. You are not a member of this group.' });
     }
 
