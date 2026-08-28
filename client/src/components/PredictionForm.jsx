@@ -157,6 +157,21 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
     setPrediction({ ...prediction, predictions: updatedPreds });
   };
 
+  const getMaxGambleLimit = () => {
+    const pointsVal = standing ? standing.totalPoints : 0;
+    const rankVal = standing ? standing.rank : null;
+    let maxG = Math.floor(pointsVal * 0.10);
+    if (maxG < 0) maxG = 0;
+    
+    const half = Math.ceil((totalPlayers || 8) / 2);
+    if (rankVal !== null && rankVal <= half) {
+      maxG = Math.min(maxG, 500);
+    } else {
+      maxG = Math.min(maxG, 1000);
+    }
+    return maxG;
+  };
+
   const togglePowerUp = (matchId, type) => {
     if (deadlinePassed) return;
 
@@ -171,14 +186,12 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
       currentPUs.splice(existingIndex, 1);
     } else {
       const newPUs = [...currentPUs, { matchId: matchIdStr, type }];
-      const cost = calculatePowerUpCost(newPUs);
-      
-      // Calculate net difference for instant validation
-      const oldCost = prediction ? calculatePowerUpCost(prediction.marketPowerUps) : 0;
-      const netCost = cost - oldCost;
+      const totalCost = calculatePowerUpCost(newPUs);
+      const userBP = standing?.battlePoints || 0;
 
-      if (netCost > (standing?.battlePoints || 0)) {
-        alert(`Insufficient Battle Points! Power-up costs exceed your standing balance.`);
+      if (totalCost > userBP) {
+        const chipCost = type === 'Double' ? 5 : (type === 'Triple' ? 10 : 15);
+        alert(`Insufficient Battle Points!\n\nSelecting "${type}" requires ${chipCost} BP (Total power-up cost: ${totalCost} BP), but you only have ${userBP} Battle Points available.\n\nThis selection has been reset.`);
         return;
       }
       currentPUs = newPUs;
@@ -200,12 +213,69 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
         gamble: { active: false, points: '', matchId: null }
       });
     } else {
+      const maxG = getMaxGambleLimit();
+      if (maxG <= 0) {
+        alert(`Gamble Cap Limit Reached!\n\nYour maximum allowed gamble cap is currently 0 points based on your standing balance.\n\nGamble selection has been reset.`);
+        setPrediction({
+          ...prediction,
+          gamble: { active: false, points: '', matchId: null }
+        });
+        return;
+      }
+
       // Toggle on for this match
       setPrediction({
         ...prediction,
         gamble: { active: true, points: '', matchId: matchIdStr }
       });
     }
+  };
+
+  const handleGamblePointsInputChange = (e) => {
+    if (deadlinePassed) return;
+    const raw = e.target.value;
+    if (raw === '' || raw === null || raw === undefined) {
+      setPrediction({
+        ...prediction,
+        gamble: { ...prediction.gamble, points: '' }
+      });
+      return;
+    }
+
+    const clean = String(raw).replace(/^0+(?=\d)/, '');
+    if (clean === '') {
+      setPrediction({
+        ...prediction,
+        gamble: { ...prediction.gamble, points: '' }
+      });
+      return;
+    }
+
+    let points = parseInt(clean, 10);
+    if (isNaN(points)) {
+      setPrediction({
+        ...prediction,
+        gamble: { ...prediction.gamble, points: '' }
+      });
+      return;
+    }
+
+    points = Math.abs(points);
+    const maxG = getMaxGambleLimit();
+
+    if (points > maxG) {
+      alert(`Gamble Points Exceed Cap!\n\nYou entered ${points} points, which exceeds your maximum allowed gamble cap of ${maxG} points.\n\nGamble choice has been reset.`);
+      setPrediction({
+        ...prediction,
+        gamble: { active: false, points: '', matchId: null }
+      });
+      return;
+    }
+
+    setPrediction({
+      ...prediction,
+      gamble: { ...prediction.gamble, points }
+    });
   };
 
   const handleSubmitPredictions = async () => {
@@ -594,18 +664,8 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                               value={prediction.gamble?.points === 0 || prediction.gamble?.points === '' ? '' : prediction.gamble?.points}
                               placeholder="0"
                               onFocus={(e) => e.target.select()}
-                              onChange={(e) => {
-                                if (isLocked) return;
-                                const raw = e.target.value;
-                                const clean = String(raw).replace(/^0+(?=\d)/, '');
-                                let points = parseInt(clean, 10);
-                                if (isNaN(points)) points = '';
-                                else points = Math.abs(points);
-                                setPrediction({
-                                  ...prediction,
-                                  gamble: { ...prediction.gamble, points }
-                                });
-                              }}
+                              onChange={handleGamblePointsInputChange}
+                              onBlur={handleGamblePointsInputChange}
                               disabled={isLocked}
                               required
                             />
