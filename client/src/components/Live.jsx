@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
-import { Clock, Trophy, Shield, Play, AlertCircle, RefreshCw, Award, Activity } from 'lucide-react';
+import { Clock, Trophy, Shield, Play, AlertCircle, RefreshCw, Award, Activity, Edit3 } from 'lucide-react';
 
 function formatDeadlineIST(dateString) {
   if (!dateString) return '';
@@ -168,7 +168,7 @@ const getNameCellStyle = (isCaptain, powerUp, isGamble, hasShield) => {
   return {};
 };
 
-function Live({ groupId, user }) {
+function Live({ groupId, user, onNavigateToPredictions }) {
   const [matchweeks, setMatchweeks] = useState([]);
   const [selectedMwId, setSelectedMwId] = useState('');
   const [predictionData, setPredictionData] = useState(null);
@@ -483,6 +483,27 @@ function Live({ groupId, user }) {
             }}>
               {timeRemaining || 'LOCKING...'}
             </div>
+
+            {onNavigateToPredictions && (
+              <div style={{ marginTop: '1.25rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={onNavigateToPredictions}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.75rem 1.75rem',
+                    fontSize: '1rem',
+                    fontWeight: 700
+                  }}
+                >
+                  <Edit3 size={18} /> Fill Prediction
+                </button>
+              </div>
+            )}
+
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '1.25rem' }}>
               Player predictions for all categories remain hidden until the submission deadline passes.
             </p>

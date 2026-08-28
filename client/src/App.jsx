@@ -128,6 +128,7 @@ function App() {
           <Live 
             groupId={activeGroup._id}
             user={user}
+            onNavigateToPredictions={() => setActiveTab('predictions')}
           />
         )}
         {activeTab === 'leaderboard' && (

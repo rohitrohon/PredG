@@ -11,6 +11,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
   const [successMsg, setSuccessMsg] = useState('');
   const [deadline1Passed, setDeadline1Passed] = useState(false);
   const [deadline2Passed, setDeadline2Passed] = useState(false);
+  const [deadlinePassed, setDeadlinePassed] = useState(false);
 
   // Total players count in group to compute Top/Bottom 50%
   const [totalPlayers, setTotalPlayers] = useState(8);
