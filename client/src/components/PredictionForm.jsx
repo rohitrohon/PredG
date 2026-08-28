@@ -197,6 +197,20 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
     return <div style={{ textAlign: 'center', padding: '2rem' }}>Loading predictions form...</div>;
   }
 
+  const handleCleanNumericChange = (matchId, field, rawValue) => {
+    if (rawValue === '' || rawValue === null || rawValue === undefined) {
+      handlePredictionChange(matchId, field, 0);
+      return;
+    }
+    const cleanStr = String(rawValue).replace(/^0+(?=\d)/, '');
+    const parsed = parseInt(cleanStr, 10);
+    handlePredictionChange(matchId, field, isNaN(parsed) ? 0 : parsed);
+  };
+
+  if (loading) {
+    return <div className="card" style={{ textAlign: 'center' }}>Loading prediction form...</div>;
+  }
+
   if (error && !matchweek) {
     return <div className="card" style={{ color: 'var(--danger)', textAlign: 'center' }}>{error}</div>;
   }
@@ -225,46 +239,23 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
   }
 
   return (
-    <div>
+    <div style={{ paddingBottom: '3rem' }}>
       {/* Top Header Card */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h2 style={{ borderBottom: 'none', marginBottom: '0.25rem', paddingBottom: 0 }}>
             Matchweek <span className="text-gradient">#{matchweek.matchweekNumber}</span> Predictions
           </h2>
-          <p style={{ color: 'var(--text-muted)' }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
             Kickoff Game 1: {new Date(matchweek.matches[0]?.kickoffTime || matchweek.deadline).toLocaleString()} | Kickoff Game 4: {new Date(matchweek.matches[3]?.kickoffTime || matchweek.deadline).toLocaleString()}
           </p>
         </div>
 
-        {/* Market cost, Gamble limits & Submit buttons at the TOP of the page */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-          
-          {/* Market items and Gamble limit details */}
-          {prediction && (
-            <div className="card" style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '1.25rem', background: 'rgba(0,0,0,0.3)', margin: 0 }}>
-              <div style={{ fontSize: '0.85rem' }}>
-                Net BP Spent: <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{powerUpCost} BP</span>
-              </div>
-              <div style={{ borderLeft: '1px solid var(--border-color)', height: '16px' }}></div>
-              <div style={{ fontSize: '0.85rem' }}>
-                Max Gamble: <span style={{ color: 'var(--danger)', fontWeight: 700 }}>{maxGamble} pts</span>
-              </div>
-            </div>
-          )}
-
-          <button 
-            className={`btn ${isLocked ? 'btn-secondary' : 'btn-primary'}`}
-            style={{ padding: '0.6rem 1.25rem' }}
-            onClick={handleSubmitPredictions}
-            disabled={submitting || isLocked}
-          >
-            {submitting ? 'Saving...' : (isSecondChanceActive ? 'Save Second Chance Predictions' : 'Submit / Save Predictions')}
-          </button>
-
+        {/* Countdown Badge Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
           <div className="card" style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(0,0,0,0.3)', margin: 0 }}>
             {isLocked ? <Lock size={16} style={{ color: 'var(--danger)' }} /> : <Unlock size={16} style={{ color: 'var(--warning)' }} />}
-            <span style={{ fontWeight: 700, color: isLocked ? 'var(--danger)' : 'var(--warning)' }}>
+            <span style={{ fontWeight: 700, fontSize: '0.85rem', color: isLocked ? 'var(--danger)' : 'var(--warning)' }}>
               {countdown}
             </span>
           </div>
@@ -272,7 +263,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
       </div>
 
       {prediction?.isAutofilled && (
-        <div className="card" style={{ background: 'rgba(56, 189, 248, 0.1)', color: 'var(--primary)', border: '1px solid rgba(56, 189, 248, 0.3)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className="card" style={{ background: 'rgba(56, 189, 248, 0.1)', color: 'var(--primary)', border: '1px solid rgba(56, 189, 248, 0.3)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
           <AlertCircle size={16} /> Default predictions autofilled based on team ranks. {isSecondChanceActive ? 'Second Chance Deadline is active: Games 1-3 are locked, but you can edit Games 4 & 5 before Deadline 2!' : ''}
         </div>
       )}
@@ -291,7 +282,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
 
       {prediction && (
         <div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '2.5rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '2rem' }}>
             {prediction.predictions.map((singlePred, idx) => {
               const match = matchweek.matches[idx];
               if (!match) return null;
@@ -316,27 +307,27 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                   background: isGamble ? 'rgba(239, 68, 68, 0.01)' : 'var(--card-bg)',
                   opacity: isMatchLocked ? 0.75 : 1
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <Calendar size={16} style={{ color: 'var(--text-muted)' }} />
-                      <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                        Kickoff: {new Date(match.kickoffTime).toLocaleString()}
+                  {/* Top Bar for Card */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <Calendar size={15} style={{ color: 'var(--text-muted)' }} />
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                        {new Date(match.kickoffTime).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </span>
                       {match._id === matchweek.battleMatchId && (
-                        <span className="badge badge-danger" style={{ fontSize: '0.7rem' }}>BATTLE MATCH</span>
+                        <span className="badge badge-danger" style={{ fontSize: '0.65rem' }}>BATTLE MATCH</span>
                       )}
                       {isMatchLocked && (
-                        <span className="badge badge-warning" style={{ fontSize: '0.7rem' }}>LOCKED</span>
+                        <span className="badge badge-warning" style={{ fontSize: '0.65rem' }}>LOCKED</span>
                       )}
                     </div>
 
                     {/* Action buttons list */}
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                      
+                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
                       {/* Captain Button */}
                       <button
                         className={`btn ${isCaptain ? 'btn-primary' : 'btn-secondary'}`}
-                        style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', borderColor: isCaptain ? 'transparent' : 'rgba(245, 158, 11, 0.3)', color: isCaptain ? 'var(--bg-darker)' : 'var(--warning)' }}
+                        style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem', borderColor: isCaptain ? 'transparent' : 'rgba(245, 158, 11, 0.3)', color: isCaptain ? 'var(--bg-darker)' : 'var(--warning)' }}
                         onClick={() => {
                           if (isMatchLocked) return;
                           setPrediction({ ...prediction, captainMatchId: match._id });
@@ -346,12 +337,12 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                         ★ Captain (2x)
                       </button>
 
-                      {/* Gamble Button (Always visible on all matchweeks for testing) */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {/* Gamble Button */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                         <button
                           className={`btn ${isGamble ? 'btn-primary' : 'btn-secondary'}`}
                           style={{ 
-                            padding: '0.35rem 0.75rem', 
+                            padding: '0.3rem 0.65rem', 
                             fontSize: '0.75rem', 
                             borderColor: isGamble ? 'transparent' : 'rgba(239, 68, 68, 0.3)', 
                             color: isGamble ? 'var(--bg-darker)' : 'var(--danger)',
@@ -370,28 +361,31 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                               min="1"
                               max={maxGamble}
                               className="form-input"
-                              style={{ width: '80px', padding: '0.25rem 0.5rem', fontSize: '0.75rem', textAlign: 'center' }}
-                              value={prediction.gamble?.points || ''}
+                              style={{ width: '70px', padding: '0.25rem 0.4rem', fontSize: '0.75rem', textAlign: 'center' }}
+                              value={prediction.gamble?.points ?? ''}
+                              onFocus={(e) => e.target.select()}
                               onChange={(e) => {
                                 if (isLocked) return;
-                                const points = parseInt(e.target.value) || 0;
+                                const raw = e.target.value;
+                                const clean = String(raw).replace(/^0+(?=\d)/, '');
+                                const points = parseInt(clean, 10);
                                 setPrediction({
                                   ...prediction,
-                                  gamble: { ...prediction.gamble, points }
-                                  });
-                                }}
-                                placeholder="Pts"
-                                disabled={isLocked}
-                                required
-                              />
-                            </div>
-                          )}
+                                  gamble: { ...prediction.gamble, points: isNaN(points) ? '' : points }
+                                });
+                              }}
+                              placeholder="Pts"
+                              disabled={isLocked}
+                              required
+                            />
+                          </div>
+                        )}
                       </div>
 
                       {/* Power Ups */}
                       <button
                         className={`btn ${hasDouble ? 'btn-accent' : 'btn-secondary'}`}
-                        style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}
+                        style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem' }}
                         onClick={() => togglePowerUp(match._id, 'Double')}
                         disabled={isLocked}
                       >
@@ -399,7 +393,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                       </button>
                       <button
                         className={`btn ${hasTriple ? 'btn-accent' : 'btn-secondary'}`}
-                        style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}
+                        style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem' }}
                         onClick={() => togglePowerUp(match._id, 'Triple')}
                         disabled={isLocked}
                       >
@@ -407,7 +401,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                       </button>
                       <button
                         className={`btn ${hasShield ? 'btn-accent' : 'btn-secondary'}`}
-                        style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}
+                        style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem' }}
                         onClick={() => togglePowerUp(match._id, 'Shield')}
                         disabled={isLocked}
                       >
@@ -416,50 +410,55 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', justifycontent: 'center', gap: '2rem', marginBottom: '1.5rem' }}>
-                    <div style={{ textAlign: 'right', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem' }}>
-                      <span style={{ fontWeight: 700, fontSize: '1.25rem' }}>{match.homeTeam}</span>
+                  {/* Team vs Team Header - Mobile Responsive */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+                    <div style={{ textAlign: 'right', flex: '1 1 120px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                      <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{match.homeTeam}</span>
                       <div className="team-logo-placeholder">{match.homeTeam.substring(0, 2).toUpperCase()}</div>
                     </div>
                     
-                    <div style={{ fontWeight: 800, color: 'var(--text-muted)' }}>VS</div>
+                    <div style={{ fontWeight: 800, color: 'var(--text-muted)', fontSize: '0.9rem' }}>VS</div>
                     
-                    <div style={{ textAlign: 'left', flex: 1, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{ textAlign: 'left', flex: '1 1 120px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <div className="team-logo-placeholder">{match.awayTeam.substring(0, 2).toUpperCase()}</div>
-                      <span style={{ fontWeight: 700, fontSize: '1.25rem' }}>{match.awayTeam}</span>
+                      <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{match.awayTeam}</span>
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem' }}>
+                  {/* Prediction Categories Grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem' }}>
+                    
                     {/* Scoreline */}
-                    <div className="card" style={{ background: 'rgba(0, 0, 0, 0.15)', padding: '1rem' }}>
-                      <label className="form-label" style={{ fontSize: '0.75rem' }}>Scoreline</label>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+                    <div className="card" style={{ background: 'rgba(0, 0, 0, 0.2)', padding: '0.85rem' }}>
+                      <label className="form-label" style={{ fontSize: '0.7rem' }}>Scoreline</label>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
                         <input
                           type="number"
                           min="0"
                           className="form-input"
-                          style={{ padding: '0.5rem', textAlign: 'center', width: '50px' }}
+                          style={{ padding: '0.4rem', textAlign: 'center', width: '55px', fontSize: '1rem', fontWeight: 700 }}
                           value={singlePred.homeScore}
-                          onChange={(e) => handlePredictionChange(match._id, 'homeScore', parseInt(e.target.value) || 0)}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => handleCleanNumericChange(match._id, 'homeScore', e.target.value)}
                           disabled={isLocked}
                         />
-                        <span>-</span>
+                        <span style={{ fontWeight: 700 }}>-</span>
                         <input
                           type="number"
                           min="0"
                           className="form-input"
-                          style={{ padding: '0.5rem', textAlign: 'center', width: '50px' }}
+                          style={{ padding: '0.4rem', textAlign: 'center', width: '55px', fontSize: '1rem', fontWeight: 700 }}
                           value={singlePred.awayScore}
-                          onChange={(e) => handlePredictionChange(match._id, 'awayScore', parseInt(e.target.value) || 0)}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => handleCleanNumericChange(match._id, 'awayScore', e.target.value)}
                           disabled={isLocked}
                         />
                       </div>
                       
-                      <label className="form-label" style={{ fontSize: '0.75rem', marginTop: '0.75rem' }}>Safe Bet</label>
+                      <label className="form-label" style={{ fontSize: '0.7rem', marginTop: '0.6rem' }}>Safe Bet</label>
                       <select
                         className="form-input"
-                        style={{ padding: '0.4rem', fontSize: '0.85rem' }}
+                        style={{ padding: '0.4rem', fontSize: '0.8rem' }}
                         value={singlePred.safeBet}
                         onChange={(e) => handlePredictionChange(match._id, 'safeBet', e.target.value)}
                         disabled={isLocked}
@@ -469,11 +468,12 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                       </select>
                     </div>
 
-                    <div className="card" style={{ background: 'rgba(0, 0, 0, 0.15)', padding: '1rem' }}>
-                      <label className="form-label" style={{ fontSize: '0.75rem' }}>Match Result</label>
+                    {/* Match Result (Home, Away, Draw) */}
+                    <div className="card" style={{ background: 'rgba(0, 0, 0, 0.2)', padding: '0.85rem' }}>
+                      <label className="form-label" style={{ fontSize: '0.7rem' }}>Match Result</label>
                       <select
                         className="form-input"
-                        style={{ marginTop: '0.25rem' }}
+                        style={{ marginTop: '0.25rem', fontSize: '0.85rem' }}
                         value={singlePred.result}
                         onChange={(e) => handlePredictionChange(match._id, 'result', e.target.value)}
                         disabled={isLocked}
@@ -484,11 +484,12 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                       </select>
                     </div>
 
-                    <div className="card" style={{ background: 'rgba(0, 0, 0, 0.15)', padding: '1rem' }}>
-                      <label className="form-label" style={{ fontSize: '0.75rem' }}>First Goal</label>
+                    {/* First Goal (Home, Away, No goal) */}
+                    <div className="card" style={{ background: 'rgba(0, 0, 0, 0.2)', padding: '0.85rem' }}>
+                      <label className="form-label" style={{ fontSize: '0.7rem' }}>First Goal</label>
                       <select
                         className="form-input"
-                        style={{ marginTop: '0.25rem' }}
+                        style={{ marginTop: '0.25rem', fontSize: '0.85rem' }}
                         value={singlePred.firstGoal}
                         onChange={(e) => handlePredictionChange(match._id, 'firstGoal', e.target.value)}
                         disabled={isLocked}
@@ -499,11 +500,12 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                       </select>
                     </div>
 
-                    <div className="card" style={{ background: 'rgba(0, 0, 0, 0.15)', padding: '1rem' }}>
-                      <label className="form-label" style={{ fontSize: '0.75rem' }}>Greater Possession</label>
+                    {/* Greater Possession (Home, Away, Equal) */}
+                    <div className="card" style={{ background: 'rgba(0, 0, 0, 0.2)', padding: '0.85rem' }}>
+                      <label className="form-label" style={{ fontSize: '0.7rem' }}>Greater Possession</label>
                       <select
                         className="form-input"
-                        style={{ marginTop: '0.25rem' }}
+                        style={{ marginTop: '0.25rem', fontSize: '0.85rem' }}
                         value={singlePred.possession}
                         onChange={(e) => handlePredictionChange(match._id, 'possession', e.target.value)}
                         disabled={isLocked}
@@ -514,10 +516,10 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                       </select>
                     </div>
 
-                    {/* Wild Prediction Category Select & Numeric Input */}
-                    <div className="card" style={{ background: 'rgba(0, 0, 0, 0.15)', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {/* Wild Category & Numeric Input */}
+                    <div className="card" style={{ background: 'rgba(0, 0, 0, 0.2)', padding: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                       <div>
-                        <label className="form-label" style={{ fontSize: '0.75rem' }}>Wild Category</label>
+                        <label className="form-label" style={{ fontSize: '0.7rem' }}>Wild Category</label>
                         <select
                           className="form-input"
                           style={{ marginTop: '0.25rem', fontSize: '0.85rem' }}
@@ -535,24 +537,63 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
 
                       {singlePred.wildPredictionCategory && singlePred.wildPredictionCategory !== 'None' && (
                         <div>
-                          <label className="form-label" style={{ fontSize: '0.75rem' }}>Predicted Count</label>
+                          <label className="form-label" style={{ fontSize: '0.7rem' }}>Predicted Count</label>
                           <input
                             type="number"
                             min="0"
                             className="form-input"
-                            style={{ marginTop: '0.25rem', fontSize: '0.85rem' }}
-                            value={singlePred.wildPredictionValue || 0}
-                            onChange={(e) => handlePredictionChange(match._id, 'wildPredictionValue', parseInt(e.target.value) || 0)}
+                            style={{ marginTop: '0.25rem', fontSize: '0.85rem', textAlign: 'center' }}
+                            value={singlePred.wildPredictionValue}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => handleCleanNumericChange(match._id, 'wildPredictionValue', e.target.value)}
                             disabled={isLocked}
                           />
                         </div>
                       )}
                     </div>
+
                   </div>
                 </div>
               );
             })}
           </div>
+
+          {/* BOTTOM SUMMARY CARD & SUBMIT BUTTON */}
+          <div className="card" style={{ 
+            marginTop: '2rem', 
+            padding: '1.5rem', 
+            background: 'rgba(15, 23, 42, 0.95)', 
+            border: '1px solid var(--border-glow)', 
+            textAlign: 'center'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+              <div style={{ fontSize: '0.9rem' }}>
+                Net BP Spent: <span style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '1.1rem' }}>{powerUpCost} BP</span>
+              </div>
+              <div style={{ borderLeft: '1px solid var(--border-color)', height: '20px' }}></div>
+              <div style={{ fontSize: '0.9rem' }}>
+                Max Gamble Limit: <span style={{ color: 'var(--danger)', fontWeight: 800, fontSize: '1.1rem' }}>{maxGamble} pts</span>
+              </div>
+            </div>
+
+            <button 
+              className={`btn ${isLocked ? 'btn-secondary' : 'btn-primary'}`}
+              style={{ 
+                padding: '0.85rem 2.5rem', 
+                fontSize: '1.05rem', 
+                fontWeight: 800, 
+                width: '100%', 
+                maxWidth: '450px',
+                margin: '0 auto',
+                boxShadow: isLocked ? 'none' : '0 0 20px rgba(56, 189, 248, 0.3)'
+              }}
+              onClick={handleSubmitPredictions}
+              disabled={submitting || isLocked}
+            >
+              {submitting ? 'Saving...' : (isSecondChanceActive ? 'Save Second Chance Predictions' : 'Submit / Save Predictions')}
+            </button>
+          </div>
+
         </div>
       )}
     </div>
