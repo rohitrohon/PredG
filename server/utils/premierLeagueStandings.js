@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const mongoose = require('mongoose');
 
 let cachedStandings = null;
 let lastFetchTime = 0;
@@ -23,8 +24,6 @@ const TEAM_ALIASES = {
   'forest': 'nottingham forest'
 };
 
-const mongoose = require('mongoose');
-
 function normalizeTeamName(name) {
   if (!name || typeof name !== 'string') return '';
   const clean = name.trim().toLowerCase();
@@ -32,7 +31,7 @@ function normalizeTeamName(name) {
 }
 
 /**
- * Fetches real Premier League standings using free endpoints with DB & 24h caching.
+ * Fetches real Premier League standings (all 20 teams) using ESPN Official API with DB & 24h caching.
  */
 async function getPremierLeagueStandings(forceRefresh = false) {
   const now = Date.now();
@@ -55,7 +54,37 @@ async function getPremierLeagueStandings(forceRefresh = false) {
     }
   }
 
-  // Option 1: Football-Data.org (if free API key provided in .env)
+  // Option 1: ESPN Official Standings API (Primary Source - All 20 Teams)
+  try {
+    const url = 'https://site.api.espn.com/apis/v2/sports/soccer/eng.1/standings';
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      const children = data.children || [];
+      const entries = children[0]?.standings?.entries || [];
+      if (entries.length > 0) {
+        cachedStandings = entries.map((item, idx) => {
+          const teamName = item.team?.displayName || item.team?.name || '';
+          const stats = item.stats || [];
+          const pts = stats.find(s => s.name === 'points')?.value ?? 0;
+          const gd = stats.find(s => s.name === 'pointDifferential')?.value ?? 0;
+          return {
+            teamName,
+            normalizedName: normalizeTeamName(teamName),
+            rank: idx + 1,
+            points: Number(pts),
+            goalDifference: Number(gd)
+          };
+        });
+        lastFetchTime = now;
+        return cachedStandings;
+      }
+    }
+  } catch (err) {
+    console.warn('ESPN standings fetch failed, trying fallback API:', err.message);
+  }
+
+  // Option 2: Football-Data.org (if API key is provided)
   if (process.env.FOOTBALL_DATA_API_KEY) {
     try {
       const res = await fetch('https://api.football-data.org/v4/competitions/PL/standings', {
@@ -77,35 +106,8 @@ async function getPremierLeagueStandings(forceRefresh = false) {
         }
       }
     } catch (err) {
-      console.warn('Football-data.org fetch failed, trying free fallback API:', err.message);
+      console.warn('Football-data.org fetch failed:', err.message);
     }
-  }
-
-  // Option 2: TheSportsDB Free Public API (Key '3') - 100% Free Tier
-  try {
-    const d = new Date();
-    const year = d.getFullYear();
-    const month = d.getMonth();
-    const season = month >= 7 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
-    const url = `https://www.thesportsdb.com/api/v1/json/3/lookuptable.php?l=4328&s=${season}`;
-    const res = await fetch(url);
-    if (res.ok) {
-      const data = await res.json();
-      const table = data.table || [];
-      if (table.length > 0) {
-        cachedStandings = table.map(item => ({
-          teamName: item.strTeam,
-          normalizedName: normalizeTeamName(item.strTeam),
-          rank: Number(item.intRank),
-          points: Number(item.intPoints),
-          goalDifference: Number(item.intGoalDifference || 0)
-        }));
-        lastFetchTime = now;
-        return cachedStandings;
-      }
-    }
-  } catch (err) {
-    console.warn('TheSportsDB fetch failed:', err.message);
   }
 
   return cachedStandings || [];
