@@ -1,7 +1,11 @@
-try { require('dotenv').config(); } catch (e) {}
+const dns = require('dns');
+try { dns.setDefaultResultOrder('ipv4first'); } catch (e) {}
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+
+mongoose.set('bufferCommands', false);
 
 const app = express();
 
