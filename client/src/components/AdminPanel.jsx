@@ -183,6 +183,28 @@ function AdminPanel({ groupId }) {
     }
   };
 
+  const [generatingPairings, setGeneratingPairings] = useState(false);
+
+  const handleGeneratePairingsInRoster = async () => {
+    const activeMw = matchweeks.find(m => m.status === 'active') || matchweeks[matchweeks.length - 1];
+    if (!activeMw) {
+      setError('No active matchweek found to generate battle pairings for.');
+      return;
+    }
+    try {
+      setGeneratingPairings(true);
+      setError('');
+      setSuccess('');
+      const res = await api.pairBattles(activeMw._id);
+      setSuccess(res.message || `Battle pairings & triads generated for Matchweek #${activeMw.matchweekNumber}!`);
+      await fetchData();
+    } catch (err) {
+      setError(err.message || 'Failed to generate battle pairings.');
+    } finally {
+      setGeneratingPairings(false);
+    }
+  };
+
   const handleRefreshOverrides = async () => {
     try {
       setRefreshingOverrides(true);
@@ -1055,25 +1077,37 @@ function AdminPanel({ groupId }) {
       {adminTab === 'roster' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           
-          {/* ROSTER HEADER WITH REFRESH BUTTON */}
+          {/* ROSTER HEADER WITH REFRESH & BATTLE PAIRING BUTTONS */}
           <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
               <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Users size={18} style={{ color: 'var(--primary)' }} /> Group Roster & Member Requests
               </h3>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '0.25rem 0 0 0' }}>
-                Manage member join requests, leave approvals, and active group roster.
+                Manage member join requests, leave approvals, active group roster, and execute battle pairings.
               </p>
             </div>
-            <button 
-              className="btn btn-secondary" 
-              onClick={handleRefreshRoster} 
-              disabled={refreshingRoster}
-              style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', gap: '0.4rem', borderColor: 'var(--primary-glow)', color: 'var(--primary)' }}
-            >
-              <RefreshCw size={15} className={refreshingRoster ? 'spin' : ''} />
-              {refreshingRoster ? 'Refreshing Roster...' : 'Refresh Roster'}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button 
+                className="btn btn-secondary" 
+                onClick={handleRefreshRoster} 
+                disabled={refreshingRoster}
+                style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', gap: '0.4rem', borderColor: 'var(--primary-glow)', color: 'var(--primary)' }}
+              >
+                <RefreshCw size={15} className={refreshingRoster ? 'spin' : ''} />
+                {refreshingRoster ? 'Refreshing Roster...' : 'Refresh Roster'}
+              </button>
+              <button 
+                className="btn btn-accent" 
+                onClick={handleGeneratePairingsInRoster} 
+                disabled={generatingPairings}
+                style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', gap: '0.4rem' }}
+                title="Execute battle pairing function for current standings (1st vs Nth, 2nd vs N-1th, middle triad if odd)"
+              >
+                <Sword size={15} className={generatingPairings ? 'spin' : ''} />
+                {generatingPairings ? 'Pairing Battles...' : 'Re-pair Battles (Current Standings)'}
+              </button>
+            </div>
           </div>
 
           {/* JOIN REQUESTS */}
