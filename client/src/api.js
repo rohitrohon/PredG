@@ -1,4 +1,13 @@
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+function getFullApiUrl(endpoint) {
+  const customUrl = import.meta.env.VITE_API_URL;
+  if (customUrl && customUrl.startsWith('http')) {
+    return `${customUrl.replace(/\/$/, '')}${endpoint}`;
+  }
+  const origin = typeof window !== 'undefined' && window.location && window.location.origin
+    ? window.location.origin
+    : '';
+  return `${origin}/api${endpoint}`;
+}
 
 const api = {
   getToken() {
@@ -31,7 +40,8 @@ const api = {
     };
 
     try {
-      const response = await fetch(`${API_URL}${endpoint}`, config);
+      const fullUrl = getFullApiUrl(endpoint);
+      const response = await fetch(fullUrl, config);
       const data = await response.json();
       
       if (!response.ok) {
