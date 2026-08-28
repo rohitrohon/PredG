@@ -164,6 +164,42 @@ function AdminPanel({ groupId }) {
   const [plFixturesRecord, setPlFixturesRecord] = useState(null);
   const [refreshingPlFixtures, setRefreshingPlFixtures] = useState(false);
 
+  // Refresh State for Roster & Overrides
+  const [refreshingRoster, setRefreshingRoster] = useState(false);
+  const [refreshingOverrides, setRefreshingOverrides] = useState(false);
+
+  const handleRefreshRoster = async () => {
+    try {
+      setRefreshingRoster(true);
+      setError('');
+      setSuccess('');
+      const roster = await api.getGroupMembers(groupId);
+      setGroupDetails(roster);
+      setSuccess('Group roster and pending requests refreshed successfully!');
+    } catch (err) {
+      setError(err.message || 'Failed to refresh group roster.');
+    } finally {
+      setRefreshingRoster(false);
+    }
+  };
+
+  const handleRefreshOverrides = async () => {
+    try {
+      setRefreshingOverrides(true);
+      setError('');
+      setSuccess('');
+      await fetchData();
+      if (overrideMwId) {
+        await fetchMwPredictionsAndBattles(overrideMwId);
+      }
+      setSuccess('Predictions and manual overrides data refreshed successfully!');
+    } catch (err) {
+      setError(err.message || 'Failed to refresh override data.');
+    } finally {
+      setRefreshingOverrides(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, [groupId]);
@@ -1019,6 +1055,27 @@ function AdminPanel({ groupId }) {
       {adminTab === 'roster' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           
+          {/* ROSTER HEADER WITH REFRESH BUTTON */}
+          <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Users size={18} style={{ color: 'var(--primary)' }} /> Group Roster & Member Requests
+              </h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '0.25rem 0 0 0' }}>
+                Manage member join requests, leave approvals, and active group roster.
+              </p>
+            </div>
+            <button 
+              className="btn btn-secondary" 
+              onClick={handleRefreshRoster} 
+              disabled={refreshingRoster}
+              style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', gap: '0.4rem', borderColor: 'var(--primary-glow)', color: 'var(--primary)' }}
+            >
+              <RefreshCw size={15} className={refreshingRoster ? 'spin' : ''} />
+              {refreshingRoster ? 'Refreshing Roster...' : 'Refresh Roster'}
+            </button>
+          </div>
+
           {/* JOIN REQUESTS */}
           <div className="card">
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
@@ -1046,7 +1103,7 @@ function AdminPanel({ groupId }) {
                         <td style={{ textAlign: 'right' }}>
                           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
                             <button className="btn btn-primary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleApproveJoin(reqUser._id)}>
-                              Accept Join
+                              Approve Join
                             </button>
                             <button className="btn btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => handleRejectJoin(reqUser._id)}>
                               Reject Join
@@ -1163,7 +1220,7 @@ function AdminPanel({ groupId }) {
                 <Edit3 size={18} style={{ color: 'var(--accent)' }} /> Predictions & Manual Overrides
               </h3>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <label className="form-label" style={{ marginBottom: 0 }}>Matchweek:</label>
                 <select 
                   className="form-input" 
@@ -1175,6 +1232,16 @@ function AdminPanel({ groupId }) {
                     <option key={mw._id} value={mw._id}>Matchweek #{mw.matchweekNumber}</option>
                   ))}
                 </select>
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={handleRefreshOverrides} 
+                  disabled={refreshingOverrides}
+                  style={{ padding: '0.5rem 0.85rem', fontSize: '0.8rem', gap: '0.35rem', borderColor: 'var(--accent)', color: 'var(--accent)' }}
+                  title="Refresh predictions, scores and battle overrides"
+                >
+                  <RefreshCw size={15} className={refreshingOverrides ? 'spin' : ''} />
+                  {refreshingOverrides ? 'Refreshing...' : 'Refresh Overrides'}
+                </button>
               </div>
             </div>
 
