@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
-import { Calendar, Lock, Unlock, AlertCircle, UserCheck } from 'lucide-react';
+import { Calendar, Lock, Unlock, AlertCircle, UserCheck, RotateCcw } from 'lucide-react';
 
 function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
   const [matchweek, setMatchweek] = useState(null);
@@ -101,6 +101,37 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
     return cost;
   };
 
+  const handleResetPredictions = () => {
+    if (deadlinePassed || !matchweek) return;
+
+    if (!window.confirm('Are you sure you want to reset all your prediction entries for this matchweek back to default?')) {
+      return;
+    }
+
+    const resetTemplate = matchweek.matches.map((m) => ({
+      matchId: m._id,
+      result: 'Home',
+      homeScore: '',
+      awayScore: '',
+      safeBet: 'Home',
+      firstGoal: 'Home',
+      possession: 'Home',
+      wildPredictionCategory: 'None',
+      wildPredictionValue: ''
+    }));
+
+    setPrediction({
+      ...prediction,
+      predictions: resetTemplate,
+      captainMatchId: matchweek.matches[0] ? matchweek.matches[0]._id : null,
+      gamble: { active: false, points: '', matchId: null },
+      marketPowerUps: []
+    });
+
+    setSuccessMsg('Prediction form reset to default template. Click Submit to save changes.');
+    setError('');
+  };
+
   const handlePredictionChange = (matchId, field, value) => {
     if (deadlinePassed) return;
 
@@ -165,13 +196,13 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
       // Toggle off
       setPrediction({
         ...prediction,
-        gamble: { active: false, points: 0, matchId: null }
+        gamble: { active: false, points: '', matchId: null }
       });
     } else {
       // Toggle on for this match
       setPrediction({
         ...prediction,
-        gamble: { active: true, points: 0, matchId: matchIdStr }
+        gamble: { active: true, points: '', matchId: matchIdStr }
       });
     }
   };
@@ -192,7 +223,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
       }
     }
 
-    // Ensure non-negative numbers via Math.abs
+    // Ensure non-negative numbers via Math.abs, defaulting blank inputs to 0
     const sanitizedPredictions = prediction.predictions.map((p) => ({
       ...p,
       homeScore: Math.abs(Number(p.homeScore) || 0),
@@ -235,13 +266,17 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
 
   const handleCleanNumericChange = (matchId, field, rawValue) => {
     if (rawValue === '' || rawValue === null || rawValue === undefined) {
-      handlePredictionChange(matchId, field, 0);
+      handlePredictionChange(matchId, field, '');
       return;
     }
     const cleanStr = String(rawValue).replace(/^0+(?=\d)/, '');
+    if (cleanStr === '') {
+      handlePredictionChange(matchId, field, '');
+      return;
+    }
     let parsed = parseInt(cleanStr, 10);
-    if (isNaN(parsed)) parsed = 0;
-    parsed = Math.abs(parsed); // Enforce non-negative absolute value
+    if (isNaN(parsed)) parsed = '';
+    else parsed = Math.abs(parsed); // Enforce non-negative absolute value
     handlePredictionChange(matchId, field, parsed);
   };
 
@@ -289,8 +324,18 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
           </p>
         </div>
 
-        {/* Countdown Badge Header */}
+        {/* Countdown Badge & Reset Button Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button 
+            className="btn btn-secondary" 
+            style={{ padding: '0.5rem 0.85rem', fontSize: '0.8rem', gap: '0.35rem' }}
+            onClick={handleResetPredictions}
+            disabled={isLocked || submitting}
+            title="Reset form back to default template"
+          >
+            <RotateCcw size={14} /> Reset Predictions
+          </button>
+
           <div className="card" style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(0,0,0,0.3)', margin: 0 }}>
             {isLocked ? <Lock size={16} style={{ color: 'var(--danger)' }} /> : <Unlock size={16} style={{ color: 'var(--warning)' }} />}
             <span style={{ fontWeight: 700, fontSize: '0.85rem', color: isLocked ? 'var(--danger)' : 'var(--warning)' }}>
@@ -400,19 +445,21 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                               max={maxGamble}
                               className="form-input"
                               style={{ width: '70px', padding: '0.25rem 0.4rem', fontSize: '0.75rem', textAlign: 'center' }}
-                              value={prediction.gamble?.points ?? ''}
+                              value={prediction.gamble?.points === 0 || prediction.gamble?.points === '' ? '' : prediction.gamble?.points}
+                              placeholder="0"
                               onFocus={(e) => e.target.select()}
                               onChange={(e) => {
                                 if (isLocked) return;
                                 const raw = e.target.value;
                                 const clean = String(raw).replace(/^0+(?=\d)/, '');
-                                const points = parseInt(clean, 10);
+                                let points = parseInt(clean, 10);
+                                if (isNaN(points)) points = '';
+                                else points = Math.abs(points);
                                 setPrediction({
                                   ...prediction,
-                                  gamble: { ...prediction.gamble, points: isNaN(points) ? '' : points }
+                                  gamble: { ...prediction.gamble, points }
                                 });
                               }}
-                              placeholder="Pts"
                               disabled={isLocked}
                               required
                             />
@@ -475,7 +522,8 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                           min="0"
                           className="form-input"
                           style={{ padding: '0.4rem', textAlign: 'center', width: '55px', fontSize: '1rem', fontWeight: 700 }}
-                          value={singlePred.homeScore}
+                          value={singlePred.homeScore === 0 || singlePred.homeScore === '' ? '' : singlePred.homeScore}
+                          placeholder="0"
                           onFocus={(e) => e.target.select()}
                           onChange={(e) => handleCleanNumericChange(match._id, 'homeScore', e.target.value)}
                           disabled={isLocked}
@@ -486,7 +534,8 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                           min="0"
                           className="form-input"
                           style={{ padding: '0.4rem', textAlign: 'center', width: '55px', fontSize: '1rem', fontWeight: 700 }}
-                          value={singlePred.awayScore}
+                          value={singlePred.awayScore === 0 || singlePred.awayScore === '' ? '' : singlePred.awayScore}
+                          placeholder="0"
                           onFocus={(e) => e.target.select()}
                           onChange={(e) => handleCleanNumericChange(match._id, 'awayScore', e.target.value)}
                           disabled={isLocked}
@@ -581,7 +630,8 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                             min="0"
                             className="form-input"
                             style={{ marginTop: '0.25rem', fontSize: '0.85rem', textAlign: 'center' }}
-                            value={singlePred.wildPredictionValue}
+                            value={singlePred.wildPredictionValue === 0 || singlePred.wildPredictionValue === '' ? '' : singlePred.wildPredictionValue}
+                            placeholder="0"
                             onFocus={(e) => e.target.select()}
                             onChange={(e) => handleCleanNumericChange(match._id, 'wildPredictionValue', e.target.value)}
                             disabled={isLocked}
