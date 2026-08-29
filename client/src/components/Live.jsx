@@ -1083,9 +1083,20 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                           const ptsPossession = getGeneralCategoryPoints(matchPred.possession, act.possession, dist.possession, totalSubPlayers);
                           const ptsScoreline = getScorelinePoints(matchPred.homeScore, matchPred.awayScore, matchPred.safeBet, act.homeScore, act.awayScore);
 
-                          const isWildCorrect = act.wildPredictionCorrectUsers && act.wildPredictionCorrectUsers.some(
-                            id => id.toString() === predDoc.userId?._id?.toString()
-                          );
+                          let isWildCorrect = false;
+                          if (matchPred.wildPredictionCategory && matchPred.wildPredictionCategory !== 'None') {
+                            const cat = matchPred.wildPredictionCategory;
+                            const val = Number(matchPred.wildPredictionValue);
+                            if (cat === 'Yellow Cards' && act.yellowCards !== null && act.yellowCards !== undefined && val === Number(act.yellowCards)) isWildCorrect = true;
+                            if (cat === 'Offsides' && act.offsides !== null && act.offsides !== undefined && val === Number(act.offsides)) isWildCorrect = true;
+                            if (cat === 'Corners' && act.corners !== null && act.corners !== undefined && val === Number(act.corners)) isWildCorrect = true;
+                            if (cat === 'Total Shots' && act.shots !== null && act.shots !== undefined && val === Number(act.shots)) isWildCorrect = true;
+                          }
+                          if (!isWildCorrect && act.wildPredictionCorrectUsers && act.wildPredictionCorrectUsers.some(
+                            id => id.toString() === (predDoc.userId?._id ? predDoc.userId._id.toString() : predDoc.userId?.toString())
+                          )) {
+                            isWildCorrect = true;
+                          }
                           const ptsWild = isWildCorrect ? 100 : 0;
 
                           let correctCats = 0;
