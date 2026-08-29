@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
-import { Clock, Trophy, Shield, Play, AlertCircle, RefreshCw, Award, Activity, Edit3, Info, BookOpen } from 'lucide-react';
+import { Clock, Trophy, Shield, Play, AlertCircle, RefreshCw, Award, Activity, Edit3, Info, BookOpen, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 function formatDeadlineIST(dateString) {
   if (!dateString) return '';
@@ -263,6 +263,12 @@ function Live({ groupId, user, onNavigateToPredictions }) {
   }
 
   const rawPredictions = predictionData?.predictions || [];
+  const myPredDoc = rawPredictions.find(p => {
+    const pUserId = p.userId?._id ? p.userId._id.toString() : p.userId?.toString();
+    return pUserId === user?.id;
+  });
+  const isUserSubmitted = Boolean(myPredDoc && myPredDoc.isSubmitted);
+
   const submittedPredictions = rawPredictions
     .filter(p => p.isSubmitted)
     .sort((a, b) => (a.userId?.username || '').localeCompare(b.userId?.username || ''));
@@ -581,6 +587,41 @@ function Live({ groupId, user, onNavigateToPredictions }) {
               boxShadow: '0 0 20px rgba(56, 189, 248, 0.1)'
             }}>
               {timeRemaining || 'LOCKING...'}
+            </div>
+
+            {/* USER PREDICTION STATUS BAR BELOW COUNTDOWN TIMER */}
+            <div style={{ marginTop: '1.25rem' }}>
+              <div style={{
+                padding: '0.6rem 1.25rem',
+                borderRadius: '20px',
+                background: isUserSubmitted 
+                  ? 'rgba(34, 197, 94, 0.15)' 
+                  : 'rgba(245, 158, 11, 0.15)',
+                border: `1.5px solid ${isUserSubmitted ? 'rgba(34, 197, 94, 0.4)' : 'rgba(245, 158, 11, 0.4)'}`,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                boxShadow: isUserSubmitted 
+                  ? '0 0 15px rgba(34, 197, 94, 0.12)' 
+                  : '0 0 15px rgba(245, 158, 11, 0.12)'
+              }}>
+                {isUserSubmitted ? (
+                  <>
+                    <CheckCircle2 size={18} style={{ color: '#22c55e' }} />
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#22c55e' }}>
+                      Status: Predictions Submitted
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle size={18} style={{ color: '#f59e0b' }} />
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#f59e0b' }}>
+                      Status: Yet to Submit Predictions
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
 
             {onNavigateToPredictions && (
