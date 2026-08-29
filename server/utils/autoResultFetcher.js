@@ -304,11 +304,12 @@ async function checkAndSyncActiveMatchweeks() {
               offsides: fetchedStats.actualResults.offsides,
               corners: fetchedStats.actualResults.corners,
               shots: fetchedStats.actualResults.shots,
+              isFinished: fetchedStats.actualResults.isFinished || false,
               wildPredictionCorrectUsers: match.actualResults?.wildPredictionCorrectUsers || []
             };
             mwModified = true;
             syncCount++;
-            console.log(`[AutoSync] Live API Stats Updated for ${match.homeTeam} ${match.actualResults.homeScore}-${match.actualResults.awayScore} ${match.awayTeam} (Possession: ${match.actualResults.possession}, Yellows: ${match.actualResults.yellowCards}, Corners: ${match.actualResults.corners}, Shots: ${match.actualResults.shots})`);
+            console.log(`[AutoSync] Live API Stats Updated for ${match.homeTeam} ${match.actualResults.homeScore}-${match.actualResults.awayScore} ${match.awayTeam} (Finished: ${fetchedStats.actualResults.isFinished})`);
           }
         }
       }
@@ -317,13 +318,16 @@ async function checkAndSyncActiveMatchweeks() {
         await matchweek.save();
       }
 
-      // Check if ALL matches in this matchweek have non-null actual results
-      const allMatchesFinished = matchweek.matches.every(
-        m => m.actualResults && m.actualResults.result !== null && m.actualResults.homeScore !== null
-      );
+      // Check if ALL matches in this matchweek have officially finished
+      const allMatchesFinished = matchweek.matches.length >= 5 && matchweek.matches.every(m => {
+        if (!m.actualResults || m.actualResults.homeScore === null || m.actualResults.result === null) return false;
+        if (m.actualResults.isFinished === true) return true;
+        const kickoff = m.kickoffTime ? new Date(m.kickoffTime) : null;
+        return kickoff && (now - kickoff) > (3 * 60 * 60 * 1000);
+      });
 
       if (allMatchesFinished) {
-        console.log(`[AutoSync] All matches finished for Matchweek #${matchweek.matchweekNumber} in group ${group.name}. Auto-scoring and finalizing...`);
+        console.log(`[AutoSync] All 5 matches finished for Matchweek #${matchweek.matchweekNumber} in group ${group.name}. Auto-scoring, updating standings, and marking matchweek as completed!`);
         await finalizeMatchweekScoresInternal(matchweek, group);
         await getPremierLeagueStandings(true);
         completedMwCount++;

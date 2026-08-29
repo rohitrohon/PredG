@@ -133,6 +133,8 @@ async function fetchMatchResultStats(homeTeam, awayTeam, dateStr, eventId) {
                 else if (awayScore > 0 && homeScore === 0) firstGoal = 'Away';
               }
 
+              const isFinished = statusState === 'post';
+
               return {
                 source: 'ESPN Official API',
                 match: `${homeTeam} vs ${awayTeam}`,
@@ -145,7 +147,8 @@ async function fetchMatchResultStats(homeTeam, awayTeam, dateStr, eventId) {
                   yellowCards: hYellow + aYellow,
                   offsides: hOffsides + aOffsides,
                   corners: hCorners + aCorners,
-                  shots: hShots + aShots
+                  shots: hShots + aShots,
+                  isFinished
                 },
                 breakdown: {
                   yellowCards: `Home (${hYellow}) + Away (${aYellow}) = ${hYellow + aYellow}`,

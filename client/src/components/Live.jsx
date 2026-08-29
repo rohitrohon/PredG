@@ -798,7 +798,7 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                 </thead>
                 <tbody>
                   {selectedMw.matches.map((m, idx) => {
-                    const isCompleted = m.actualResults.homeScore !== null && m.actualResults.homeScore !== undefined;
+                    const isCompleted = m.actualResults?.isFinished || (m.actualResults?.homeScore !== null && m.actualResults?.homeScore !== undefined && m.kickoffTime && (new Date() - new Date(m.kickoffTime)) > (2.5 * 60 * 60 * 1000));
                     const isLive = !isCompleted && m.kickoffTime && new Date() >= new Date(m.kickoffTime);
 
                     return (
