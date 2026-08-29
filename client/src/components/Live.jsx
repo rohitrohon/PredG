@@ -179,6 +179,7 @@ function Live({ groupId, user, onNavigateToPredictions }) {
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [tableZoom, setTableZoom] = useState('100');
+  const [showFloatingOverview, setShowFloatingOverview] = useState(true);
 
   useEffect(() => {
     fetchMatchweeks();
@@ -739,154 +740,199 @@ function Live({ groupId, user, onNavigateToPredictions }) {
       {/* AFTER DEADLINE ACTIVE VIEW */}
       {deadlinePassed && selectedMw && (
         <>
-          {/* LIVE MATCHWEEK STANDINGS GRID */}
-          <div className="card" style={{ borderLeft: '4px solid var(--primary)', background: 'rgba(56, 189, 248, 0.02)' }}>
-            <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Trophy size={18} style={{ color: 'var(--primary)' }} /> Live standings
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
-              {liveStandings.map((p, idx) => (
-                <div key={idx} className="card" style={{ 
-                  padding: '0.75rem 1rem', 
-                  background: 'rgba(0,0,0,0.2)', 
-                  borderColor: p.username === user.username ? 'var(--primary)' : 'var(--border-color)',
-                  boxShadow: p.username === user.username ? '0 0 10px rgba(56, 189, 248, 0.05)' : 'none'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <small style={{ color: 'var(--text-muted)', fontWeight: 700 }}>#{idx + 1}</small>
-                    {p.isAutofilled && <span className="badge badge-warning" style={{ fontSize: '0.55rem', padding: '0.1rem 0.35rem' }}>Autofill</span>}
-                  </div>
-                  <h4 style={{ margin: '0.2rem 0', fontWeight: 700, fontSize: '1rem', color: p.username === user.username ? 'var(--primary)' : 'inherit' }}>
-                    {p.username}
-                  </h4>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary)' }}>
-                    {p.points} <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-muted)' }}>pts</span>
-                  </div>
-                </div>
-              ))}
+          {/* FLOATING STICKY HEADER: LIVE STANDINGS & MATCHWEEK TABLE */}
+          <div style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 100,
+            background: 'rgba(15, 23, 42, 0.95)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            padding: '0.75rem 0.5rem',
+            borderBottom: '1px solid rgba(56, 189, 248, 0.2)',
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
+            marginBottom: '1.5rem',
+            borderRadius: '0 0 16px 16px',
+            transition: 'all 0.2s ease'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showFloatingOverview ? '0.75rem' : '0', padding: '0 0.5rem' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Trophy size={15} /> Floating Live Overview & Standings
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowFloatingOverview(!showFloatingOverview)}
+                style={{
+                  background: 'rgba(255,255,255,0.08)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-main)',
+                  padding: '0.2rem 0.6rem',
+                  borderRadius: '6px',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem'
+                }}
+              >
+                {showFloatingOverview ? 'Hide Overview 🔼' : 'Show Overview 🔽'}
+              </button>
             </div>
-          </div>
 
-          {/* TABLE: FIXTURES AND RESULTS AT A GLANCE */}
-          <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Activity size={18} style={{ color: 'var(--success)' }} /> Matchweek: {selectedMw?.matchweekNumber}
-              </h3>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'rgba(255,255,255,0.05)', padding: '0.2rem 0.4rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                    <ZoomOut size={12} /> View:
-                  </span>
-                  {[
-                    { label: '100%', val: '100' },
-                    { label: '50%', val: '50' },
-                    { label: '25%', val: '25' },
-                    { label: '12.5%', val: '12' }
-                  ].map(z => (
-                    <button
-                      key={z.val}
-                      type="button"
-                      onClick={() => setTableZoom(z.val)}
-                      style={{
-                        padding: '0.15rem 0.4rem',
-                        fontSize: '0.65rem',
-                        fontWeight: tableZoom === z.val ? 700 : 500,
-                        borderRadius: '4px',
-                        border: 'none',
-                        background: tableZoom === z.val ? 'var(--primary)' : 'transparent',
-                        color: tableZoom === z.val ? '#0f172a' : 'var(--text-muted)',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease'
-                      }}
-                    >
-                      {z.label}
-                    </button>
-                  ))}
+            {showFloatingOverview && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '55vh', overflowY: 'auto', padding: '0 0.25rem' }}>
+                {/* LIVE MATCHWEEK STANDINGS GRID */}
+                <div className="card" style={{ borderLeft: '4px solid var(--primary)', background: 'rgba(56, 189, 248, 0.02)', margin: 0 }}>
+                  <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Trophy size={18} style={{ color: 'var(--primary)' }} /> Live standings
+                  </h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+                    {liveStandings.map((p, idx) => (
+                      <div key={idx} className="card" style={{ 
+                        padding: '0.75rem 1rem', 
+                        background: 'rgba(0,0,0,0.2)', 
+                        borderColor: p.username === user.username ? 'var(--primary)' : 'var(--border-color)',
+                        boxShadow: p.username === user.username ? '0 0 10px rgba(56, 189, 248, 0.05)' : 'none'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <small style={{ color: 'var(--text-muted)', fontWeight: 700 }}>#{idx + 1}</small>
+                          {p.isAutofilled && <span className="badge badge-warning" style={{ fontSize: '0.55rem', padding: '0.1rem 0.35rem' }}>Autofill</span>}
+                        </div>
+                        <h4 style={{ margin: '0.2rem 0', fontWeight: 700, fontSize: '1rem', color: p.username === user.username ? 'var(--primary)' : 'inherit' }}>
+                          {p.username}
+                        </h4>
+                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary)' }}>
+                          {p.points} <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-muted)' }}>pts</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  <span className="badge badge-info" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.7rem' }}>
-                    <RefreshCw size={11} /> Auto-sync active (every 5m)
-                  </span>
-                  {lastUpdated && <span>Updated: {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>}
+                {/* TABLE: FIXTURES AND RESULTS AT A GLANCE */}
+                <div className="card" style={{ margin: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+                    <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Activity size={18} style={{ color: 'var(--success)' }} /> Matchweek: {selectedMw?.matchweekNumber}
+                    </h3>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'rgba(255,255,255,0.05)', padding: '0.2rem 0.4rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <ZoomOut size={12} /> View:
+                        </span>
+                        {[
+                          { label: '100%', val: '100' },
+                          { label: '50%', val: '50' },
+                          { label: '25%', val: '25' },
+                          { label: '12.5%', val: '12' }
+                        ].map(z => (
+                          <button
+                            key={z.val}
+                            type="button"
+                            onClick={() => setTableZoom(z.val)}
+                            style={{
+                              padding: '0.15rem 0.4rem',
+                              fontSize: '0.65rem',
+                              fontWeight: tableZoom === z.val ? 700 : 500,
+                              borderRadius: '4px',
+                              border: 'none',
+                              background: tableZoom === z.val ? 'var(--primary)' : 'transparent',
+                              color: tableZoom === z.val ? '#0f172a' : 'var(--text-muted)',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            {z.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        <span className="badge badge-info" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.7rem' }}>
+                          <RefreshCw size={11} /> Auto-sync active (every 5m)
+                        </span>
+                        {lastUpdated && <span>Updated: {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <div className={`table-container ${tableZoom !== '100' ? `zoom-${Math.floor(Number(tableZoom))}` : ''}`}>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th style={{ width: '100px', textAlign: 'center' }}>Match No.</th>
+                          <th>Match</th>
+                          <th style={{ textAlign: 'center' }}>Status</th>
+                          <th style={{ textAlign: 'center' }}>Score</th>
+                          <th>1st Goal</th>
+                          <th>Possession</th>
+                          <th style={{ textAlign: 'center' }}>Yellow Cards</th>
+                          <th style={{ textAlign: 'center' }}>Offsides</th>
+                          <th style={{ textAlign: 'center' }}>Corners</th>
+                          <th style={{ textAlign: 'center' }}>Total Shots</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedMw.matches.map((m, idx) => {
+                          const hasResults = m.actualResults && m.actualResults.homeScore !== null && m.actualResults.homeScore !== undefined;
+                          const isCompleted = m.actualResults?.isFinished || (hasResults && m.kickoffTime && (new Date() - new Date(m.kickoffTime)) > (2.5 * 60 * 60 * 1000));
+                          const isLive = !isCompleted && m.kickoffTime && new Date() >= new Date(m.kickoffTime);
+
+                          return (
+                            <tr key={m._id}>
+                              <td style={{ textAlign: 'center', fontWeight: 700 }}>
+                                {idx + 1}
+                              </td>
+                              <td style={{ fontWeight: 700, whiteSpace: 'nowrap', minWidth: '240px' }}>
+                                {m.homeTeam} vs {m.awayTeam}
+                                {selectedMw.battleMatchId?.toString() === m._id.toString() && (
+                                  <span style={{ marginLeft: '0.5rem', color: 'var(--accent)', fontSize: '0.85rem' }} title="Battle Match of the Week">⚔️</span>
+                                )}
+                              </td>
+                              <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                {isCompleted ? (
+                                  <span className="badge badge-success" style={{ fontSize: '0.7rem', fontWeight: 700 }}>
+                                    {renderChoiceAbbreviation(
+                                      getMatchWinnerChoice(m.actualResults, m.homeTeam, m.awayTeam),
+                                      m.homeTeam, m.awayTeam
+                                    )}
+                                  </span>
+                                ) : isLive ? (
+                                  <span className="badge badge-danger" style={{ fontSize: '0.7rem', fontWeight: 700, animation: 'pulse 1.5s infinite' }}>
+                                    🔴 Live
+                                  </span>
+                                ) : (
+                                  <span className="badge badge-secondary" style={{ fontSize: '0.7rem', fontWeight: 600 }}>
+                                    Upcoming ({m.kickoffTime ? new Date(m.kickoffTime).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'TBD'})
+                                  </span>
+                                )}
+                              </td>
+                              <td style={{ 
+                                textAlign: 'center', 
+                                fontWeight: 800, 
+                                fontFamily: 'monospace', 
+                                fontSize: '1.05rem', 
+                                color: isCompleted ? 'var(--success)' : isLive ? 'var(--danger)' : 'inherit',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {hasResults ? `${m.actualResults.homeScore} - ${m.actualResults.awayScore}` : 'vs'}
+                              </td>
+                              <td>{hasResults ? renderChoiceAbbreviation(m.actualResults.firstGoal, m.homeTeam, m.awayTeam) : '-'}</td>
+                              <td>{hasResults ? renderChoiceAbbreviation(m.actualResults.possession, m.homeTeam, m.awayTeam) : '-'}</td>
+                              <td style={{ textAlign: 'center' }}>{hasResults && m.actualResults.yellowCards !== null ? m.actualResults.yellowCards : '-'}</td>
+                              <td style={{ textAlign: 'center' }}>{hasResults && m.actualResults.offsides !== null ? m.actualResults.offsides : '-'}</td>
+                              <td style={{ textAlign: 'center' }}>{hasResults && m.actualResults.corners !== null ? m.actualResults.corners : '-'}</td>
+                              <td style={{ textAlign: 'center' }}>{hasResults && m.actualResults.shots !== null ? m.actualResults.shots : '-'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className={`table-container ${tableZoom !== '100' ? `zoom-${Math.floor(Number(tableZoom))}` : ''}`}>
-              <table>
-                <thead>
-                  <tr>
-                    <th style={{ width: '100px', textAlign: 'center' }}>Match No.</th>
-                    <th>Match</th>
-                    <th style={{ textAlign: 'center' }}>Status</th>
-                    <th style={{ textAlign: 'center' }}>Score</th>
-                    <th>1st Goal</th>
-                    <th>Possession</th>
-                    <th style={{ textAlign: 'center' }}>Yellow Cards</th>
-                    <th style={{ textAlign: 'center' }}>Offsides</th>
-                    <th style={{ textAlign: 'center' }}>Corners</th>
-                    <th style={{ textAlign: 'center' }}>Total Shots</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedMw.matches.map((m, idx) => {
-                    const hasResults = m.actualResults && m.actualResults.homeScore !== null && m.actualResults.homeScore !== undefined;
-                    const isCompleted = m.actualResults?.isFinished || (hasResults && m.kickoffTime && (new Date() - new Date(m.kickoffTime)) > (2.5 * 60 * 60 * 1000));
-                    const isLive = !isCompleted && m.kickoffTime && new Date() >= new Date(m.kickoffTime);
-
-                    return (
-                      <tr key={m._id}>
-                        <td style={{ textAlign: 'center', fontWeight: 700 }}>
-                          {idx + 1}
-                        </td>
-                        <td style={{ fontWeight: 700, whiteSpace: 'nowrap', minWidth: '240px' }}>
-                          {m.homeTeam} vs {m.awayTeam}
-                          {selectedMw.battleMatchId?.toString() === m._id.toString() && (
-                            <span style={{ marginLeft: '0.5rem', color: 'var(--accent)', fontSize: '0.85rem' }} title="Battle Match of the Week">⚔️</span>
-                          )}
-                        </td>
-                        <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                          {isCompleted ? (
-                            <span className="badge badge-success" style={{ fontSize: '0.7rem', fontWeight: 700 }}>
-                              {renderChoiceAbbreviation(
-                                getMatchWinnerChoice(m.actualResults, m.homeTeam, m.awayTeam),
-                                m.homeTeam, m.awayTeam
-                              )}
-                            </span>
-                          ) : isLive ? (
-                            <span className="badge badge-danger" style={{ fontSize: '0.7rem', fontWeight: 700, animation: 'pulse 1.5s infinite' }}>
-                              🔴 Live
-                            </span>
-                          ) : (
-                            <span className="badge badge-secondary" style={{ fontSize: '0.7rem', fontWeight: 600 }}>
-                              Upcoming ({m.kickoffTime ? new Date(m.kickoffTime).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'TBD'})
-                            </span>
-                          )}
-                        </td>
-                        <td style={{ 
-                          textAlign: 'center', 
-                          fontWeight: 800, 
-                          fontFamily: 'monospace', 
-                          fontSize: '1.05rem', 
-                          color: isCompleted ? 'var(--success)' : isLive ? 'var(--danger)' : 'inherit',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {hasResults ? `${m.actualResults.homeScore} - ${m.actualResults.awayScore}` : 'vs'}
-                        </td>
-                        <td>{hasResults ? renderChoiceAbbreviation(m.actualResults.firstGoal, m.homeTeam, m.awayTeam) : '-'}</td>
-                        <td>{hasResults ? renderChoiceAbbreviation(m.actualResults.possession, m.homeTeam, m.awayTeam) : '-'}</td>
-                        <td style={{ textAlign: 'center' }}>{hasResults && m.actualResults.yellowCards !== null ? m.actualResults.yellowCards : '-'}</td>
-                        <td style={{ textAlign: 'center' }}>{hasResults && m.actualResults.offsides !== null ? m.actualResults.offsides : '-'}</td>
-                        <td style={{ textAlign: 'center' }}>{hasResults && m.actualResults.corners !== null ? m.actualResults.corners : '-'}</td>
-                        <td style={{ textAlign: 'center' }}>{hasResults && m.actualResults.shots !== null ? m.actualResults.shots : '-'}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            )}
           </div>
 
           {/* ALL MATCHES DETAIL SECTION */}
