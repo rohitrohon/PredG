@@ -1378,9 +1378,19 @@ function AdminPanel({ groupId }) {
                       <td style={{ fontWeight: 600 }}>{pred.userId?.name || '-'}</td>
                       <td style={{ color: 'var(--text-muted)' }}>{pred.userId?.username}</td>
                       <td>
-                        <span className={`badge ${pred.isSubmitted ? 'badge-success' : 'badge-warning'}`}>
-                          {pred.isSubmitted ? 'Submitted' : 'Draft / Autofilled'}
-                        </span>
+                        {pred.isAutofilled ? (
+                          <span className="badge badge-warning" style={{ fontWeight: 700 }}>
+                            🤖 Autofilled
+                          </span>
+                        ) : pred.isSubmitted ? (
+                          <span className="badge badge-success" style={{ fontWeight: 700 }}>
+                            ✅ Submitted
+                          </span>
+                        ) : (
+                          <span className="badge badge-secondary" style={{ fontWeight: 700 }}>
+                            Draft / Unsubmitted
+                          </span>
+                        )}
                       </td>
                       <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--primary)' }}>
                         {pred.totalPointsScored} pts

@@ -327,13 +327,59 @@ router.get('/matchweek/:matchweekId', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied. You are not a member or admin of this group.' });
     }
 
-    const predictions = await Prediction.find({ groupId, matchweekId: req.params.matchweekId })
+    let predictions = await Prediction.find({ groupId, matchweekId: req.params.matchweekId })
       .populate('userId', 'username');
 
     const { d1, d2 } = getMatchweekDeadlines(matchweek);
     const now = new Date();
     const deadlinePassed = now > d1;
     const secondDeadlinePassed = now > d2;
+
+    // IF DEADLINE 1 HAS PASSED: Ensure EVERY member of group.members has a submitted prediction (autofill if missing or unsubmitted)
+    if (deadlinePassed && group.members && group.members.length > 0) {
+      const submittedUserIds = new Set(
+        predictions
+          .filter(p => p.isSubmitted)
+          .map(p => (p.userId?._id ? p.userId._id.toString() : p.userId?.toString()))
+      );
+
+      let needsReFetch = false;
+      for (const memberId of group.members) {
+        const mIdStr = memberId.toString();
+        if (!submittedUserIds.has(mIdStr)) {
+          try {
+            let predDoc = await Prediction.findOne({
+              groupId,
+              matchweekId: req.params.matchweekId,
+              userId: memberId
+            });
+
+            const defaultData = await generateIntelligentDefaultPrediction(groupId, matchweek, memberId);
+
+            if (!predDoc) {
+              predDoc = new Prediction(defaultData);
+              await predDoc.save();
+            } else if (!predDoc.isSubmitted) {
+              predDoc.predictions = defaultData.predictions;
+              predDoc.captainMatchId = defaultData.captainMatchId;
+              predDoc.gamble = defaultData.gamble;
+              predDoc.marketPowerUps = defaultData.marketPowerUps;
+              predDoc.isSubmitted = true;
+              predDoc.isAutofilled = true;
+              await predDoc.save();
+            }
+            needsReFetch = true;
+          } catch (err) {
+            console.error(`Error auto-generating default predictions for member ${mIdStr}:`, err);
+          }
+        }
+      }
+
+      if (needsReFetch) {
+        predictions = await Prediction.find({ groupId, matchweekId: req.params.matchweekId })
+          .populate('userId', 'username');
+      }
+    }
 
     if (!deadlinePassed) {
       const safePredictions = predictions.map((p) => {
