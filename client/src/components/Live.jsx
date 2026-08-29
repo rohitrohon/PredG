@@ -798,7 +798,8 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                 </thead>
                 <tbody>
                   {selectedMw.matches.map((m, idx) => {
-                    const isCompleted = m.actualResults?.isFinished || (m.actualResults?.homeScore !== null && m.actualResults?.homeScore !== undefined && m.kickoffTime && (new Date() - new Date(m.kickoffTime)) > (2.5 * 60 * 60 * 1000));
+                    const hasResults = m.actualResults && m.actualResults.homeScore !== null && m.actualResults.homeScore !== undefined;
+                    const isCompleted = m.actualResults?.isFinished || (hasResults && m.kickoffTime && (new Date() - new Date(m.kickoffTime)) > (2.5 * 60 * 60 * 1000));
                     const isLive = !isCompleted && m.kickoffTime && new Date() >= new Date(m.kickoffTime);
 
                     return (
@@ -838,14 +839,14 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                           color: isCompleted ? 'var(--success)' : isLive ? 'var(--danger)' : 'inherit',
                           whiteSpace: 'nowrap'
                         }}>
-                          {isCompleted ? `${m.actualResults.homeScore} - ${m.actualResults.awayScore}` : isLive ? 'LIVE' : 'vs'}
+                          {hasResults ? `${m.actualResults.homeScore} - ${m.actualResults.awayScore}` : 'vs'}
                         </td>
-                        <td>{isCompleted ? renderChoiceAbbreviation(m.actualResults.firstGoal, m.homeTeam, m.awayTeam) : '-'}</td>
-                        <td>{isCompleted ? renderChoiceAbbreviation(m.actualResults.possession, m.homeTeam, m.awayTeam) : '-'}</td>
-                        <td style={{ textAlign: 'center' }}>{isCompleted && m.actualResults.yellowCards !== null ? m.actualResults.yellowCards : '-'}</td>
-                        <td style={{ textAlign: 'center' }}>{isCompleted && m.actualResults.offsides !== null ? m.actualResults.offsides : '-'}</td>
-                        <td style={{ textAlign: 'center' }}>{isCompleted && m.actualResults.corners !== null ? m.actualResults.corners : '-'}</td>
-                        <td style={{ textAlign: 'center' }}>{isCompleted && m.actualResults.shots !== null ? m.actualResults.shots : '-'}</td>
+                        <td>{hasResults ? renderChoiceAbbreviation(m.actualResults.firstGoal, m.homeTeam, m.awayTeam) : '-'}</td>
+                        <td>{hasResults ? renderChoiceAbbreviation(m.actualResults.possession, m.homeTeam, m.awayTeam) : '-'}</td>
+                        <td style={{ textAlign: 'center' }}>{hasResults && m.actualResults.yellowCards !== null ? m.actualResults.yellowCards : '-'}</td>
+                        <td style={{ textAlign: 'center' }}>{hasResults && m.actualResults.offsides !== null ? m.actualResults.offsides : '-'}</td>
+                        <td style={{ textAlign: 'center' }}>{hasResults && m.actualResults.corners !== null ? m.actualResults.corners : '-'}</td>
+                        <td style={{ textAlign: 'center' }}>{hasResults && m.actualResults.shots !== null ? m.actualResults.shots : '-'}</td>
                       </tr>
                     );
                   })}
