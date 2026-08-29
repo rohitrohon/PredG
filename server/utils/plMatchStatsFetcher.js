@@ -142,7 +142,8 @@ async function fetchMatchResultStats(homeTeam, awayTeam, dateStr, eventId) {
                 else if (awayScore > 0 && homeScore === 0) firstGoal = 'Away';
               }
 
-              const isFinished = statusState === 'post';
+              const statusType = matchEvent.status?.type || {};
+              const isFinished = statusType.state === 'post' || statusType.completed === true || statusType.name === 'STATUS_FULL_TIME' || statusType.name === 'STATUS_FINAL';
 
               return {
                 source: 'ESPN Official API',

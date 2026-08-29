@@ -881,7 +881,7 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                       <tbody>
                         {selectedMw.matches.map((m, idx) => {
                           const hasResults = m.actualResults && m.actualResults.homeScore !== null && m.actualResults.homeScore !== undefined;
-                          const isCompleted = m.actualResults?.isFinished || (hasResults && m.kickoffTime && (new Date() - new Date(m.kickoffTime)) > (2.5 * 60 * 60 * 1000));
+                          const isCompleted = m.actualResults?.isFinished || (hasResults && m.kickoffTime && (new Date() - new Date(m.kickoffTime)) > (1.9 * 60 * 60 * 1000));
                           const isLive = !isCompleted && m.kickoffTime && new Date() >= new Date(m.kickoffTime);
 
                           return (
