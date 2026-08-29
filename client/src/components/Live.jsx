@@ -781,9 +781,9 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                   </span>
                   {[
                     { label: '100%', val: '100' },
-                    { label: '80%', val: '80' },
-                    { label: '65%', val: '65' },
-                    { label: 'Fit (50%)', val: '50' }
+                    { label: '50%', val: '50' },
+                    { label: '25%', val: '25' },
+                    { label: '12.5%', val: '12' }
                   ].map(z => (
                     <button
                       key={z.val}
@@ -814,7 +814,7 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                 </div>
               </div>
             </div>
-            <div className={`table-container ${tableZoom !== '100' ? `zoom-${tableZoom}` : ''}`}>
+            <div className={`table-container ${tableZoom !== '100' ? `zoom-${Math.floor(Number(tableZoom))}` : ''}`}>
               <table>
                 <thead>
                   <tr>
@@ -1006,7 +1006,7 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                   )}
 
                   {/* PLAYERS DETAIL PREDICTIONS GRID (Spreadsheet Heatmap Layout) */}
-                  <div className={`table-container ${tableZoom !== '100' ? `zoom-${tableZoom}` : ''}`}>
+                  <div className={`table-container ${tableZoom !== '100' ? `zoom-${Math.floor(Number(tableZoom))}` : ''}`}>
                     <table>
                       <thead>
                         <tr>

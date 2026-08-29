@@ -241,28 +241,28 @@ input[type=number] {
   transition: all 0.2s ease;
 }
 
-.table-container.zoom-80 table {
-  font-size: 0.8rem;
-}
-.table-container.zoom-80 th,
-.table-container.zoom-80 td {
-  padding: 0.5rem 0.6rem;
-}
-
-.table-container.zoom-65 table {
-  font-size: 0.7rem;
-}
-.table-container.zoom-65 th,
-.table-container.zoom-65 td {
-  padding: 0.35rem 0.45rem;
-}
-
 .table-container.zoom-50 table {
   font-size: 0.6rem;
 }
 .table-container.zoom-50 th,
 .table-container.zoom-50 td {
   padding: 0.25rem 0.35rem;
+}
+
+.table-container.zoom-25 table {
+  font-size: 0.5rem;
+}
+.table-container.zoom-25 th,
+.table-container.zoom-25 td {
+  padding: 0.15rem 0.25rem;
+}
+
+.table-container.zoom-12 table {
+  font-size: 0.42rem;
+}
+.table-container.zoom-12 th,
+.table-container.zoom-12 td {
+  padding: 0.1rem 0.15rem;
 }
 
 table {
