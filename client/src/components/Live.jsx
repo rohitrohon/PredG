@@ -558,13 +558,15 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                 </ul>
               </div>
 
-              {/* 2nd Chance Deadline */}
+              {/* 2nd Chance Deadline & Selective Reveal */}
               <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--success)' }}>
-                <h4 style={{ color: 'var(--success)', marginBottom: '0.5rem', fontSize: '1rem' }}>🔄 2nd Chance Deadline (Games 4 & 5)</h4>
-                <p>If you missed the 1st Main Deadline and received autofilled default predictions, you are granted a <strong>Second Chance Window</strong>!</p>
-                <ul style={{ paddingLeft: '1.2rem', marginTop: '0.4rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                  <li><strong>Games 1, 2 & 3:</strong> Permanently locked with your autofilled predictions.</li>
+                <h4 style={{ color: 'var(--success)', marginBottom: '0.5rem', fontSize: '1rem' }}>🔄 2nd Chance Deadline & Prediction Reveal Rules</h4>
+                <p style={{ marginBottom: '0.4rem' }}>If a player missed the 1st Main Deadline and received autofilled default predictions, they are granted a <strong>Second Chance Window</strong>:</p>
+                <ul style={{ paddingLeft: '1.2rem', marginTop: '0.4rem', display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.85rem' }}>
+                  <li><strong>Games 1, 2 & 3:</strong> Permanently locked with their autofilled predictions.</li>
                   <li><strong>Games 4 & 5:</strong> Editable in the Prediction tab until the <strong>2nd Chance Deadline</strong> (Game 4 Kickoff time).</li>
+                  <li><strong>🔒 Prediction Reveal Privacy:</strong> For players who submitted before the 1st deadline, all 5 match predictions are revealed immediately. For autofilled players, predictions for Games 1, 2 & 3 are revealed after 1st deadline, while predictions for Games 4 & 5 remain hidden (<code>🔒 Hidden</code>) until the 2nd Chance Deadline passes.</li>
+                  <li><strong>🤖 Autofilled Indicator:</strong> Players with system default predictions are marked with a <strong>🤖 Autofilled</strong> badge in the standings and breakdown matrix tables.</li>
                 </ul>
               </div>
 
