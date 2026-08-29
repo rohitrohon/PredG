@@ -4,6 +4,38 @@
  * Uses ESPN Official API as primary source for 100% exact stats, with TheSportsDB as fallback.
  */
 
+const TEAM_ALIASES = {
+  'nottm forest': ['nottingham forest', 'nottingham', 'nottm forest', 'forest'],
+  'nottingham forest': ['nottingham forest', 'nottingham', 'nottm forest', 'forest'],
+  'man utd': ['manchester united', 'man utd', 'manutd', 'man united'],
+  'manchester united': ['manchester united', 'man utd', 'manutd', 'man united'],
+  'man city': ['manchester city', 'man city', 'mancity'],
+  'manchester city': ['manchester city', 'man city', 'mancity'],
+  'spurs': ['tottenham hotspur', 'tottenham', 'spurs'],
+  'tottenham': ['tottenham hotspur', 'tottenham', 'spurs'],
+  'wolves': ['wolverhampton wanderers', 'wolverhampton', 'wolves'],
+  'wolverhampton': ['wolverhampton wanderers', 'wolverhampton', 'wolves'],
+  'west ham': ['west ham united', 'west ham'],
+  'brighton': ['brighton & hove albion', 'brighton'],
+  'newcastle': ['newcastle united', 'newcastle'],
+  'leicester': ['leicester city', 'leicester'],
+  'ipswich': ['ipswich town', 'ipswich']
+};
+
+function teamMatches(dbName, apiName) {
+  if (!dbName || !apiName) return false;
+  const dbLower = dbName.trim().toLowerCase();
+  const apiLower = apiName.trim().toLowerCase();
+
+  if (apiLower.includes(dbLower) || dbLower.includes(apiLower)) return true;
+
+  const aliases = TEAM_ALIASES[dbLower];
+  if (aliases) {
+    return aliases.some(alias => apiLower.includes(alias) || alias.includes(apiLower));
+  }
+  return false;
+}
+
 async function fetchMatchResultStats(homeTeam, awayTeam, dateStr, eventId) {
   // If only 1 or 2 arguments passed (e.g. eventId as first arg)
   if (!awayTeam && homeTeam) {
@@ -24,13 +56,10 @@ async function fetchMatchResultStats(homeTeam, awayTeam, dateStr, eventId) {
       if (resScore.ok) {
         const dataScore = await resScore.json();
         const events = dataScore.events || [];
-        const homeLower = homeTeam.toLowerCase();
-        const awayLower = awayTeam.toLowerCase();
 
         const matchEvent = events.find(e => {
-          const name = e.name.toLowerCase();
-          return (name.includes(homeLower) || homeLower.includes(name)) && 
-                 (name.includes(awayLower) || awayLower.includes(name));
+          const name = e.name || '';
+          return teamMatches(homeTeam, name) && teamMatches(awayTeam, name);
         });
 
         if (matchEvent) {
