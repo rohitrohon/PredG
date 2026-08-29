@@ -1036,7 +1036,14 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                                 ...getNameCellStyle(isCaptain, powerUp, isGamble, predDoc.marketPowerUps?.some(pu => pu.matchId.toString() === mId && pu.type === 'Shield'))
                               }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                                  <span>{nameLabel}</span>
+                                  <span>
+                                    {nameLabel}
+                                    {predDoc.isAutofilled && (
+                                      <span className="badge badge-warning" style={{ fontSize: '0.55rem', padding: '0.1rem 0.35rem', marginLeft: '0.35rem' }}>
+                                        🤖 Autofilled
+                                      </span>
+                                    )}
+                                  </span>
                                   <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'nowrap' }}>
                                     {tags}
                                   </div>
@@ -1045,114 +1052,150 @@ function Live({ groupId, user, onNavigateToPredictions }) {
 
                               {/* MATCH RESULT */}
                               <td style={{
-                                ...getTemperatureStyle(ptsResult, hasScore),
+                                ...(matchPred.isLockedWindow || matchPred.result === 'Locked' ? {} : getTemperatureStyle(ptsResult, hasScore)),
                                 textAlign: 'center',
                                 padding: '0.5rem',
                                 whiteSpace: 'nowrap'
                               }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                  <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>
-                                    {renderChoiceAbbreviation(matchPred.result, match.homeTeam, match.awayTeam)}
-                                  </span>
-                                  {hasScore && (
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.9, marginTop: '2px' }}>
-                                      +{ptsResult}
-                                    </span>
+                                  {matchPred.isLockedWindow || matchPred.result === 'Locked' ? (
+                                    <span style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>🔒 Hidden (2nd Window)</span>
+                                  ) : (
+                                    <>
+                                      <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>
+                                        {renderChoiceAbbreviation(matchPred.result, match.homeTeam, match.awayTeam)}
+                                      </span>
+                                      {hasScore && (
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.9, marginTop: '2px' }}>
+                                          +{ptsResult}
+                                        </span>
+                                      )}
+                                    </>
                                   )}
                                 </div>
                               </td>
 
                               {/* SCORELINE & SAFE BET */}
                               <td style={{
-                                ...getTemperatureStyle(ptsScoreline, hasScore),
+                                ...(matchPred.isLockedWindow || matchPred.result === 'Locked' ? {} : getTemperatureStyle(ptsScoreline, hasScore)),
                                 textAlign: 'center',
                                 padding: '0.5rem',
                                 whiteSpace: 'nowrap'
                               }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                  <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>
-                                    {matchPred.homeScore}-{matchPred.awayScore} ({renderChoiceAbbreviation(matchPred.safeBet, match.homeTeam, match.awayTeam)})
-                                  </span>
-                                  {hasScore && (
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.9, marginTop: '2px' }}>
-                                      +{ptsScoreline}
-                                    </span>
+                                  {matchPred.isLockedWindow || matchPred.result === 'Locked' ? (
+                                    <span style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>🔒 Locked</span>
+                                  ) : (
+                                    <>
+                                      <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>
+                                        {matchPred.homeScore}-{matchPred.awayScore} ({renderChoiceAbbreviation(matchPred.safeBet, match.homeTeam, match.awayTeam)})
+                                      </span>
+                                      {hasScore && (
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.9, marginTop: '2px' }}>
+                                          +{ptsScoreline}
+                                        </span>
+                                      )}
+                                    </>
                                   )}
                                 </div>
                               </td>
 
                               {/* 1ST GOAL */}
                               <td style={{
-                                ...getTemperatureStyle(ptsFirstGoal, hasScore),
+                                ...(matchPred.isLockedWindow || matchPred.result === 'Locked' ? {} : getTemperatureStyle(ptsFirstGoal, hasScore)),
                                 textAlign: 'center',
                                 padding: '0.5rem',
                                 whiteSpace: 'nowrap'
                               }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                  <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>
-                                    {renderChoiceAbbreviation(matchPred.firstGoal, match.homeTeam, match.awayTeam)}
-                                  </span>
-                                  {hasScore && (
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.9, marginTop: '2px' }}>
-                                      +{ptsFirstGoal}
-                                    </span>
+                                  {matchPred.isLockedWindow || matchPred.result === 'Locked' ? (
+                                    <span style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>🔒 Locked</span>
+                                  ) : (
+                                    <>
+                                      <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>
+                                        {renderChoiceAbbreviation(matchPred.firstGoal, match.homeTeam, match.awayTeam)}
+                                      </span>
+                                      {hasScore && (
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.9, marginTop: '2px' }}>
+                                          +{ptsFirstGoal}
+                                        </span>
+                                      )}
+                                    </>
                                   )}
                                 </div>
                               </td>
 
                               {/* POSSESSION */}
                               <td style={{
-                                ...getTemperatureStyle(ptsPossession, hasScore),
+                                ...(matchPred.isLockedWindow || matchPred.result === 'Locked' ? {} : getTemperatureStyle(ptsPossession, hasScore)),
                                 textAlign: 'center',
                                 padding: '0.5rem',
                                 whiteSpace: 'nowrap'
                               }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                  <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>
-                                    {renderChoiceAbbreviation(matchPred.possession, match.homeTeam, match.awayTeam)}
-                                  </span>
-                                  {hasScore && (
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.9, marginTop: '2px' }}>
-                                      +{ptsPossession}
-                                    </span>
+                                  {matchPred.isLockedWindow || matchPred.result === 'Locked' ? (
+                                    <span style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>🔒 Locked</span>
+                                  ) : (
+                                    <>
+                                      <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>
+                                        {renderChoiceAbbreviation(matchPred.possession, match.homeTeam, match.awayTeam)}
+                                      </span>
+                                      {hasScore && (
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.9, marginTop: '2px' }}>
+                                          +{ptsPossession}
+                                        </span>
+                                      )}
+                                    </>
                                   )}
                                 </div>
                               </td>
 
                               {/* WILD PREDICTION */}
                               <td style={{
-                                ...getTemperatureStyle(ptsWild, hasScore),
+                                ...(matchPred.isLockedWindow || matchPred.result === 'Locked' ? {} : getTemperatureStyle(ptsWild, hasScore)),
                                 textAlign: 'center',
                                 padding: '0.5rem',
                                 whiteSpace: 'nowrap'
                               }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                  <span style={{ fontWeight: 700, fontSize: '0.8rem' }}>
-                                    {matchPred.wildPredictionCategory !== 'None' ? `${matchPred.wildPredictionCategory}: ${matchPred.wildPredictionValue}` : '-'}
-                                  </span>
-                                  {hasScore && matchPred.wildPredictionCategory !== 'None' && (
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.9, marginTop: '2px' }}>
-                                      +{ptsWild}
-                                    </span>
+                                  {matchPred.isLockedWindow || matchPred.result === 'Locked' ? (
+                                    <span style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>🔒 Locked</span>
+                                  ) : (
+                                    <>
+                                      <span style={{ fontWeight: 700, fontSize: '0.8rem' }}>
+                                        {matchPred.wildPredictionCategory !== 'None' ? `${matchPred.wildPredictionCategory}: ${matchPred.wildPredictionValue}` : '-'}
+                                      </span>
+                                      {hasScore && matchPred.wildPredictionCategory !== 'None' && (
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.9, marginTop: '2px' }}>
+                                          +{ptsWild}
+                                        </span>
+                                      )}
+                                    </>
                                   )}
                                 </div>
                               </td>
 
                               {/* TOTAL MATCH POINTS (TOTAL COLUMN) */}
                               <td style={{
-                                ...getTotalTemperatureStyle(matchTotal, hasScore),
+                                ...(matchPred.isLockedWindow || matchPred.result === 'Locked' ? {} : getTotalTemperatureStyle(matchTotal, hasScore)),
                                 textAlign: 'center',
                                 padding: '0.5rem',
                                 whiteSpace: 'nowrap'
                               }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                  <span style={{ fontSize: '1rem', fontWeight: 800 }}>
-                                    {hasScore ? (matchTotal >= 0 ? `+${matchTotal}` : `${matchTotal}`) : 'Pending'}
-                                  </span>
-                                  {hasScore && totalMultiplier > 1 && (
-                                    <span style={{ fontSize: '0.65rem', fontWeight: 700, opacity: 0.9 }}>
-                                      ({totalMultiplier}x)
-                                    </span>
+                                  {matchPred.isLockedWindow || matchPred.result === 'Locked' ? (
+                                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', fontStyle: 'italic' }}>🔒 Pending</span>
+                                  ) : (
+                                    <>
+                                      <span style={{ fontSize: '1rem', fontWeight: 800 }}>
+                                        {hasScore ? (matchTotal >= 0 ? `+${matchTotal}` : `${matchTotal}`) : 'Pending'}
+                                      </span>
+                                      {hasScore && totalMultiplier > 1 && (
+                                        <span style={{ fontSize: '0.65rem', fontWeight: 700, opacity: 0.9 }}>
+                                          ({totalMultiplier}x)
+                                        </span>
+                                      )}
+                                    </>
                                   )}
                                 </div>
                               </td>

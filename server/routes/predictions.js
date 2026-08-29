@@ -330,7 +330,10 @@ router.get('/matchweek/:matchweekId', auth, async (req, res) => {
     const predictions = await Prediction.find({ groupId, matchweekId: req.params.matchweekId })
       .populate('userId', 'username');
 
-    const deadlinePassed = isDeadlinePassed(matchweek.deadline);
+    const { d1, d2 } = getMatchweekDeadlines(matchweek);
+    const now = new Date();
+    const deadlinePassed = now > d1;
+    const secondDeadlinePassed = now > d2;
 
     if (!deadlinePassed) {
       const safePredictions = predictions.map((p) => {
@@ -346,10 +349,67 @@ router.get('/matchweek/:matchweekId', auth, async (req, res) => {
           marketPowerUps: []
         };
       });
-      return res.json({ deadlinePassed: false, predictions: safePredictions });
+      return res.json({ deadlinePassed: false, secondDeadlinePassed: false, predictions: safePredictions });
     }
 
-    res.json({ deadlinePassed: true, predictions });
+    // Matchweek Deadline 1 passed.
+    // For autofilled users, if Deadline 2 has not passed yet, hide predictions for Matches 4 and 5 (the last 2 matches).
+    const lastTwoMatchIds = matchweek.matches && matchweek.matches.length >= 5 
+      ? matchweek.matches.slice(3).map(m => m._id.toString())
+      : [];
+
+    const processedPredictions = predictions.map((p) => {
+      const plain = p.toObject ? p.toObject() : { ...p };
+
+      // If user filled form before Deadline 1 (not autofilled) OR Deadline 2 has passed, reveal all 5 predictions
+      if (!plain.isAutofilled || secondDeadlinePassed) {
+        return plain;
+      }
+
+      // For autofilled users before Deadline 2 passes: hide/mask matches 4 and 5
+      const sanitizedPredictions = (plain.predictions || []).map((singleP) => {
+        const mIdStr = singleP.matchId ? singleP.matchId.toString() : '';
+        if (lastTwoMatchIds.includes(mIdStr)) {
+          return {
+            ...singleP,
+            result: 'Locked',
+            homeScore: null,
+            awayScore: null,
+            safeBet: null,
+            firstGoal: 'Locked',
+            possession: 'Locked',
+            wildPredictionCategory: 'None',
+            wildPredictionValue: null,
+            isLockedWindow: true
+          };
+        }
+        return singleP;
+      });
+
+      let sanitizedCaptainId = plain.captainMatchId;
+      if (sanitizedCaptainId && lastTwoMatchIds.includes(sanitizedCaptainId.toString())) {
+        sanitizedCaptainId = null;
+      }
+
+      let sanitizedGamble = plain.gamble;
+      if (sanitizedGamble && sanitizedGamble.matchId && lastTwoMatchIds.includes(sanitizedGamble.matchId.toString())) {
+        sanitizedGamble = { active: false, points: 0, matchId: null };
+      }
+
+      const sanitizedPowerUps = (plain.marketPowerUps || []).filter(
+        pu => !pu.matchId || !lastTwoMatchIds.includes(pu.matchId.toString())
+      );
+
+      return {
+        ...plain,
+        predictions: sanitizedPredictions,
+        captainMatchId: sanitizedCaptainId,
+        gamble: sanitizedGamble,
+        marketPowerUps: sanitizedPowerUps
+      };
+    });
+
+    res.json({ deadlinePassed: true, secondDeadlinePassed, predictions: processedPredictions });
   } catch (error) {
     res.status(500).json({ message: 'Server error retrieving predictions.', error: error.message });
   }
