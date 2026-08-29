@@ -222,15 +222,20 @@ function Live({ groupId, user, onNavigateToPredictions }) {
   const fetchPredictions = async (mwId) => {
     try {
       setError('');
-      const [data, myData] = await Promise.all([
+      const [data, myData, freshMws] = await Promise.all([
         api.getMatchweekPredictions(mwId, groupId),
-        api.getMyPredictions(mwId, groupId).catch(() => null)
+        api.getMyPredictions(mwId, groupId).catch(() => null),
+        api.getMatchweeks(groupId).catch(() => null)
       ]);
       setPredictionData(data);
       if (myData && myData.prediction) {
         setMyPredictionDoc(myData.prediction);
       } else {
         setMyPredictionDoc(null);
+      }
+      if (freshMws) {
+        const visible = freshMws.filter(mw => mw.status !== 'draft');
+        setMatchweeks(visible);
       }
       setLastUpdated(new Date());
     } catch (err) {
