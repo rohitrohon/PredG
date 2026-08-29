@@ -106,8 +106,17 @@ async function fetchMatchResultStats(homeTeam, awayTeam, dateStr, eventId) {
               else if (awayScore > homeScore) result = 'Away';
 
               let possession = 'Equal';
-              if (hPoss > aPoss) possession = 'Home';
-              else if (aPoss > hPoss) possession = 'Away';
+              if (hPoss >= 48 && hPoss <= 52) {
+                possession = 'Equal';
+              } else if (hPoss > 52) {
+                possession = 'Home';
+              } else if (aPoss > 52) {
+                possession = 'Away';
+              } else if (hPoss > aPoss) {
+                possession = 'Home';
+              } else if (aPoss > hPoss) {
+                possession = 'Away';
+              }
 
               // Chronological Goal Timeline Parser for 100% exact First Goal determination
               let firstGoal = 'No goal';
@@ -213,7 +222,10 @@ async function fetchMatchResultStats(homeTeam, awayTeam, dateStr, eventId) {
             else if (name.includes('offside')) offsidesExact += (h + a);
             else if (name.includes('yellow card')) yellowCardsExact += (h + a);
             else if (name.includes('possession')) {
-              if (h > a) possessionWinner = 'Home';
+              if (h >= 48 && h <= 52) possessionWinner = 'Equal';
+              else if (h > 52) possessionWinner = 'Home';
+              else if (a > 52) possessionWinner = 'Away';
+              else if (h > a) possessionWinner = 'Home';
               else if (a > h) possessionWinner = 'Away';
               else possessionWinner = 'Equal';
             }
