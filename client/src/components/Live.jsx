@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
-import { Clock, Trophy, Shield, Play, AlertCircle, RefreshCw, Award, Activity, Edit3, Info, BookOpen, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Clock, Trophy, Shield, Play, AlertCircle, RefreshCw, Award, Activity, Edit3, Info, BookOpen, CheckCircle2, AlertTriangle, ZoomIn, ZoomOut } from 'lucide-react';
 
 function formatDeadlineIST(dateString) {
   if (!dateString) return '';
@@ -178,6 +178,7 @@ function Live({ groupId, user, onNavigateToPredictions }) {
   const [timeRemaining, setTimeRemaining] = useState('');
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [tableZoom, setTableZoom] = useState('100');
 
   useEffect(() => {
     fetchMatchweeks();
@@ -773,14 +774,47 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                 <Activity size={18} style={{ color: 'var(--success)' }} /> Matchweek: {selectedMw?.matchweekNumber}
               </h3>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                <span className="badge badge-info" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.7rem' }}>
-                  <RefreshCw size={11} /> Auto-sync active (every 5m)
-                </span>
-                {lastUpdated && <span>Updated: {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'rgba(255,255,255,0.05)', padding: '0.2rem 0.4rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <ZoomOut size={12} /> View:
+                  </span>
+                  {[
+                    { label: '100%', val: '100' },
+                    { label: '80%', val: '80' },
+                    { label: '65%', val: '65' },
+                    { label: 'Fit (50%)', val: '50' }
+                  ].map(z => (
+                    <button
+                      key={z.val}
+                      type="button"
+                      onClick={() => setTableZoom(z.val)}
+                      style={{
+                        padding: '0.15rem 0.4rem',
+                        fontSize: '0.65rem',
+                        fontWeight: tableZoom === z.val ? 700 : 500,
+                        borderRadius: '4px',
+                        border: 'none',
+                        background: tableZoom === z.val ? 'var(--primary)' : 'transparent',
+                        color: tableZoom === z.val ? '#0f172a' : 'var(--text-muted)',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {z.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  <span className="badge badge-info" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.7rem' }}>
+                    <RefreshCw size={11} /> Auto-sync active (every 5m)
+                  </span>
+                  {lastUpdated && <span>Updated: {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>}
+                </div>
               </div>
             </div>
-            <div className="table-container">
+            <div className={`table-container ${tableZoom !== '100' ? `zoom-${tableZoom}` : ''}`}>
               <table>
                 <thead>
                   <tr>
@@ -972,7 +1006,7 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                   )}
 
                   {/* PLAYERS DETAIL PREDICTIONS GRID (Spreadsheet Heatmap Layout) */}
-                  <div className="table-container">
+                  <div className={`table-container ${tableZoom !== '100' ? `zoom-${tableZoom}` : ''}`}>
                     <table>
                       <thead>
                         <tr>

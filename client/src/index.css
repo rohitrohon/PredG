@@ -233,12 +233,36 @@ input[type=number] {
   -moz-appearance: textfield;
 }
 
-/* Table Design */
 .table-container {
   overflow-x: auto;
   border-radius: 12px;
   border: 1px solid var(--border-color);
   -webkit-overflow-scrolling: touch;
+  transition: all 0.2s ease;
+}
+
+.table-container.zoom-80 table {
+  font-size: 0.8rem;
+}
+.table-container.zoom-80 th,
+.table-container.zoom-80 td {
+  padding: 0.5rem 0.6rem;
+}
+
+.table-container.zoom-65 table {
+  font-size: 0.7rem;
+}
+.table-container.zoom-65 th,
+.table-container.zoom-65 td {
+  padding: 0.35rem 0.45rem;
+}
+
+.table-container.zoom-50 table {
+  font-size: 0.6rem;
+}
+.table-container.zoom-50 th,
+.table-container.zoom-50 td {
+  padding: 0.25rem 0.35rem;
 }
 
 table {
