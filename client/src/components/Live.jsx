@@ -172,6 +172,7 @@ function Live({ groupId, user, onNavigateToPredictions }) {
   const [matchweeks, setMatchweeks] = useState([]);
   const [selectedMwId, setSelectedMwId] = useState('');
   const [predictionData, setPredictionData] = useState(null);
+  const [myPredictionDoc, setMyPredictionDoc] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [timeRemaining, setTimeRemaining] = useState('');
@@ -210,8 +211,16 @@ function Live({ groupId, user, onNavigateToPredictions }) {
   const fetchPredictions = async (mwId) => {
     try {
       setError('');
-      const data = await api.getMatchweekPredictions(mwId, groupId);
+      const [data, myData] = await Promise.all([
+        api.getMatchweekPredictions(mwId, groupId),
+        api.getMyPredictions(mwId, groupId).catch(() => null)
+      ]);
       setPredictionData(data);
+      if (myData && myData.prediction) {
+        setMyPredictionDoc(myData.prediction);
+      } else {
+        setMyPredictionDoc(null);
+      }
     } catch (err) {
       setError('Failed to load predictions details.');
     }
@@ -263,11 +272,23 @@ function Live({ groupId, user, onNavigateToPredictions }) {
   }
 
   const rawPredictions = predictionData?.predictions || [];
-  const myPredDoc = rawPredictions.find(p => {
-    const pUserId = p.userId?._id ? p.userId._id.toString() : p.userId?.toString();
-    return pUserId === user?.id;
+  const currentUserId = user?.id || user?._id;
+  const currentUsername = user?.username;
+
+  const myPredDocFromList = rawPredictions.find(p => {
+    if (!p.userId) return false;
+    const pId = p.userId._id ? p.userId._id.toString() : p.userId.toString();
+    const pUsername = p.userId.username || p.userId.name || '';
+
+    if (currentUserId && pId === currentUserId.toString()) return true;
+    if (currentUsername && pUsername.toLowerCase() === currentUsername.toLowerCase()) return true;
+    return false;
   });
-  const isUserSubmitted = Boolean(myPredDoc && myPredDoc.isSubmitted);
+
+  const isUserSubmitted = Boolean(
+    (myPredictionDoc && myPredictionDoc.isSubmitted) || 
+    (myPredDocFromList && myPredDocFromList.isSubmitted)
+  );
 
   const submittedPredictions = rawPredictions
     .filter(p => p.isSubmitted)
