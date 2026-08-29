@@ -395,8 +395,11 @@ function Live({ groupId, user, onNavigateToPredictions }) {
       }
       const totalMultiplier = captainMult * doubleMult * tripleMult;
 
+      const gotSuperBonus = correctCats === 5;
+      const superBonusMult = gotSuperBonus ? 1.5 : 1;
+
       const categoriesSum = ptsResult + ptsScoreline + ptsFirstGoal + ptsPossession + ptsWild;
-      const matchTotal = (categoriesSum + bonusPoints + matchGamblePoints) * totalMultiplier;
+      const matchTotal = Math.round((categoriesSum + bonusPoints + matchGamblePoints) * totalMultiplier * superBonusMult);
       matchScores[mId] = matchTotal;
       totalLiveScore += matchTotal;
     });
@@ -1002,14 +1005,18 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                           }
                           const totalMultiplier = captainMult * doubleMult * tripleMult;
 
+                          const gotSuperBonus = correctCats === 5;
+                          const superBonusMult = gotSuperBonus ? 1.5 : 1;
+
                           const categoriesSum = ptsResult + ptsScoreline + ptsFirstGoal + ptsPossession + ptsWild;
-                          let matchTotal = (categoriesSum + bonusPoints + matchGamblePoints) * totalMultiplier;
+                          let matchTotal = Math.round((categoriesSum + bonusPoints + matchGamblePoints) * totalMultiplier * superBonusMult);
 
                           // Render labels
                           let nameLabel = predDoc.userId?.username || 'Unknown';
                           const tags = [];
                           if (isCaptain) tags.push(<span key="cap" className="badge badge-info" style={{ fontSize: '0.55rem', padding: '0.05rem 0.25rem', color: '#000000', backgroundColor: 'rgba(0,0,0,0.08)', borderColor: 'rgba(0,0,0,0.25)', fontWeight: 800 }}>C</span>);
                           if (powerUp) tags.push(<span key="pu" className="badge badge-success" style={{ fontSize: '0.55rem', padding: '0.05rem 0.25rem', color: '#000000', backgroundColor: 'rgba(0,0,0,0.08)', borderColor: 'rgba(0,0,0,0.25)', fontWeight: 800 }}>{powerUp.type}</span>);
+                          if (gotSuperBonus) tags.push(<span key="sb" className="badge badge-accent" style={{ fontSize: '0.55rem', padding: '0.05rem 0.25rem', color: '#000000', backgroundColor: '#f59e0b', borderColor: 'rgba(0,0,0,0.25)', fontWeight: 800 }}>⚡ 1.5x Super Bonus</span>);
                           
                           if (isGamble) {
                             tags.push(<span key="gam" className="badge badge-warning" style={{ fontSize: '0.55rem', padding: '0.05rem 0.25rem', color: '#000000', backgroundColor: 'rgba(0,0,0,0.08)', borderColor: 'rgba(0,0,0,0.25)', fontWeight: 800 }}>Gamble {predDoc.gamble.points}</span>);

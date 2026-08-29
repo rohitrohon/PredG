@@ -519,10 +519,15 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                 <p style={{ marginTop: '0.4rem', fontWeight: 600, color: 'var(--warning)', fontSize: '0.85rem' }}>⚠️ Category Limit Rule: You can select the same wild category for a maximum of 2 matches per matchweek.</p>
               </div>
 
-              {/* Consistency Bonus */}
+              {/* Consistency Bonus & Super Bonus */}
               <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--accent)' }}>
-                <h4 style={{ color: 'var(--accent)', marginBottom: '0.5rem', fontSize: '1rem' }}>🎁 Consistency Bonus</h4>
-                <p>If you score points in <strong>any 4 out of 5 prediction categories</strong> for a single match, you receive an extra <strong>Consistency Bonus</strong>!</p>
+                <h4 style={{ color: 'var(--accent)', marginBottom: '0.5rem', fontSize: '1rem' }}>🎁 Consistency Bonus & ⚡ Super Bonus (1.5x Multiplier)</h4>
+                <p style={{ marginBottom: '0.4rem' }}>
+                  <strong>Consistency Bonus (+50 pts):</strong> If you score points in <strong>any 4 out of 5 prediction categories</strong> for a single match, you receive an extra <strong>+50 Bonus Points</strong>!
+                </p>
+                <p style={{ margin: 0 }}>
+                  <strong>⚡ Super Bonus (1.5x Multiplier):</strong> If you score points in <strong>ALL 5 prediction categories</strong> in a single match, you unlock the <strong>Super Bonus</strong> ➔ a <strong>1.5x Multiplier</strong> applied to your overall points achieved in that match!
+                </p>
               </div>
 
               {/* Captain Multiplier */}

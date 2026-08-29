@@ -212,9 +212,14 @@ function scoreUserPrediction(predictionDoc, matchweekDoc, distribution, totalPla
     const tripleMult = hasTriple ? 3 : 1;
     const totalMultiplier = captainMult * doubleMult * tripleMult;
 
-    // Match Points = (Points from all 5 Categories + Bonus + Gamble Points) * Captain * Double * Triple
+    // Super Bonus (1.5x multiplier applied to overall match points if ALL 5 categories score > 0 points)
+    const gotSuperBonus = correctCategoriesCount === 5;
+    const superBonusMult = gotSuperBonus ? 1.5 : 1;
+
+    // Match Points = (Points from all 5 Categories + Bonus + Gamble Points) * Captain * Double * Triple * SuperBonus
     const categoriesSum = ptsResult + ptsScoreline + ptsFirstGoal + ptsPossession + ptsWild;
-    const totalMatchPoints = (categoriesSum + bonusPoints + matchGamblePoints) * totalMultiplier;
+    const pointsBeforeSuperBonus = (categoriesSum + bonusPoints + matchGamblePoints) * totalMultiplier;
+    const totalMatchPoints = Math.round(pointsBeforeSuperBonus * superBonusMult);
 
     matchResults.push({
       matchId: singlePred.matchId,
@@ -227,11 +232,13 @@ function scoreUserPrediction(predictionDoc, matchweekDoc, distribution, totalPla
         possession: ptsPossession,
         wild: ptsWild,
         bonus: bonusPoints,
+        superBonus: gotSuperBonus,
+        superBonusMult: superBonusMult,
         baseCore: categoriesSum,
         gamble: matchGamblePoints,
         total: totalMatchPoints
       },
-      multiplier: totalMultiplier,
+      multiplier: totalMultiplier * superBonusMult,
       correctCategoriesCount
     });
 
