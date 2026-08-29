@@ -103,6 +103,13 @@ const api = {
     return this.request('/auth/users');
   },
 
+  async updateUsername(newUsername) {
+    return this.request('/auth/username', {
+      method: 'PUT',
+      body: JSON.stringify({ newUsername })
+    });
+  },
+
   // Group endpoints
   async createGroup(name) {
     return this.request('/group', {

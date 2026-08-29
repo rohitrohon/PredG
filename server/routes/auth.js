@@ -62,13 +62,15 @@ router.post('/signup', async (req, res) => {
       token,
       user: {
         id: user._id,
+        _id: user._id,
         name: user.name,
         username: user.username,
         email: user.email,
         role: user.role,
         totalPoints: user.totalPoints,
         battlePoints: user.battlePoints,
-        rank: user.rank
+        rank: user.rank,
+        usernameChangeCount: user.usernameChangeCount || 0
       }
     });
   } catch (error) {
@@ -119,17 +121,84 @@ router.post('/login', async (req, res) => {
       token,
       user: {
         id: user._id,
+        _id: user._id,
         name: user.name,
         username: user.username,
         email: user.email,
         role: user.role,
         totalPoints: user.totalPoints,
         battlePoints: user.battlePoints,
-        rank: user.rank
+        rank: user.rank,
+        usernameChangeCount: user.usernameChangeCount || 0
       }
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error during login.', error: error.message });
+  }
+});
+
+// @route   PUT api/auth/username
+// @desc    Update username (Max 2 changes allowed per user)
+// @access  Private
+router.put('/username', auth, async (req, res) => {
+  const { newUsername } = req.body;
+
+  try {
+    if (!newUsername || !newUsername.trim()) {
+      return res.status(400).json({ message: 'Please enter a valid username.' });
+    }
+
+    const cleanUsername = newUsername.trim();
+
+    if (cleanUsername.length < 3) {
+      return res.status(400).json({ message: 'Username must be at least 3 characters long.' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    if (user.username === cleanUsername) {
+      return res.status(400).json({ message: 'New username must be different from current username.' });
+    }
+
+    const currentCount = user.usernameChangeCount || 0;
+    if (currentCount >= 2) {
+      return res.status(400).json({ message: 'You have reached the maximum limit of 2 username changes.' });
+    }
+
+    // Check if new username is already taken (case-insensitive)
+    const existing = await User.findOne({
+      username: new RegExp('^' + cleanUsername.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&') + '$', 'i'),
+      _id: { $ne: user._id }
+    });
+
+    if (existing) {
+      return res.status(400).json({ message: 'Username is already taken by another player.' });
+    }
+
+    user.username = cleanUsername;
+    user.usernameChangeCount = currentCount + 1;
+    await user.save();
+
+    res.json({
+      message: 'Username updated successfully!',
+      user: {
+        id: user._id,
+        _id: user._id,
+        name: user.name,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        totalPoints: user.totalPoints,
+        battlePoints: user.battlePoints,
+        rank: user.rank,
+        usernameChangeCount: user.usernameChangeCount
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error updating username.', error: error.message });
   }
 });
 

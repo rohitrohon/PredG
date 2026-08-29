@@ -122,6 +122,9 @@ function App() {
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
         onSwitchGroup={() => { setActiveGroup(null); setUserStanding(null); }}
+        onUserUpdate={(updatedUser) => {
+          setUser(updatedUser);
+        }}
       />
       <main className="main-content">
         {activeTab === 'home' && (

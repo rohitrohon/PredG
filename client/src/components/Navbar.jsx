@@ -1,16 +1,65 @@
-import React from 'react';
-import { LogOut, Trophy, Sword, User, ShieldAlert, BookOpen, Layers, BarChart3, Home } from 'lucide-react';
+import React, { useState } from 'react';
+import { LogOut, Trophy, Sword, User, ShieldAlert, BookOpen, Layers, BarChart3, Home, Edit2 } from 'lucide-react';
+import api from '../api';
 
-function Navbar({ user, group, standing, onLogout, activeTab, setActiveTab, onSwitchGroup }) {
+function Navbar({ user, group, standing, onLogout, activeTab, setActiveTab, onSwitchGroup, onUserUpdate }) {
   const adminIdStr = typeof group?.adminId === 'object' ? group?.adminId?._id?.toString() : group?.adminId?.toString();
   const isGroupAdmin = (adminIdStr && user && adminIdStr === user.id) || user?.role === 'admin';
+
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editUsernameVal, setEditUsernameVal] = useState('');
+  const [savingUsername, setSavingUsername] = useState(false);
+  const [editError, setEditError] = useState('');
+
+  const changeCount = user?.usernameChangeCount || 0;
+  const remainingEdits = Math.max(0, 2 - changeCount);
+
+  const handleOpenEditModal = () => {
+    if (changeCount >= 2) {
+      alert('Maximum limit reached!\n\nYou have already edited your username 2 times (the maximum limit allowed).');
+      return;
+    }
+    setEditUsernameVal(user?.username || '');
+    setEditError('');
+    setShowEditModal(true);
+  };
+
+  const handleSaveUsername = async (e) => {
+    e.preventDefault();
+    if (!editUsernameVal.trim()) {
+      setEditError('Username cannot be empty.');
+      return;
+    }
+
+    if (editUsernameVal.trim() === user?.username) {
+      setEditError('New username must be different from current username.');
+      return;
+    }
+
+    try {
+      setSavingUsername(true);
+      setEditError('');
+      const res = await api.updateUsername(editUsernameVal.trim());
+      
+      if (onUserUpdate) {
+        onUserUpdate(res.user);
+      }
+      
+      setShowEditModal(false);
+      alert(`✅ Username successfully changed to "${res.user.username}"! (${Math.max(0, 2 - res.user.usernameChangeCount)} changes remaining)`);
+    } catch (err) {
+      setEditError(err.message || 'Failed to update username.');
+    } finally {
+      setSavingUsername(false);
+    }
+  };
 
   return (
     <nav style={{
       background: 'rgba(15, 23, 42, 0.8)',
       backdropFilter: 'var(--glass-blur)',
       borderBottom: '1px solid var(--border-color)',
-      padding: '1rem 1.5rem',
+      padding: '0.85rem 1.5rem',
       position: 'sticky',
       top: 0,
       zIndex: 100
@@ -117,13 +166,6 @@ function Navbar({ user, group, standing, onLogout, activeTab, setActiveTab, onSw
               gap: '0.75rem',
               background: 'rgba(0, 0, 0, 0.2)'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                <User size={14} style={{ color: 'var(--primary)' }} />
-                <span style={{ fontWeight: 600 }}>{user?.username}</span>
-              </div>
-              
-              <div style={{ borderLeft: '1px solid var(--border-color)', height: '14px' }}></div>
-              
               <div>
                 PTS: <span style={{ color: 'var(--primary)', fontWeight: 700 }}>{standing.totalPoints}</span>
               </div>
@@ -163,6 +205,143 @@ function Navbar({ user, group, standing, onLogout, activeTab, setActiveTab, onSw
           </button>
         </div>
       </div>
+
+      {/* ACTIVE USERFIELD BAR (JUST BELOW TOP MENU BAR) */}
+      <div style={{
+        maxWidth: '1200px',
+        margin: '0.75rem auto 0',
+        paddingTop: '0.65rem',
+        borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '0.5rem',
+        fontSize: '0.85rem'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <span style={{ color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+            <User size={15} style={{ color: 'var(--primary)' }} /> Active User:
+          </span>
+          <span style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '0.95rem' }}>
+            {user?.username}
+          </span>
+          
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ 
+              padding: '0.2rem 0.55rem', 
+              fontSize: '0.75rem', 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              gap: '0.3rem',
+              borderRadius: '6px',
+              border: '1px solid var(--border-color)'
+            }}
+            onClick={handleOpenEditModal}
+            title={changeCount >= 2 ? 'Limit Reached (Max 2 Username Changes)' : 'Edit Username'}
+          >
+            <Edit2 size={13} style={{ color: changeCount >= 2 ? 'var(--danger)' : 'var(--accent)' }} />
+            <span>Edit</span>
+          </button>
+
+          <span className={`badge ${changeCount >= 2 ? 'badge-danger' : 'badge-info'}`} style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}>
+            {changeCount >= 2 ? '0 edits left (Max 2 reached)' : `${remainingEdits}/2 edits left`}
+          </span>
+        </div>
+      </div>
+
+      {/* EDIT USERNAME MODAL OVERLAY */}
+      {showEditModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.82)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }}>
+          <div className="card" style={{
+            width: '100%',
+            maxWidth: '420px',
+            background: 'rgba(15, 23, 42, 0.96)',
+            border: '1px solid var(--primary-glow)',
+            borderRadius: '16px',
+            padding: '1.75rem',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.7)'
+          }}>
+            <h3 style={{ margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)' }}>
+              <Edit2 size={20} /> Edit Username
+            </h3>
+
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
+              You can change your username a <strong>maximum of 2 times</strong> per account. 
+              <br />
+              <span style={{ color: 'var(--accent)', fontWeight: 700 }}>
+                Changes remaining: {remainingEdits} of 2
+              </span>
+            </p>
+
+            {editError && (
+              <div className="card" style={{ 
+                color: 'var(--danger)', 
+                background: 'rgba(239, 68, 68, 0.1)', 
+                borderColor: 'rgba(239, 68, 68, 0.3)',
+                padding: '0.6rem 0.8rem',
+                fontSize: '0.85rem',
+                marginBottom: '1rem'
+              }}>
+                {editError}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveUsername}>
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.35rem', display: 'block' }}>
+                  New Username
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editUsernameVal}
+                  onChange={(e) => setEditUsernameVal(e.target.value)}
+                  placeholder="Enter new username"
+                  autoFocus
+                  required
+                  style={{ fontSize: '0.95rem', padding: '0.65rem 0.85rem' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowEditModal(false)}
+                  disabled={savingUsername}
+                  style={{ padding: '0.55rem 1.25rem' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={savingUsername}
+                  style={{ padding: '0.55rem 1.5rem', fontWeight: 700 }}
+                >
+                  {savingUsername ? 'Saving...' : 'Save Username'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }
