@@ -183,9 +183,17 @@ function Live({ groupId, user, onNavigateToPredictions }) {
   }, [groupId]);
 
   useEffect(() => {
-    if (selectedMwId) {
+    if (!selectedMwId) return;
+
+    // Initial fetch
+    fetchPredictions(selectedMwId);
+
+    // Auto-poll every 5 minutes to keep live match scorelines & stats updated in real-time
+    const interval = setInterval(() => {
       fetchPredictions(selectedMwId);
-    }
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
   }, [selectedMwId]);
 
   const fetchMatchweeks = async () => {

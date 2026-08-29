@@ -679,6 +679,39 @@ function AdminPanel({ groupId }) {
     }
   };
 
+  useEffect(() => {
+    if (!selectedMw?._id) return;
+
+    // Auto-fetch API live match results every 5 minutes while viewing selectedMw in Admin Panel
+    const interval = setInterval(() => {
+      api.fetchMatchweekResultsAPI(selectedMw._id)
+        .then(res => {
+          if (res && res.matchweek) {
+            setSelectedMw(res.matchweek);
+            const updatedInputs = {};
+            res.matchweek.matches.forEach((m) => {
+              updatedInputs[m._id] = {
+                homeScore: m.actualResults?.homeScore !== null && m.actualResults?.homeScore !== undefined ? m.actualResults.homeScore : 0,
+                awayScore: m.actualResults?.awayScore !== null && m.actualResults?.awayScore !== undefined ? m.actualResults.awayScore : 0,
+                result: m.actualResults?.result || 'Home',
+                firstGoal: m.actualResults?.firstGoal || 'Home',
+                possession: m.actualResults?.possession || 'Home',
+                yellowCards: m.actualResults?.yellowCards !== null && m.actualResults?.yellowCards !== undefined ? m.actualResults.yellowCards : 0,
+                offsides: m.actualResults?.offsides !== null && m.actualResults?.offsides !== undefined ? m.actualResults.offsides : 0,
+                corners: m.actualResults?.corners !== null && m.actualResults?.corners !== undefined ? m.actualResults.corners : 0,
+                shots: m.actualResults?.shots !== null && m.actualResults?.shots !== undefined ? m.actualResults.shots : 0,
+                wildPredictionCorrectUsers: m.actualResults?.wildPredictionCorrectUsers || []
+              };
+            });
+            setResultsInput(updatedInputs);
+          }
+        })
+        .catch(err => console.error('Auto API fetch error in Admin Panel:', err));
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [selectedMw?._id]);
+
   const handleResetResultsToNull = async () => {
     if (!selectedMw) return;
     if (!window.confirm(`Are you sure you want to reset all 5 match results to NULL for Matchweek #${selectedMw.matchweekNumber}? This will clear all recorded actual scores, outcomes, and stats.`)) {

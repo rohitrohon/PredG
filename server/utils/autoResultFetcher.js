@@ -281,12 +281,16 @@ async function checkAndSyncActiveMatchweeks() {
       let mwModified = false;
 
       for (const match of matchweek.matches) {
-        // Only fetch if actualResults are not yet populated and kickoff time has passed
-        const hasResult = match.actualResults && match.actualResults.result !== null && match.actualResults.homeScore !== null;
-        const isPastKickoff = match.kickoffTime && new Date(match.kickoffTime) <= now;
+        const kickoffDate = match.kickoffTime ? new Date(match.kickoffTime) : null;
+        const hoursSinceKickoff = kickoffDate ? (now - kickoffDate) / (1000 * 60 * 60) : -1;
 
-        if (!hasResult && isPastKickoff) {
-          const dateIso = match.kickoffTime ? match.kickoffTime.toISOString().slice(0, 10) : '';
+        // Fetch API stats if match has kicked off and started within the last 4 hours (LIVE match window)
+        // OR if actualResults are currently unpopulated (null)
+        const isLiveWindow = hoursSinceKickoff >= 0 && hoursSinceKickoff <= 4;
+        const hasNullResult = !match.actualResults || match.actualResults.homeScore === null || match.actualResults.result === null;
+
+        if (isLiveWindow || hasNullResult) {
+          const dateIso = match.kickoffTime ? new Date(match.kickoffTime).toISOString().slice(0, 10) : '';
           const fetchedStats = await fetchMatchResultStats(match.homeTeam, match.awayTeam, dateIso);
 
           if (fetchedStats && fetchedStats.actualResults && fetchedStats.actualResults.homeScore !== null) {
@@ -304,7 +308,7 @@ async function checkAndSyncActiveMatchweeks() {
             };
             mwModified = true;
             syncCount++;
-            console.log(`[AutoSync] Saved match result for ${match.homeTeam} ${match.actualResults.homeScore}-${match.actualResults.awayScore} ${match.awayTeam}`);
+            console.log(`[AutoSync] Live API Stats Updated for ${match.homeTeam} ${match.actualResults.homeScore}-${match.actualResults.awayScore} ${match.awayTeam} (Possession: ${match.actualResults.possession}, Yellows: ${match.actualResults.yellowCards}, Corners: ${match.actualResults.corners}, Shots: ${match.actualResults.shots})`);
           }
         }
       }

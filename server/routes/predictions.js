@@ -327,13 +327,23 @@ router.get('/matchweek/:matchweekId', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied. You are not a member or admin of this group.' });
     }
 
-    let predictions = await Prediction.find({ groupId, matchweekId: req.params.matchweekId })
-      .populate('userId', 'username');
+    const { checkAndSyncActiveMatchweeks } = require('../utils/autoResultFetcher');
 
     const { d1, d2 } = getMatchweekDeadlines(matchweek);
     const now = new Date();
     const deadlinePassed = now > d1;
     const secondDeadlinePassed = now > d2;
+
+    // Trigger live match API sync if deadline 1 has passed
+    if (deadlinePassed) {
+      await checkAndSyncActiveMatchweeks().catch(e => console.error('Live sync error:', e));
+      // Reload updated matchweek document after sync
+      const freshMw = await Matchweek.findById(req.params.matchweekId);
+      if (freshMw) matchweek = freshMw;
+    }
+
+    let predictions = await Prediction.find({ groupId, matchweekId: req.params.matchweekId })
+      .populate('userId', 'username');
 
     // IF DEADLINE 1 HAS PASSED: Ensure EVERY member of group.members has a submitted prediction (autofill if missing or unsubmitted)
     if (deadlinePassed && group.members && group.members.length > 0) {
