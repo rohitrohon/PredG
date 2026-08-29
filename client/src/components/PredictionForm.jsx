@@ -310,6 +310,8 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
       };
     }
 
+    const wasAlreadySubmitted = prediction && prediction.isSubmitted;
+
     setSubmitting(true);
     setError('');
     setSuccessMsg('');
@@ -323,11 +325,19 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
         marketPowerUps: prediction.marketPowerUps
       });
       setPrediction(res.prediction);
-      setSuccessMsg('Predictions submitted/updated successfully!');
+      
+      const successMessage = wasAlreadySubmitted 
+        ? 'Predictions updated successfully!' 
+        : 'Predictions submitted successfully!';
+
+      setSuccessMsg(successMessage);
       
       if (onPointsUpdate) {
         onPointsUpdate();
       }
+
+      // Instant pop-up message for mobile & desktop user feedback
+      alert(successMessage);
     } catch (err) {
       setError(err.message || 'Failed to submit predictions.');
     } finally {
