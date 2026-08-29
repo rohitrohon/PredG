@@ -230,7 +230,8 @@ function Live({ groupId, user, onNavigateToPredictions }) {
         setMyPredictionDoc(null);
       }
     } catch (err) {
-      setError('Failed to load predictions details.');
+      console.error('Error fetching prediction details:', err);
+      setError(err.message || 'Failed to load predictions details.');
     }
   };
 

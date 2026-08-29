@@ -57,7 +57,7 @@ async function getPremierLeagueStandings(forceRefresh = false) {
   // Option 1: ESPN Official Standings API (Primary Source - All 20 Teams)
   try {
     const url = 'https://site.api.espn.com/apis/v2/sports/soccer/eng.1/standings';
-    const res = await fetch(url);
+    const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
     if (res.ok) {
       const data = await res.json();
       const children = data.children || [];

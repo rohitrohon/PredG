@@ -334,12 +334,9 @@ router.get('/matchweek/:matchweekId', auth, async (req, res) => {
     const deadlinePassed = now > d1;
     const secondDeadlinePassed = now > d2;
 
-    // Trigger live match API sync if deadline 1 has passed
+    // Trigger live match API sync asynchronously in background if deadline 1 has passed
     if (deadlinePassed) {
-      await checkAndSyncActiveMatchweeks().catch(e => console.error('Live sync error:', e));
-      // Reload updated matchweek document after sync
-      const freshMw = await Matchweek.findById(req.params.matchweekId);
-      if (freshMw) matchweek = freshMw;
+      checkAndSyncActiveMatchweeks().catch(e => console.error('Live sync error:', e));
     }
 
     let predictions = await Prediction.find({ groupId, matchweekId: req.params.matchweekId })
