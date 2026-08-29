@@ -802,11 +802,11 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                             </span>
                           ) : isLive ? (
                             <span className="badge badge-danger" style={{ fontSize: '0.7rem', fontWeight: 700, animation: 'pulse 1.5s infinite' }}>
-                              🔴 LIVE
+                              🔴 Live
                             </span>
                           ) : (
-                            <span className="badge badge-secondary" style={{ fontSize: '0.7rem', fontWeight: 700 }}>
-                              Upcoming
+                            <span className="badge badge-secondary" style={{ fontSize: '0.7rem', fontWeight: 600 }}>
+                              Upcoming ({m.kickoffTime ? new Date(m.kickoffTime).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'TBD'})
                             </span>
                           )}
                         </td>
@@ -902,11 +902,11 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                           </div>
                           {match.kickoffTime && new Date() >= new Date(match.kickoffTime) ? (
                             <span className="badge badge-danger" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 700, animation: 'pulse 1.5s infinite' }}>
-                              <Play size={10} fill="currentColor" /> 🔴 LIVE / In Progress
+                              <Play size={10} fill="currentColor" /> 🔴 Live
                             </span>
                           ) : (
                             <span className="badge badge-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 700 }}>
-                              <Play size={10} fill="currentColor" /> Upcoming / Not Started
+                              <Play size={10} fill="currentColor" /> Upcoming ({match.kickoffTime ? new Date(match.kickoffTime).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'TBD'})
                             </span>
                           )}
                         </>
