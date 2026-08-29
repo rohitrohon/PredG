@@ -778,7 +778,9 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                 </thead>
                 <tbody>
                   {selectedMw.matches.map((m, idx) => {
-                    const isCompleted = m.actualResults.homeScore !== null;
+                    const isCompleted = m.actualResults.homeScore !== null && m.actualResults.homeScore !== undefined;
+                    const isLive = !isCompleted && m.kickoffTime && new Date() >= new Date(m.kickoffTime);
+
                     return (
                       <tr key={m._id}>
                         <td style={{ textAlign: 'center', fontWeight: 700 }}>
@@ -791,22 +793,32 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                           )}
                         </td>
                         <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                          <span className={`badge ${isCompleted ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: '0.7rem', fontWeight: 700 }}>
-                            {isCompleted ? renderChoiceAbbreviation(
-                              getMatchWinnerChoice(m.actualResults, m.homeTeam, m.awayTeam),
-                              m.homeTeam, m.awayTeam
-                            ) : 'Not Yet Started'}
-                          </span>
+                          {isCompleted ? (
+                            <span className="badge badge-success" style={{ fontSize: '0.7rem', fontWeight: 700 }}>
+                              {renderChoiceAbbreviation(
+                                getMatchWinnerChoice(m.actualResults, m.homeTeam, m.awayTeam),
+                                m.homeTeam, m.awayTeam
+                              )}
+                            </span>
+                          ) : isLive ? (
+                            <span className="badge badge-danger" style={{ fontSize: '0.7rem', fontWeight: 700, animation: 'pulse 1.5s infinite' }}>
+                              🔴 LIVE
+                            </span>
+                          ) : (
+                            <span className="badge badge-secondary" style={{ fontSize: '0.7rem', fontWeight: 700 }}>
+                              Upcoming
+                            </span>
+                          )}
                         </td>
                         <td style={{ 
                           textAlign: 'center', 
                           fontWeight: 800, 
                           fontFamily: 'monospace', 
                           fontSize: '1.05rem', 
-                          color: isCompleted ? 'var(--success)' : 'inherit',
+                          color: isCompleted ? 'var(--success)' : isLive ? 'var(--danger)' : 'inherit',
                           whiteSpace: 'nowrap'
                         }}>
-                          {isCompleted ? `${m.actualResults.homeScore} - ${m.actualResults.awayScore}` : 'vs'}
+                          {isCompleted ? `${m.actualResults.homeScore} - ${m.actualResults.awayScore}` : isLive ? 'LIVE' : 'vs'}
                         </td>
                         <td>{isCompleted ? renderChoiceAbbreviation(m.actualResults.firstGoal, m.homeTeam, m.awayTeam) : '-'}</td>
                         <td>{isCompleted ? renderChoiceAbbreviation(m.actualResults.possession, m.homeTeam, m.awayTeam) : '-'}</td>
@@ -878,19 +890,25 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                         <>
                           <div style={{
                             background: 'rgba(255,255,255,0.05)',
-                            border: '1px solid var(--border-color)',
-                            color: 'var(--text-muted)',
+                            border: `1px solid ${match.kickoffTime && new Date() >= new Date(match.kickoffTime) ? 'var(--danger)' : 'var(--border-color)'}`,
+                            color: match.kickoffTime && new Date() >= new Date(match.kickoffTime) ? 'var(--danger)' : 'var(--text-muted)',
                             fontWeight: 800,
                             padding: '0.4rem 1rem',
                             borderRadius: '8px',
                             fontSize: '1.25rem',
                             fontFamily: 'monospace'
                           }}>
-                            VS
+                            {match.kickoffTime && new Date() >= new Date(match.kickoffTime) ? 'LIVE' : 'VS'}
                           </div>
-                          <span className="badge badge-warning" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 700 }}>
-                            <Play size={10} fill="currentColor" /> Not Yet Started
-                          </span>
+                          {match.kickoffTime && new Date() >= new Date(match.kickoffTime) ? (
+                            <span className="badge badge-danger" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 700, animation: 'pulse 1.5s infinite' }}>
+                              <Play size={10} fill="currentColor" /> 🔴 LIVE / In Progress
+                            </span>
+                          ) : (
+                            <span className="badge badge-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 700 }}>
+                              <Play size={10} fill="currentColor" /> Upcoming / Not Started
+                            </span>
+                          )}
                         </>
                       )}
                     </div>

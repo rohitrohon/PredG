@@ -353,7 +353,20 @@ router.get('/matchweek/:matchweekId', auth, async (req, res) => {
     }
 
     // Matchweek Deadline 1 passed.
-    // For autofilled users, if Deadline 2 has not passed yet, hide predictions for Matches 4 and 5 (the last 2 matches).
+    // Check requesting user's prediction submission status
+    const requestingUserPred = predictions.find(p => {
+      const pUserId = p.userId?._id ? p.userId._id.toString() : p.userId?.toString();
+      return pUserId === req.user.id;
+    });
+
+    const isRequestingUserSubmitted = requestingUserPred && requestingUserPred.isSubmitted && !requestingUserPred.isAutofilled;
+
+    // If requesting user submitted before Deadline 1 OR Deadline 2 has passed, reveal all 5 match predictions for all users
+    if (isRequestingUserSubmitted || secondDeadlinePassed) {
+      return res.json({ deadlinePassed: true, secondDeadlinePassed, predictions });
+    }
+
+    // For autofilled users before Deadline 2 passes: hide predictions for Matches 4 & 5 of other users
     const lastTwoMatchIds = matchweek.matches && matchweek.matches.length >= 5 
       ? matchweek.matches.slice(3).map(m => m._id.toString())
       : [];
@@ -361,12 +374,6 @@ router.get('/matchweek/:matchweekId', auth, async (req, res) => {
     const processedPredictions = predictions.map((p) => {
       const plain = p.toObject ? p.toObject() : { ...p };
 
-      // If user filled form before Deadline 1 (not autofilled) OR Deadline 2 has passed, reveal all 5 predictions
-      if (!plain.isAutofilled || secondDeadlinePassed) {
-        return plain;
-      }
-
-      // For autofilled users before Deadline 2 passes: hide/mask matches 4 and 5
       const sanitizedPredictions = (plain.predictions || []).map((singleP) => {
         const mIdStr = singleP.matchId ? singleP.matchId.toString() : '';
         if (lastTwoMatchIds.includes(mIdStr)) {
