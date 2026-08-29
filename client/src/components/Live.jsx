@@ -1005,43 +1005,6 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                     </div>
                   )}
 
-                  {/* TABLE ZOOM CONTROLS FOR THIS MATCH TABLE */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)' }}>
-                      Player Predictions Matrix
-                    </span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'rgba(255,255,255,0.05)', padding: '0.2rem 0.4rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
-                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <ZoomOut size={12} /> Table View:
-                      </span>
-                      {[
-                        { label: '100%', val: '100' },
-                        { label: '80%', val: '80' },
-                        { label: '65%', val: '65' },
-                        { label: 'Fit (50%)', val: '50' }
-                      ].map(z => (
-                        <button
-                          key={z.val}
-                          type="button"
-                          onClick={() => setTableZoom(z.val)}
-                          style={{
-                            padding: '0.15rem 0.4rem',
-                            fontSize: '0.65rem',
-                            fontWeight: tableZoom === z.val ? 700 : 500,
-                            borderRadius: '4px',
-                            border: 'none',
-                            background: tableZoom === z.val ? 'var(--primary)' : 'transparent',
-                            color: tableZoom === z.val ? '#0f172a' : 'var(--text-muted)',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s ease'
-                          }}
-                        >
-                          {z.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
                   {/* PLAYERS DETAIL PREDICTIONS GRID (Spreadsheet Heatmap Layout) */}
                   <div className={`table-container ${tableZoom !== '100' ? `zoom-${tableZoom}` : ''}`}>
                     <table>
