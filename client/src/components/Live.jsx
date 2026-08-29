@@ -177,6 +177,7 @@ function Live({ groupId, user, onNavigateToPredictions }) {
   const [error, setError] = useState('');
   const [timeRemaining, setTimeRemaining] = useState('');
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   useEffect(() => {
     fetchMatchweeks();
@@ -229,6 +230,7 @@ function Live({ groupId, user, onNavigateToPredictions }) {
       } else {
         setMyPredictionDoc(null);
       }
+      setLastUpdated(new Date());
     } catch (err) {
       console.error('Error fetching prediction details:', err);
       setError(err.message || 'Failed to load predictions details.');
@@ -766,9 +768,18 @@ function Live({ groupId, user, onNavigateToPredictions }) {
 
           {/* TABLE: FIXTURES AND RESULTS AT A GLANCE */}
           <div className="card">
-            <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Activity size={18} style={{ color: 'var(--success)' }} /> Matchweek: {selectedMw?.matchweekNumber}
-            </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Activity size={18} style={{ color: 'var(--success)' }} /> Matchweek: {selectedMw?.matchweekNumber}
+              </h3>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                <span className="badge badge-info" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.7rem' }}>
+                  <RefreshCw size={11} /> Auto-sync active (every 5m)
+                </span>
+                {lastUpdated && <span>Updated: {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>}
+              </div>
+            </div>
             <div className="table-container">
               <table>
                 <thead>
