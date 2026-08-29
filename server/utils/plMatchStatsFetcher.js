@@ -109,6 +109,30 @@ async function fetchMatchResultStats(homeTeam, awayTeam, dateStr, eventId) {
               if (hPoss > aPoss) possession = 'Home';
               else if (aPoss > hPoss) possession = 'Away';
 
+              // Chronological Goal Timeline Parser for 100% exact First Goal determination
+              let firstGoal = 'No goal';
+              const keyEvents = sumData.keyEvents || [];
+              const goalEvent = keyEvents.find(e => e.scoringPlay || (e.type && (e.type.type === 'goal' || e.type.text === 'Goal')));
+
+              if (goalEvent && goalEvent.team) {
+                const gTeamId = goalEvent.team.id?.toString();
+                const hId = hComp?.team?.id?.toString() || hComp?.id?.toString();
+                const aId = aComp?.team?.id?.toString() || aComp?.id?.toString();
+
+                if (gTeamId === hId) {
+                  firstGoal = 'Home';
+                } else if (gTeamId === aId) {
+                  firstGoal = 'Away';
+                } else if (teamMatches(homeTeam, goalEvent.team.displayName || '')) {
+                  firstGoal = 'Home';
+                } else if (teamMatches(awayTeam, goalEvent.team.displayName || '')) {
+                  firstGoal = 'Away';
+                }
+              } else if (homeScore > 0 || awayScore > 0) {
+                if (homeScore > 0 && awayScore === 0) firstGoal = 'Home';
+                else if (awayScore > 0 && homeScore === 0) firstGoal = 'Away';
+              }
+
               return {
                 source: 'ESPN Official API',
                 match: `${homeTeam} vs ${awayTeam}`,
@@ -116,7 +140,7 @@ async function fetchMatchResultStats(homeTeam, awayTeam, dateStr, eventId) {
                   homeScore,
                   awayScore,
                   result,
-                  firstGoal: homeScore > 0 ? 'Home' : (awayScore > 0 ? 'Away' : 'No goal'),
+                  firstGoal,
                   possession,
                   yellowCards: hYellow + aYellow,
                   offsides: hOffsides + aOffsides,
