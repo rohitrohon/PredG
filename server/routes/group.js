@@ -366,17 +366,25 @@ router.get('/:id/standings', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied. You are not a member of this group.' });
     }
 
-    // Auto-sync standings totals from exact sum of prediction records & battle records
+    // Auto-sync standings totals from completed matchweeks only
     const Battle = require('../models/Battle');
+    const completedMws = await Matchweek.find({ groupId: group._id, status: 'completed' }).select('_id');
+    const completedMwIds = completedMws.map(m => m._id.toString());
+
     const existingStandings = await GroupStanding.find({ groupId: group._id });
     for (const std of existingStandings) {
       if (!std.userId || std.userId.toString() === '600000000000000000000000') continue;
       const uIdStr = std.userId.toString();
-      const userPreds = await Prediction.find({ groupId: group._id, userId: std.userId });
+      const userPreds = await Prediction.find({ 
+        groupId: group._id, 
+        userId: std.userId,
+        matchweekId: { $in: completedMwIds }
+      });
       const sumTotal = userPreds.reduce((sum, p) => sum + (p.totalPointsScored || 0), 0);
 
       const userBattles = await Battle.find({
         groupId: group._id,
+        matchweekId: { $in: completedMwIds },
         $or: [{ player1Id: std.userId }, { player2Id: std.userId }, { player3Id: std.userId }]
       });
 

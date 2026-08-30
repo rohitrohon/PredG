@@ -11,7 +11,7 @@ const { auth } = require('../middleware/auth');
 const AVERAGE_PLAYER_ID = '600000000000000000000000';
 
 // @route   GET api/battle/:matchweekId
-// @desc    Get all battles for a specific matchweek in a group (auto-calculates/syncs if results present)
+// @desc    Get all battles for a specific matchweek in a group (auto-calculates/syncs shootout details)
 // @access  Private
 router.get('/:matchweekId', auth, async (req, res) => {
   const { groupId } = req.query;
@@ -55,7 +55,6 @@ router.get('/:matchweekId', auth, async (req, res) => {
             }
             await Battle.findByIdAndUpdate(bRes.battleId, bUpdate);
 
-            // Update Prediction documents with battle points scored
             if (bRes.player1Id && bRes.player1Id.toString() !== AVERAGE_PLAYER_ID) {
               await Prediction.findOneAndUpdate(
                 { groupId, userId: bRes.player1Id, matchweekId },
@@ -76,27 +75,31 @@ router.get('/:matchweekId', auth, async (req, res) => {
             }
           }
 
-          // Sync GroupStandings for battlePoints
-          const standings = await GroupStanding.find({ groupId });
-          for (const std of standings) {
-            if (!std.userId || std.userId.toString() === AVERAGE_PLAYER_ID) continue;
+          // Only sync GroupStandings table if the matchweek is officially COMPLETED by Admin
+          if (matchweekDoc.status === 'completed') {
+            const completedMws = await Matchweek.find({ groupId, status: 'completed' }).select('_id');
+            const completedMwIds = completedMws.map(m => m._id.toString());
+            const standings = await GroupStanding.find({ groupId });
 
-            const uIdStr = std.userId.toString();
-            // Calculate total Battle Points directly from all battles in this group
-            const userBattles = await Battle.find({
-              groupId,
-              $or: [{ player1Id: std.userId }, { player2Id: std.userId }, { player3Id: std.userId }]
-            });
+            for (const std of standings) {
+              if (!std.userId || std.userId.toString() === AVERAGE_PLAYER_ID) continue;
+              const uIdStr = std.userId.toString();
+              const userBattles = await Battle.find({
+                groupId,
+                matchweekId: { $in: completedMwIds },
+                $or: [{ player1Id: std.userId }, { player2Id: std.userId }, { player3Id: std.userId }]
+              });
 
-            let sumBattlePoints = 0;
-            userBattles.forEach(b => {
-              if (b.player1Id && b.player1Id.toString() === uIdStr) sumBattlePoints += (b.player1Points || 0);
-              if (b.player2Id && b.player2Id.toString() === uIdStr) sumBattlePoints += (b.player2Points || 0);
-              if (b.isTriad && b.player3Id && b.player3Id.toString() === uIdStr) sumBattlePoints += (b.player3Points || 0);
-            });
+              let sumBattlePoints = 0;
+              userBattles.forEach(b => {
+                if (b.player1Id && b.player1Id.toString() === uIdStr) sumBattlePoints += (b.player1Points || 0);
+                if (b.player2Id && b.player2Id.toString() === uIdStr) sumBattlePoints += (b.player2Points || 0);
+                if (b.isTriad && b.player3Id && b.player3Id.toString() === uIdStr) sumBattlePoints += (b.player3Points || 0);
+              });
 
-            std.battlePoints = sumBattlePoints;
-            await std.save();
+              std.battlePoints = sumBattlePoints;
+              await std.save();
+            }
           }
         }
       }
