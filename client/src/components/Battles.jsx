@@ -30,7 +30,13 @@ function Battles({ user, groupId }) {
       const visibleMws = mws.filter(mw => mw.status !== 'draft');
       setMatchweeks(visibleMws);
 
-      const active = visibleMws.find(mw => mw.status === 'active') || visibleMws[visibleMws.length - 1];
+      const active = visibleMws.find(mw => mw.status === 'active') 
+        || visibleMws.find(mw => mw.matches?.some(m => 
+            (m.homeTeam.includes('Tottenham') || m.awayTeam.includes('Tottenham')) &&
+            (m.homeTeam.includes('Newcastle') || m.awayTeam.includes('Newcastle'))
+          ))
+        || visibleMws[visibleMws.length - 1];
+
       if (active) {
         setSelectedMatchweekId(active._id);
       } else {
@@ -172,7 +178,7 @@ function Battles({ user, groupId }) {
 
   // Render Category-wise Shootout Detailed matrix table partitioned by Bracket
   const renderShootoutTable = () => {
-    const showShootout = isCompleted || hasCalculatedBattles;
+    const showShootout = battles.length > 0;
 
     if (!showShootout) {
       return (
@@ -369,13 +375,19 @@ function Battles({ user, groupId }) {
           <label className="form-label" style={{ marginBottom: 0 }}>Matchweek:</label>
           <select 
             className="form-input" 
-            style={{ width: '180px' }}
+            style={{ width: '340px', maxWidth: '100%' }}
             value={selectedMatchweekId}
             onChange={(e) => setSelectedMatchweekId(e.target.value)}
           >
-            {matchweeks.map((mw) => (
-              <option key={mw._id} value={mw._id}>Matchweek #{mw.matchweekNumber}</option>
-            ))}
+            {matchweeks.map((mw) => {
+              const bMatch = mw.battleMatchId ? mw.matches?.find(m => m._id.toString() === mw.battleMatchId.toString()) : null;
+              const bLabel = bMatch ? `${bMatch.homeTeam} vs ${bMatch.awayTeam}` : '';
+              return (
+                <option key={mw._id} value={mw._id}>
+                  Matchweek #{mw.matchweekNumber} {bLabel ? `(${bLabel})` : ''}
+                </option>
+              );
+            })}
           </select>
         </div>
       </div>
