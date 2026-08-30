@@ -241,28 +241,47 @@ input[type=number] {
   transition: all 0.2s ease;
 }
 
+/* Global Table Zoom Effects (Applies to all tables across all pages) */
+.table-zoom-50 .table-container table,
+.table-zoom-50 table,
 .table-container.zoom-50 table {
-  font-size: 0.6rem;
+  font-size: 0.6rem !important;
 }
+.table-zoom-50 .table-container th,
+.table-zoom-50 .table-container td,
+.table-zoom-50 th,
+.table-zoom-50 td,
 .table-container.zoom-50 th,
 .table-container.zoom-50 td {
-  padding: 0.25rem 0.35rem;
+  padding: 0.25rem 0.35rem !important;
 }
 
+.table-zoom-25 .table-container table,
+.table-zoom-25 table,
 .table-container.zoom-25 table {
-  font-size: 0.5rem;
+  font-size: 0.5rem !important;
 }
+.table-zoom-25 .table-container th,
+.table-zoom-25 .table-container td,
+.table-zoom-25 th,
+.table-zoom-25 td,
 .table-container.zoom-25 th,
 .table-container.zoom-25 td {
-  padding: 0.15rem 0.25rem;
+  padding: 0.15rem 0.25rem !important;
 }
 
+.table-zoom-12 .table-container table,
+.table-zoom-12 table,
 .table-container.zoom-12 table {
-  font-size: 0.42rem;
+  font-size: 0.42rem !important;
 }
+.table-zoom-12 .table-container th,
+.table-zoom-12 .table-container td,
+.table-zoom-12 th,
+.table-zoom-12 td,
 .table-container.zoom-12 th,
 .table-container.zoom-12 td {
-  padding: 0.1rem 0.15rem;
+  padding: 0.1rem 0.15rem !important;
 }
 
 table {
