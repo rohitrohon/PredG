@@ -187,11 +187,11 @@ async function finalizeMatchweekScoresInternal(matchweek, group) {
 
         if (realPlayerWins > averagePlayerWins) {
           res.outcome = isP1Average ? 'Player2' : 'Player1';
-          res[isP1Average ? 'player2Points' : 'player1Points'] = (realPlayerWins === 4) ? 5 : 3;
+          res[isP1Average ? 'player2Points' : 'player1Points'] = (realPlayerWins >= 4) ? 5 : 3;
           res[isP1Average ? 'player1Points' : 'player2Points'] = 0;
         } else if (averagePlayerWins > realPlayerWins) {
           res.outcome = isP1Average ? 'Player1' : 'Player2';
-          res[isP1Average ? 'player1Points' : 'player2Points'] = (averagePlayerWins === 4) ? 5 : 3;
+          res[isP1Average ? 'player1Points' : 'player2Points'] = (averagePlayerWins >= 4) ? 5 : 3;
           res[isP1Average ? 'player2Points' : 'player1Points'] = 0;
         } else {
           res.outcome = 'Draw';

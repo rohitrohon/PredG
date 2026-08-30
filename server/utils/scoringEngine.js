@@ -296,7 +296,7 @@ function scoreMatchweek(matchweekDoc, predictionsList, battleMatchups) {
       const p2ScoreDoc = p2IdStr ? playerScoresMap[p2IdStr] : null;
       const p3ScoreDoc = p3IdStr ? playerScoresMap[p3IdStr] : null;
 
-      const categories = ['result', 'scoreline', 'firstGoal', 'possession'];
+      const categories = ['result', 'scoreline', 'firstGoal', 'possession', 'wild'];
       const details = [];
       let p1Wins = 0;
       let p2Wins = 0;
@@ -346,26 +346,34 @@ function scoreMatchweek(matchweekDoc, predictionsList, battleMatchups) {
         let p2Val = null;
         let p3Val = null;
 
+        const getCatDisplayVal = (origPred) => {
+          if (!origPred) return null;
+          if (cat === 'scoreline') {
+            return `${origPred.homeScore}-${origPred.awayScore} (${origPred.safeBet})`;
+          }
+          if (cat === 'wild') {
+            if (origPred.wildPredictionCategory && origPred.wildPredictionCategory !== 'None') {
+              return `${origPred.wildPredictionCategory}: ${origPred.wildPredictionValue}`;
+            }
+            return 'None';
+          }
+          return origPred[cat];
+        };
+
         if (p1ScoreDoc) {
           const originalPred = predictionsList.find(p => p.userId.toString() === p1IdStr)
             ?.predictions.find(m => m.matchId.toString() === battleMatchIdStr);
-          if (originalPred) {
-            p1Val = cat === 'scoreline' ? `${originalPred.homeScore}-${originalPred.awayScore} (${originalPred.safeBet})` : originalPred[cat];
-          }
+          p1Val = getCatDisplayVal(originalPred);
         }
         if (p2ScoreDoc) {
           const originalPred = predictionsList.find(p => p.userId.toString() === p2IdStr)
             ?.predictions.find(m => m.matchId.toString() === battleMatchIdStr);
-          if (originalPred) {
-            p2Val = cat === 'scoreline' ? `${originalPred.homeScore}-${originalPred.awayScore} (${originalPred.safeBet})` : originalPred[cat];
-          }
+          p2Val = getCatDisplayVal(originalPred);
         }
         if (isTriad && p3ScoreDoc) {
           const originalPred = predictionsList.find(p => p.userId.toString() === p3IdStr)
             ?.predictions.find(m => m.matchId.toString() === battleMatchIdStr);
-          if (originalPred) {
-            p3Val = cat === 'scoreline' ? `${originalPred.homeScore}-${originalPred.awayScore} (${originalPred.safeBet})` : originalPred[cat];
-          }
+          p3Val = getCatDisplayVal(originalPred);
         }
 
         details.push({
@@ -389,11 +397,11 @@ function scoreMatchweek(matchweekDoc, predictionsList, battleMatchups) {
       if (!isTriad) {
         if (p1Wins > p2Wins) {
           battleOutcome = 'Player1';
-          p1BattlePoints = (p1Wins === 4) ? 5 : 3;
+          p1BattlePoints = (p1Wins >= 4) ? 5 : 3;
           p2BattlePoints = 0;
         } else if (p2Wins > p1Wins) {
           battleOutcome = 'Player2';
-          p2BattlePoints = (p2Wins === 4) ? 5 : 3;
+          p2BattlePoints = (p2Wins >= 4) ? 5 : 3;
           p1BattlePoints = 0;
         } else {
           battleOutcome = 'Draw';
@@ -411,7 +419,7 @@ function scoreMatchweek(matchweekDoc, predictionsList, battleMatchups) {
         if (topWinners.length === 1) {
           battleOutcome = topWinners[0];
           const winnerWins = battleOutcome === 'Player1' ? p1Wins : (battleOutcome === 'Player2' ? p2Wins : p3Wins);
-          const bp = (winnerWins === 4) ? 5 : 3;
+          const bp = (winnerWins >= 4) ? 5 : 3;
           if (battleOutcome === 'Player1') p1BattlePoints = bp;
           if (battleOutcome === 'Player2') p2BattlePoints = bp;
           if (battleOutcome === 'Player3') p3BattlePoints = bp;

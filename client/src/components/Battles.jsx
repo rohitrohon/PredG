@@ -65,9 +65,35 @@ function Battles({ user, groupId }) {
 
   const currentMw = matchweeks.find(mw => mw._id === selectedMatchweekId);
   const isCompleted = currentMw?.status === 'completed';
+  const hasCalculatedBattles = battles.length > 0 && battles.some(b => (b.details && b.details.length > 0) || b.player1Wins > 0 || b.player2Wins > 0 || (b.outcome && b.outcome !== 'Draw'));
 
-  // Get lists of unique usernames in the group standings
-  const activePlayers = standings.map(s => s.userId?.username).filter(Boolean);
+  const battleMatch = currentMw?.battleMatchId ? currentMw.matches?.find(m => m._id.toString() === currentMw.battleMatchId.toString()) : null;
+
+  const formatPredictionChoice = (val, cat) => {
+    if (val === null || val === undefined || val === '' || val === 'null') return '-';
+    if (!battleMatch) return String(val);
+
+    const home = battleMatch.homeTeam;
+    const away = battleMatch.awayTeam;
+
+    if (cat === 'result') {
+      if (val === 'Home') return `${home} Win`;
+      if (val === 'Away') return `${away} Win`;
+      if (val === 'Draw') return 'Draw';
+    } else if (cat === 'firstGoal' || cat === 'possession') {
+      if (val === 'Home') return home;
+      if (val === 'Away') return away;
+      if (val === 'No goal') return 'No Goal';
+      if (val === 'Equal') return 'Equal Possession';
+    } else if (cat === 'scoreline') {
+      let strVal = String(val);
+      strVal = strVal.replace(/\(Home\)/gi, `(${home})`);
+      strVal = strVal.replace(/\(Away\)/gi, `(${away})`);
+      return strVal;
+    }
+
+    return String(val);
+  };
 
   // Render separate brackets showing battle pairings
   const renderBattleBrackets = () => {
@@ -88,6 +114,8 @@ function Battles({ user, groupId }) {
           const isUserP3 = battle.player3Id?._id?.toString() === user.id;
           const isUserInBattle = isUserP1 || isUserP2 || (isTriad && isUserP3);
 
+          const isBattleEvaluated = isCompleted || (battle.details && battle.details.length > 0) || battle.player1Wins > 0 || battle.player2Wins > 0;
+
           return (
             <div key={battle._id} className="card" style={{ 
               padding: '0.75rem 1rem', 
@@ -102,9 +130,11 @@ function Battles({ user, groupId }) {
                 <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Bracket #{index + 1} {isTriad ? '(3-Way Triad Matchup)' : ''}
                 </span>
-                {isCompleted && (
+                {isBattleEvaluated && (
                   <span className={`badge ${battle.outcome === 'Draw' || battle.outcome === 'Tie' ? 'badge-info' : 'badge-success'}`} style={{ fontSize: '0.65rem' }}>
-                    {battle.outcome === 'Draw' || battle.outcome === 'Tie' ? 'Draw / Tie' : battle.outcome === 'Player1' ? `${p1} Win` : battle.outcome === 'Player2' ? `${p2} Win` : `${p3} Win`}
+                    {battle.outcome === 'Draw' || battle.outcome === 'Tie' 
+                      ? 'Draw / Tie' 
+                      : battle.outcome === 'Player1' ? `${p1} Win (+${battle.player1Points} BP)` : battle.outcome === 'Player2' ? `${p2} Win (+${battle.player2Points} BP)` : `${p3} Win (+${battle.player3Points} BP)`}
                   </span>
                 )}
               </div>
@@ -113,22 +143,22 @@ function Battles({ user, groupId }) {
                   <>
                     <span style={{ fontWeight: isUserP1 ? 700 : 500, color: isUserP1 ? 'var(--primary)' : 'inherit', fontSize: '0.95rem' }}>{p1}</span>
                     <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700, padding: '0 0.5rem' }}>
-                      {isCompleted ? `${battle.player1Wins} - ${battle.player2Wins}` : 'vs'}
+                      {isBattleEvaluated ? `${battle.player1Wins} - ${battle.player2Wins}` : 'vs'}
                     </span>
                     <span style={{ fontWeight: isUserP2 ? 700 : 500, color: isUserP2 ? 'var(--primary)' : 'inherit', fontSize: '0.95rem', textAlign: 'right' }}>{p2}</span>
                   </>
                 ) : (
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', width: '100%', justifyContent: 'space-between', flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: isUserP1 ? 700 : 500, color: isUserP1 ? 'var(--primary)' : 'inherit', fontSize: '0.95rem' }}>
-                      {p1} {isCompleted ? `(${battle.player1Wins}W)` : ''}
+                      {p1} {isBattleEvaluated ? `(${battle.player1Wins}W)` : ''}
                     </span>
                     <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700 }}>vs</span>
                     <span style={{ fontWeight: isUserP2 ? 700 : 500, color: isUserP2 ? 'var(--primary)' : 'inherit', fontSize: '0.95rem' }}>
-                      {p2} {isCompleted ? `(${battle.player2Wins}W)` : ''}
+                      {p2} {isBattleEvaluated ? `(${battle.player2Wins}W)` : ''}
                     </span>
                     <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700 }}>vs</span>
                     <span style={{ fontWeight: isUserP3 ? 700 : 500, color: isUserP3 ? 'var(--primary)' : 'inherit', fontSize: '0.95rem' }}>
-                      {p3} {isCompleted ? `(${battle.player3Wins}W)` : ''}
+                      {p3} {isBattleEvaluated ? `(${battle.player3Wins}W)` : ''}
                     </span>
                   </div>
                 )}
@@ -142,14 +172,24 @@ function Battles({ user, groupId }) {
 
   // Render Category-wise Shootout Detailed matrix table partitioned by Bracket
   const renderShootoutTable = () => {
-    if (!isCompleted) {
+    const showShootout = isCompleted || hasCalculatedBattles;
+
+    if (!showShootout) {
       return (
         <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
           <Sword size={32} style={{ margin: '0 auto 0.75rem', display: 'block', opacity: 0.5 }} />
-          <p>Shootout details will be revealed once the matchweek is completed and results are calculated.</p>
+          <p>Shootout details will be revealed once the battle match is played and results are calculated.</p>
         </div>
       );
     }
+
+    const categoriesList = [
+      { key: 'result', label: 'Result Choice' },
+      { key: 'scoreline', label: 'Scoreline Choice' },
+      { key: 'firstGoal', label: '1st Goal Choice' },
+      { key: 'possession', label: 'Possession Choice' },
+      { key: 'wild', label: 'Wild Category' }
+    ];
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -159,45 +199,96 @@ function Battles({ user, groupId }) {
           const p3 = battle.player3Id?.username || battle.player3Id?.name || 'Player 3';
           const isTriad = battle.isTriad && battle.player3Id;
 
-          // Category details mapping
+          // Build row maps for each player
           const p1Details = { name: p1, bp: battle.player1Points };
           const p2Details = { name: p2, bp: battle.player2Points };
           const p3Details = isTriad ? { name: p3, bp: battle.player3Points } : null;
 
-          battle.details?.forEach(d => {
-            const cat = d.category;
-            p1Details[cat] = { val: d.player1Val, pts: d.player1Pts };
-            p2Details[cat] = { val: d.player2Val, pts: d.player2Pts };
+          categoriesList.forEach(({ key }) => {
+            const d = battle.details?.find(item => item.category === key);
+            const p1Pts = d ? (d.player1Pts || 0) : 0;
+            const p2Pts = d ? (d.player2Pts || 0) : 0;
+            const p3Pts = isTriad ? (d ? (d.player3Pts || 0) : 0) : 0;
+
+            const allPts = [p1Pts, p2Pts];
+            if (isTriad) allPts.push(p3Pts);
+
+            const maxPts = Math.max(...allPts);
+            const topCount = allPts.filter(p => p === maxPts).length;
+
+            const p1Status = (p1Pts === maxPts && topCount === 1) ? 'win' : (p1Pts === maxPts ? 'tie' : 'loss');
+            const p2Status = (p2Pts === maxPts && topCount === 1) ? 'win' : (p2Pts === maxPts ? 'tie' : 'loss');
+            const p3Status = (p3Pts === maxPts && topCount === 1) ? 'win' : (p3Pts === maxPts ? 'tie' : 'loss');
+
+            p1Details[key] = { val: d?.player1Val, pts: p1Pts, status: p1Status };
+            p2Details[key] = { val: d?.player2Val, pts: p2Pts, status: p2Status };
             if (isTriad && p3Details) {
-              p3Details[cat] = { val: d.player3Val, pts: d.player3Pts };
+              p3Details[key] = { val: d?.player3Val, pts: p3Pts, status: p3Status };
             }
           });
 
           const bracketRows = [p1Details, p2Details];
           if (isTriad && p3Details) bracketRows.push(p3Details);
 
-          const renderValueAndPts = (item) => {
+          const renderCategoryCell = (item, categoryKey) => {
             if (!item) {
               return (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span>-</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>0 pts</span>
+                <div style={{ padding: '0.35rem 0.5rem', borderRadius: '6px', background: 'rgba(255,255,255,0.02)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                  - (0 pts)
                 </div>
               );
             }
-            const displayVal = item.val !== null && item.val !== undefined && item.val !== '' ? item.val : '-';
+
+            const val = item.val;
+            if (val === null || val === undefined || val === '' || val === 'null') {
+              return (
+                <div style={{ padding: '0.35rem 0.5rem', borderRadius: '6px', background: 'rgba(255,255,255,0.02)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                  - (0 pts)
+                </div>
+              );
+            }
+
+            const displayChoice = formatPredictionChoice(val, categoryKey);
             const displayPts = item.pts !== undefined && item.pts !== null ? item.pts : 0;
+            const status = item.status;
+
+            let badgeBg = 'rgba(245, 158, 11, 0.15)';
+            let badgeBorder = 'rgba(245, 158, 11, 0.4)';
+            let badgeColor = '#f59e0b';
+            let statusLabel = 'TIE';
+
+            if (status === 'win') {
+              badgeBg = 'rgba(16, 185, 129, 0.18)';
+              badgeBorder = 'rgba(16, 185, 129, 0.45)';
+              badgeColor = '#10b981';
+              statusLabel = 'WIN';
+            } else if (status === 'loss') {
+              badgeBg = 'rgba(239, 68, 68, 0.15)';
+              badgeBorder = 'rgba(239, 68, 68, 0.4)';
+              badgeColor = '#ef4444';
+              statusLabel = 'LOST';
+            }
 
             return (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
-                <span style={{ fontWeight: 600 }}>{displayVal}</span>
-                <span style={{ 
-                  fontSize: '0.75rem', 
-                  color: displayPts > 0 ? 'var(--primary)' : 'var(--text-muted)',
-                  fontWeight: displayPts > 0 ? 600 : 400
-                }}>
-                  {displayPts} {displayPts === 1 ? 'pt' : 'pts'}
-                </span>
+              <div style={{
+                display: 'inline-flex',
+                flexDirection: 'column',
+                gap: '0.2rem',
+                padding: '0.45rem 0.65rem',
+                borderRadius: '6px',
+                background: badgeBg,
+                border: `1px solid ${badgeBorder}`,
+                minWidth: '115px'
+              }}>
+                <div style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-main)' }}>
+                  {displayChoice}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', fontWeight: 700, color: badgeColor }}>
+                  <span>{displayPts} {displayPts === 1 ? 'pt' : 'pts'}</span>
+                  <span style={{ fontSize: '0.62rem', padding: '0.05rem 0.3rem', borderRadius: '3px', background: 'rgba(0,0,0,0.3)', textTransform: 'uppercase' }}>
+                    {statusLabel}
+                  </span>
+                </div>
               </div>
             );
           };
@@ -214,8 +305,10 @@ function Battles({ user, groupId }) {
                 <h4 style={{ margin: 0, fontWeight: 700, color: 'var(--primary)' }}>
                   Bracket #{bIdx + 1}: {!isTriad ? `${p1} vs ${p2}` : `${p1} vs ${p2} vs ${p3}`}
                 </h4>
-                <span className="badge badge-info" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
-                  {!isTriad ? `Score: ${battle.player1Wins} - ${battle.player2Wins}` : `Wins: ${p1}(${battle.player1Wins}) ${p2}(${battle.player2Wins}) ${p3}(${battle.player3Wins})`}
+                <span className={`badge ${battle.outcome === 'Draw' || battle.outcome === 'Tie' ? 'badge-info' : 'badge-success'}`} style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                  {!isTriad 
+                    ? `Score: ${battle.player1Wins} - ${battle.player2Wins} | ${battle.outcome === 'Player1' ? p1 + ' Winner (+' + battle.player1Points + ' BP)' : battle.outcome === 'Player2' ? p2 + ' Winner (+' + battle.player2Points + ' BP)' : 'Draw / Tie (+1 BP each)'}`
+                    : `Wins: ${p1}(${battle.player1Wins}) ${p2}(${battle.player2Wins}) ${p3}(${battle.player3Wins})`}
                 </span>
               </div>
 
@@ -224,10 +317,11 @@ function Battles({ user, groupId }) {
                   <thead>
                     <tr>
                       <th>Player</th>
-                      <th>Result Choice (Pts)</th>
-                      <th>Scoreline Choice (Pts)</th>
-                      <th>1st Goal Choice (Pts)</th>
-                      <th>Possession Choice (Pts)</th>
+                      <th>Result Choice</th>
+                      <th>Scoreline Choice</th>
+                      <th>1st Goal Choice</th>
+                      <th>Possession Choice</th>
+                      <th>Wild Category</th>
                       <th style={{ textAlign: 'right', color: 'var(--accent)', fontWeight: 700 }}>BP Gained</th>
                     </tr>
                   </thead>
@@ -237,10 +331,11 @@ function Battles({ user, groupId }) {
                         background: row.name === user.username ? 'rgba(56, 189, 248, 0.03)' : 'transparent'
                       }}>
                         <td style={{ fontWeight: 700 }}>{row.name}</td>
-                        <td>{renderValueAndPts(row.result)}</td>
-                        <td>{renderValueAndPts(row.scoreline)}</td>
-                        <td>{renderValueAndPts(row.firstGoal)}</td>
-                        <td>{renderValueAndPts(row.possession)}</td>
+                        <td>{renderCategoryCell(row.result, 'result')}</td>
+                        <td>{renderCategoryCell(row.scoreline, 'scoreline')}</td>
+                        <td>{renderCategoryCell(row.firstGoal, 'firstGoal')}</td>
+                        <td>{renderCategoryCell(row.possession, 'possession')}</td>
+                        <td>{renderCategoryCell(row.wild, 'wild')}</td>
                         <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--accent)', fontSize: '1.05rem' }}>
                           +{row.bp} BP
                         </td>
