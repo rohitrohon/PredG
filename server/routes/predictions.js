@@ -273,13 +273,29 @@ router.post('/submit/:matchweekId', auth, async (req, res) => {
       }
     }
 
-    // Sanitize numeric fields: ensure non-negative absolute values
-    const sanitizedPredictions = predictions.map((p) => ({
-      ...p,
-      homeScore: Math.abs(Number(p.homeScore) || 0),
-      awayScore: Math.abs(Number(p.awayScore) || 0),
-      wildPredictionValue: Math.abs(Number(p.wildPredictionValue) || 0)
-    }));
+    // Sanitize numeric fields & set per-match isAutofilled status
+    const sanitizedPredictions = predictions.map((p, idx) => {
+      let matchAutofilled = false;
+      if (isSecondChanceWindow) {
+        if (idx < 3) {
+          matchAutofilled = predictionDoc.predictions[idx]?.isAutofilled ?? predictionDoc.isAutofilled ?? true;
+        } else {
+          // Games 4 and 5 submitted by user during 2nd chance deadline: remove autofill tag!
+          matchAutofilled = false;
+        }
+      } else {
+        // Submitted by user before 1st deadline
+        matchAutofilled = false;
+      }
+
+      return {
+        ...p,
+        homeScore: Math.abs(Number(p.homeScore) || 0),
+        awayScore: Math.abs(Number(p.awayScore) || 0),
+        wildPredictionValue: Math.abs(Number(p.wildPredictionValue) || 0),
+        isAutofilled: matchAutofilled
+      };
+    });
 
     let sanitizedGamble = gamble;
     if (sanitizedGamble && sanitizedGamble.active) {
@@ -292,6 +308,7 @@ router.post('/submit/:matchweekId', auth, async (req, res) => {
     predictionDoc.gamble = sanitizedGamble;
     predictionDoc.marketPowerUps = marketPowerUps || [];
     predictionDoc.isSubmitted = true;
+    predictionDoc.isAutofilled = sanitizedPredictions.some(p => p.isAutofilled);
 
     // Deduct net Battle Points cost
     standing.battlePoints -= netCost;

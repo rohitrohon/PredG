@@ -101,7 +101,8 @@ async function generateIntelligentDefaultPrediction(groupId, matchweek, userId) 
       firstGoal: isHomeHigher ? 'Home' : 'Away',
       possession: isHomeHigher ? 'Home' : 'Away',
       wildPredictionCategory: 'None',
-      wildPredictionValue: 0
+      wildPredictionValue: 0,
+      isAutofilled: true
     });
   }
 

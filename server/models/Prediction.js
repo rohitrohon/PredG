@@ -9,7 +9,8 @@ const SingleMatchPredictionSchema = new mongoose.Schema({
   firstGoal: { type: String, enum: ['Home', 'Away', 'No goal'], required: true },
   possession: { type: String, enum: ['Home', 'Away', 'Equal'], required: true },
   wildPredictionCategory: { type: String, enum: ['None', 'Yellow Cards', 'Offsides', 'Corners', 'Total Shots'], default: 'None' },
-  wildPredictionValue: { type: Number, default: 0 }
+  wildPredictionValue: { type: Number, default: 0 },
+  isAutofilled: { type: Boolean, default: false }
 });
 
 const PredictionSchema = new mongoose.Schema({

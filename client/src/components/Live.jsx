@@ -1153,7 +1153,8 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                           const tags = [];
                           if (isCaptain) tags.push(<span key="cap" className="badge badge-info" style={{ fontSize: '0.55rem', padding: '0.05rem 0.25rem', color: '#000000', backgroundColor: 'rgba(0,0,0,0.08)', borderColor: 'rgba(0,0,0,0.25)', fontWeight: 800 }}>C</span>);
                           if (powerUp) tags.push(<span key="pu" className="badge badge-success" style={{ fontSize: '0.55rem', padding: '0.05rem 0.25rem', color: '#000000', backgroundColor: 'rgba(0,0,0,0.08)', borderColor: 'rgba(0,0,0,0.25)', fontWeight: 800 }}>{powerUp.type}</span>);
-                          if (gotSuperBonus) tags.push(<span key="sb" className="badge badge-accent" style={{ fontSize: '0.55rem', padding: '0.05rem 0.25rem', color: '#000000', backgroundColor: '#f59e0b', borderColor: 'rgba(0,0,0,0.25)', fontWeight: 800 }}>⚡ 1.5x Super Bonus</span>);
+                          if (gotBonus && !gotSuperBonus) tags.push(<span key="bon" className="badge badge-success" style={{ fontSize: '0.55rem', padding: '0.05rem 0.25rem', color: '#ffffff', backgroundColor: '#10b981', borderColor: 'rgba(0,0,0,0.25)', fontWeight: 800 }}>🎯 +50 Bonus</span>);
+                          if (gotSuperBonus) tags.push(<span key="sb" className="badge badge-accent" style={{ fontSize: '0.55rem', padding: '0.05rem 0.25rem', color: '#000000', backgroundColor: '#f59e0b', borderColor: 'rgba(0,0,0,0.25)', fontWeight: 800 }}>⚡ 1.5x Super Bonus (+50)</span>);
 
                           if (isGamble) {
                             tags.push(<span key="gam" className="badge badge-warning" style={{ fontSize: '0.55rem', padding: '0.05rem 0.25rem', color: '#000000', backgroundColor: 'rgba(0,0,0,0.08)', borderColor: 'rgba(0,0,0,0.25)', fontWeight: 800 }}>Gamble {predDoc.gamble.points}</span>);
@@ -1161,6 +1162,11 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                               tags.push(<span key="shi" className="badge badge-info" style={{ fontSize: '0.55rem', padding: '0.05rem 0.25rem', color: '#000000', backgroundColor: 'rgba(0,0,0,0.08)', borderColor: 'rgba(0,0,0,0.25)', fontWeight: 800 }}>🛡️ Shielded</span>);
                             }
                           }
+
+                          const matchIndex = selectedMw.matches.findIndex(m => m._id.toString() === mId);
+                          const isMatchAutofilled = matchPred?.isAutofilled !== undefined 
+                            ? matchPred.isAutofilled 
+                            : (predDoc.isAutofilled && matchIndex < 3);
 
                           return (
                             <tr key={predDoc._id} style={{
@@ -1175,7 +1181,7 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                                   <span>
                                     {nameLabel}
-                                    {predDoc.isAutofilled && (
+                                    {isMatchAutofilled && (
                                       <span className="badge badge-warning" style={{ fontSize: '0.55rem', padding: '0.1rem 0.35rem', marginLeft: '0.35rem' }}>
                                         🤖 Autofilled
                                       </span>
