@@ -1171,24 +1171,26 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                           }
 
                           const matchIndex = selectedMw?.matches ? selectedMw.matches.findIndex(m => m._id.toString() === mId) : -1;
+
+                          const isDocAutofilledPattern = predDoc.isAutofilled || Boolean(
+                            predDoc.predictions && predDoc.predictions.length >= 3 && predDoc.predictions.slice(0, 3).every(p => {
+                              const isDefaultScore = (p.homeScore === 3 && p.awayScore === 0) || (p.homeScore === 0 && p.awayScore === 3) || (p.homeScore === 1 && p.awayScore === 0);
+                              return isDefaultScore && p.safeBet === 'Home' && (!p.wildPredictionCategory || p.wildPredictionCategory === 'None');
+                            })
+                          );
+
                           let isMatchAutofilled = false;
 
-                          if (matchPred?.isAutofilled === true) {
-                            isMatchAutofilled = true;
-                          } else if (matchPred?.isAutofilled === false) {
-                            isMatchAutofilled = false;
-                          } else {
-                            // Check if doc level is marked autofilled OR if predictions match default autofill pattern
-                            const isDocAutofilledPattern = predDoc.isAutofilled || Boolean(
-                              predDoc.predictions && predDoc.predictions.length >= 3 && predDoc.predictions.slice(0, 3).every(p => {
-                                const isDefaultScore = (p.homeScore === 3 && p.awayScore === 0) || (p.homeScore === 0 && p.awayScore === 3) || (p.homeScore === 1 && p.awayScore === 0);
-                                return isDefaultScore && p.safeBet === 'Home' && (!p.wildPredictionCategory || p.wildPredictionCategory === 'None');
-                              })
-                            );
-
-                            if (isDocAutofilledPattern) {
+                          if (isDocAutofilledPattern) {
+                            if (matchIndex >= 0 && matchIndex < 3) {
+                              isMatchAutofilled = true;
+                            } else if (matchIndex >= 3) {
+                              isMatchAutofilled = matchPred?.isAutofilled === false ? false : true;
+                            } else {
                               isMatchAutofilled = true;
                             }
+                          } else if (matchPred?.isAutofilled === true) {
+                            isMatchAutofilled = true;
                           }
 
                           return (
