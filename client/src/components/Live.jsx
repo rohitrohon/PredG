@@ -455,11 +455,18 @@ function Live({ groupId, user, onNavigateToPredictions }) {
       }
     }
 
+    const isDocAutofilled = predDoc.isAutofilled || Boolean(
+      predDoc.predictions && predDoc.predictions.length >= 3 && predDoc.predictions.slice(0, 3).every(p => {
+        const isDefaultScore = (p.homeScore === 3 && p.awayScore === 0) || (p.homeScore === 0 && p.awayScore === 3) || (p.homeScore === 1 && p.awayScore === 0);
+        return isDefaultScore && p.safeBet === 'Home' && (!p.wildPredictionCategory || p.wildPredictionCategory === 'None');
+      })
+    );
+
     return {
       username: predDoc.userId?.username || 'Unknown',
       points: totalLiveScore,
       submitted: predDoc.isSubmitted,
-      isAutofilled: predDoc.isAutofilled,
+      isAutofilled: isDocAutofilled,
       gambleNet,
       gambleStatus,
       correctCategoriesMap
@@ -1170,11 +1177,18 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                             isMatchAutofilled = true;
                           } else if (matchPred?.isAutofilled === false) {
                             isMatchAutofilled = false;
-                          } else if (predDoc.isAutofilled) {
-                            // If prediction doc was autofilled due to missing Deadline 1:
-                            // Matches 1-3 (indexes 0, 1, 2) are ALWAYS autofilled.
-                            // Matches 4-5 (indexes 3, 4) are autofilled unless matchPred.isAutofilled === false.
-                            isMatchAutofilled = true;
+                          } else {
+                            // Check if doc level is marked autofilled OR if predictions match default autofill pattern
+                            const isDocAutofilledPattern = predDoc.isAutofilled || Boolean(
+                              predDoc.predictions && predDoc.predictions.length >= 3 && predDoc.predictions.slice(0, 3).every(p => {
+                                const isDefaultScore = (p.homeScore === 3 && p.awayScore === 0) || (p.homeScore === 0 && p.awayScore === 3) || (p.homeScore === 1 && p.awayScore === 0);
+                                return isDefaultScore && p.safeBet === 'Home' && (!p.wildPredictionCategory || p.wildPredictionCategory === 'None');
+                              })
+                            );
+
+                            if (isDocAutofilledPattern) {
+                              isMatchAutofilled = true;
+                            }
                           }
 
                           return (
