@@ -26,14 +26,14 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
 
   useEffect(() => {
     if (!matchweek) return;
-    
+
     const checkDeadlines = () => {
-      const d1Time = matchweek.matches && matchweek.matches[0] && matchweek.matches[0].kickoffTime 
-        ? new Date(matchweek.matches[0].kickoffTime) 
+      const d1Time = matchweek.matches && matchweek.matches[0] && matchweek.matches[0].kickoffTime
+        ? new Date(matchweek.matches[0].kickoffTime)
         : new Date(matchweek.deadline);
 
-      const d2Time = matchweek.matches && matchweek.matches[3] && matchweek.matches[3].kickoffTime 
-        ? new Date(matchweek.matches[3].kickoffTime) 
+      const d2Time = matchweek.matches && matchweek.matches[3] && matchweek.matches[3].kickoffTime
+        ? new Date(matchweek.matches[3].kickoffTime)
         : d1Time;
 
       const now = new Date();
@@ -47,11 +47,15 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
       if (d2Passed) {
         setCountdown('LOCKED (Deadline 2 Passed)');
       } else if (d1Passed) {
-        const diff = d2Time - now;
-        const hrs = Math.floor(diff / (1000 * 60 * 60));
-        const mins = Math.floor((diff / (1000 * 60)) % 60);
-        const secs = Math.floor((diff / 1000) % 60);
-        setCountdown(`2nd Deadline (Games 4 & 5): ${hrs}h ${mins}m ${secs}s remaining`);
+        if (!prediction?.isAutofilled) {
+          setCountdown('LOCKED (Deadline Passed)');
+        } else {
+          const diff = d2Time - now;
+          const hrs = Math.floor(diff / (1000 * 60 * 60));
+          const mins = Math.floor((diff / (1000 * 60)) % 60);
+          const secs = Math.floor((diff / 1000) % 60);
+          setCountdown(`2nd Deadline (Games 4 & 5): ${hrs}h ${mins}m ${secs}s remaining`);
+        }
       } else {
         const diff = d1Time - now;
         const hrs = Math.floor(diff / (1000 * 60 * 60));
@@ -64,13 +68,13 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
     checkDeadlines();
     const interval = setInterval(checkDeadlines, 1000);
     return () => clearInterval(interval);
-  }, [matchweek]);
+  }, [matchweek, prediction]);
 
   const fetchActiveData = async () => {
     try {
       setLoading(true);
       setError('');
-      
+
       const mw = await api.getActiveMatchweek(groupId);
       setMatchweek(mw);
 
@@ -102,8 +106,25 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
     return cost;
   };
 
+  const isSecondChanceActive = deadline1Passed && !deadline2Passed && prediction?.isAutofilled;
+  const isFullyLocked = deadline2Passed || (deadline1Passed && !prediction?.isAutofilled);
+  const isLocked = isFullyLocked;
+
+  const checkIfMatchLocked = (matchId) => {
+    if (isFullyLocked) return true;
+    if (isSecondChanceActive) {
+      const matchIndex = matchweek?.matches?.findIndex(
+        (m) => m._id.toString() === matchId.toString()
+      );
+      if (matchIndex >= 0 && matchIndex < 3) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   const handleResetPredictions = () => {
-    if (deadlinePassed || !matchweek) return;
+    if (deadline1Passed || isFullyLocked || !matchweek) return;
 
     if (!window.confirm('Are you sure you want to reset all your prediction entries for this matchweek back to default?')) {
       return;
@@ -134,7 +155,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
   };
 
   const handlePredictionChange = (matchId, field, value) => {
-    if (deadlinePassed) return;
+    if (checkIfMatchLocked(matchId)) return;
 
     if (field === 'wildPredictionCategory' && value && value !== 'None') {
       const existingCount = prediction.predictions.filter(
@@ -162,7 +183,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
     const rankVal = standing ? standing.rank : null;
     let maxG = Math.floor(pointsVal * 0.10);
     if (maxG < 0) maxG = 0;
-    
+
     const half = Math.ceil((totalPlayers || 8) / 2);
     if (rankVal !== null && rankVal <= half) {
       maxG = Math.min(maxG, 500);
@@ -173,7 +194,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
   };
 
   const togglePowerUp = (matchId, type) => {
-    if (deadlinePassed) return;
+    if (checkIfMatchLocked(matchId)) return;
 
     let currentPUs = [...prediction.marketPowerUps];
     const matchIdStr = matchId.toString();
@@ -201,7 +222,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
   };
 
   const toggleGamble = (matchId) => {
-    if (deadlinePassed) return;
+    if (checkIfMatchLocked(matchId)) return;
 
     const matchIdStr = matchId.toString();
     const isCurrentGamble = prediction.gamble?.active && prediction.gamble?.matchId?.toString() === matchIdStr;
@@ -232,7 +253,8 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
   };
 
   const handleGamblePointsInputChange = (e) => {
-    if (deadlinePassed) return;
+    if (isFullyLocked) return;
+    if (prediction?.gamble?.matchId && checkIfMatchLocked(prediction.gamble.matchId)) return;
     const raw = e.target.value;
     if (raw === '' || raw === null || raw === undefined) {
       setPrediction({
@@ -279,7 +301,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
   };
 
   const handleSubmitPredictions = async () => {
-    if (deadlinePassed) return;
+    if (isFullyLocked) return;
 
     // Validate Wild Category max-2 limit
     const catCounts = {};
@@ -325,13 +347,13 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
         marketPowerUps: prediction.marketPowerUps
       });
       setPrediction(res.prediction);
-      
-      const successMessage = wasAlreadySubmitted 
-        ? 'Predictions updated successfully!' 
+
+      const successMessage = wasAlreadySubmitted
+        ? 'Predictions updated successfully!'
         : 'Predictions submitted successfully!';
 
       setSuccessMsg(successMessage);
-      
+
       if (onPointsUpdate) {
         onPointsUpdate();
       }
@@ -373,9 +395,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
     return <div className="card" style={{ textAlign: 'center' }}>No active matchweeks currently scheduled.</div>;
   }
 
-  const isSecondChanceActive = deadline1Passed && !deadline2Passed && prediction?.isAutofilled;
-  const isFullyLocked = deadline2Passed || (deadline1Passed && !prediction?.isAutofilled);
-  const isLocked = isFullyLocked;
+
 
   const powerUpCost = prediction ? calculatePowerUpCost(prediction.marketPowerUps) : 0;
 
@@ -384,7 +404,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
   const rankVal = standing ? standing.rank : null;
   let maxGamble = Math.floor(pointsVal * 0.10);
   if (maxGamble < 0) maxGamble = 0;
-  
+
   const half = Math.ceil(totalPlayers / 2);
   if (rankVal !== null && rankVal <= half) {
     maxGamble = Math.min(maxGamble, 500);
@@ -407,8 +427,8 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
 
         {/* Countdown Badge, Reset Button & Rules Info Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <button 
-            className="btn btn-secondary" 
+          <button
+            className="btn btn-secondary"
             style={{ padding: '0.5rem 0.85rem', fontSize: '0.8rem', gap: '0.35rem', borderColor: 'var(--primary-glow)', color: 'var(--primary)' }}
             onClick={() => setShowRulesModal(true)}
             title="View Rules & Scoring System"
@@ -416,11 +436,11 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
             <Info size={15} /> Rules
           </button>
 
-          <button 
-            className="btn btn-secondary" 
+          <button
+            className="btn btn-secondary"
             style={{ padding: '0.5rem 0.85rem', fontSize: '0.8rem', gap: '0.35rem' }}
             onClick={handleResetPredictions}
-            disabled={isLocked || submitting}
+            disabled={isLocked || deadline1Passed || submitting}
             title="Reset form back to default template"
           >
             <RotateCcw size={14} /> Reset Predictions
@@ -466,8 +486,8 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
               <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontSize: '1.25rem' }}>
                 <BookOpen size={22} /> PredG Point System & Rulebook
               </h3>
-              <button 
-                className="btn btn-secondary" 
+              <button
+                className="btn btn-secondary"
                 style={{ padding: '0.3rem 0.7rem', fontSize: '0.85rem', borderRadius: '50%' }}
                 onClick={() => setShowRulesModal(false)}
               >
@@ -476,7 +496,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', fontSize: '0.9rem', color: 'var(--text-main)' }}>
-              
+
               {/* Match Result, First Goal & Possession Scoring */}
               <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--primary)' }}>
                 <h4 style={{ color: 'var(--primary)', marginBottom: '0.5rem', fontSize: '1rem' }}>⚽ Match Result, First Goal & Possession Points</h4>
@@ -564,8 +584,8 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
             </div>
 
             <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
-              <button 
-                className="btn btn-primary" 
+              <button
+                className="btn btn-primary"
                 style={{ padding: '0.65rem 2.25rem', fontWeight: 700 }}
                 onClick={() => setShowRulesModal(false)}
               >
@@ -601,11 +621,11 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
               const match = matchweek.matches[idx];
               if (!match) return null;
 
-              const isMatchLocked = isFullyLocked || (isSecondChanceActive && idx < 3);
+              const isMatchLocked = checkIfMatchLocked(match._id);
 
               const isCaptain = prediction.captainMatchId === match._id;
-              const isGamble = prediction.gamble?.active && 
-                               prediction.gamble?.matchId?.toString() === match._id.toString();
+              const isGamble = prediction.gamble?.active &&
+                prediction.gamble?.matchId?.toString() === match._id.toString();
 
               const matchPowerUps = prediction.marketPowerUps.filter(
                 (pu) => pu.matchId.toString() === match._id.toString()
@@ -616,7 +636,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
               const hasShield = matchPowerUps.some(pu => pu.type === 'Shield');
 
               return (
-                <div key={match._id} className="card" style={{ 
+                <div key={match._id} className="card" style={{
                   borderLeft: isCaptain ? '5px solid var(--warning)' : (isGamble ? '5px solid var(--danger)' : (match._id === matchweek.battleMatchId ? '5px solid var(--accent)' : '1px solid var(--border-color)')),
                   background: isGamble ? 'rgba(239, 68, 68, 0.01)' : 'var(--card-bg)',
                   opacity: isMatchLocked ? 0.75 : 1
@@ -655,15 +675,15 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                         <button
                           className={`btn ${isGamble ? 'btn-primary' : 'btn-secondary'}`}
-                          style={{ 
-                            padding: '0.3rem 0.65rem', 
-                            fontSize: '0.75rem', 
-                            borderColor: isGamble ? 'transparent' : 'rgba(239, 68, 68, 0.3)', 
+                          style={{
+                            padding: '0.3rem 0.65rem',
+                            fontSize: '0.75rem',
+                            borderColor: isGamble ? 'transparent' : 'rgba(239, 68, 68, 0.3)',
                             color: isGamble ? 'var(--bg-darker)' : 'var(--danger)',
                             background: isGamble ? 'var(--danger)' : 'transparent'
                           }}
                           onClick={() => toggleGamble(match._id)}
-                          disabled={isLocked}
+                          disabled={isMatchLocked}
                         >
                           🎲 Gamble
                         </button>
@@ -681,7 +701,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                               onFocus={(e) => e.target.select()}
                               onChange={handleGamblePointsInputChange}
                               onBlur={handleGamblePointsInputChange}
-                              disabled={isLocked}
+                              disabled={isMatchLocked}
                               required
                             />
                           </div>
@@ -693,7 +713,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                         className={`btn ${hasDouble ? 'btn-accent' : 'btn-secondary'}`}
                         style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem' }}
                         onClick={() => togglePowerUp(match._id, 'Double')}
-                        disabled={isLocked}
+                        disabled={isMatchLocked}
                       >
                         Double (5 BP)
                       </button>
@@ -701,7 +721,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                         className={`btn ${hasTriple ? 'btn-accent' : 'btn-secondary'}`}
                         style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem' }}
                         onClick={() => togglePowerUp(match._id, 'Triple')}
-                        disabled={isLocked}
+                        disabled={isMatchLocked}
                       >
                         Triple (10 BP)
                       </button>
@@ -709,7 +729,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                         className={`btn ${hasShield ? 'btn-accent' : 'btn-secondary'}`}
                         style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem' }}
                         onClick={() => togglePowerUp(match._id, 'Shield')}
-                        disabled={isLocked}
+                        disabled={isMatchLocked}
                       >
                         Shield (15 BP)
                       </button>
@@ -721,9 +741,9 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                     <div style={{ textAlign: 'right', flex: '1 1 120px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
                       <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{match.homeTeam}</span>
                     </div>
-                    
+
                     <div style={{ fontWeight: 800, color: 'var(--text-muted)', fontSize: '0.9rem' }}>VS</div>
-                    
+
                     <div style={{ textAlign: 'left', flex: '1 1 120px', display: 'flex', alignItems: 'center' }}>
                       <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{match.awayTeam}</span>
                     </div>
@@ -731,7 +751,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
 
                   {/* Prediction Categories Grid */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem' }}>
-                    
+
                     {/* Scoreline */}
                     <div className="card" style={{ background: 'rgba(0, 0, 0, 0.2)', padding: '0.85rem' }}>
                       <label className="form-label" style={{ fontSize: '0.7rem' }}>Scoreline</label>
@@ -745,7 +765,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                           placeholder="0"
                           onFocus={(e) => e.target.select()}
                           onChange={(e) => handleCleanNumericChange(match._id, 'homeScore', e.target.value)}
-                          disabled={isLocked}
+                          disabled={isMatchLocked}
                         />
                         <span style={{ fontWeight: 700 }}>-</span>
                         <input
@@ -757,17 +777,17 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                           placeholder="0"
                           onFocus={(e) => e.target.select()}
                           onChange={(e) => handleCleanNumericChange(match._id, 'awayScore', e.target.value)}
-                          disabled={isLocked}
+                          disabled={isMatchLocked}
                         />
                       </div>
-                      
+
                       <label className="form-label" style={{ fontSize: '0.7rem', marginTop: '0.6rem' }}>Safe Bet</label>
                       <select
                         className="form-input"
                         style={{ padding: '0.4rem', fontSize: '0.8rem' }}
                         value={singlePred.safeBet}
                         onChange={(e) => handlePredictionChange(match._id, 'safeBet', e.target.value)}
-                        disabled={isLocked}
+                        disabled={isMatchLocked}
                       >
                         <option value="Home">{match.homeTeam}</option>
                         <option value="Away">{match.awayTeam}</option>
@@ -782,7 +802,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                         style={{ marginTop: '0.25rem', fontSize: '0.85rem' }}
                         value={singlePred.result}
                         onChange={(e) => handlePredictionChange(match._id, 'result', e.target.value)}
-                        disabled={isLocked}
+                        disabled={isMatchLocked}
                       >
                         <option value="Home">{match.homeTeam} Win</option>
                         <option value="Away">{match.awayTeam} Win</option>
@@ -798,7 +818,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                         style={{ marginTop: '0.25rem', fontSize: '0.85rem' }}
                         value={singlePred.firstGoal}
                         onChange={(e) => handlePredictionChange(match._id, 'firstGoal', e.target.value)}
-                        disabled={isLocked}
+                        disabled={isMatchLocked}
                       >
                         <option value="Home">{match.homeTeam}</option>
                         <option value="Away">{match.awayTeam}</option>
@@ -814,7 +834,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                         style={{ marginTop: '0.25rem', fontSize: '0.85rem' }}
                         value={singlePred.possession}
                         onChange={(e) => handlePredictionChange(match._id, 'possession', e.target.value)}
-                        disabled={isLocked}
+                        disabled={isMatchLocked}
                       >
                         <option value="Home">{match.homeTeam}</option>
                         <option value="Away">{match.awayTeam}</option>
@@ -831,7 +851,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                           style={{ marginTop: '0.25rem', fontSize: '0.85rem' }}
                           value={singlePred.wildPredictionCategory || 'None'}
                           onChange={(e) => handlePredictionChange(match._id, 'wildPredictionCategory', e.target.value)}
-                          disabled={isLocked}
+                          disabled={isMatchLocked}
                         >
                           <option value="None">None</option>
                           <option value="Yellow Cards">Yellow Cards</option>
@@ -853,7 +873,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                             placeholder="0"
                             onFocus={(e) => e.target.select()}
                             onChange={(e) => handleCleanNumericChange(match._id, 'wildPredictionValue', e.target.value)}
-                            disabled={isLocked}
+                            disabled={isMatchLocked}
                           />
                         </div>
                       )}
@@ -866,11 +886,11 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
           </div>
 
           {/* BOTTOM SUMMARY CARD & SUBMIT BUTTON */}
-          <div className="card" style={{ 
-            marginTop: '2rem', 
-            padding: '1.5rem', 
-            background: 'rgba(15, 23, 42, 0.95)', 
-            border: '1px solid var(--border-glow)', 
+          <div className="card" style={{
+            marginTop: '2rem',
+            padding: '1.5rem',
+            background: 'rgba(15, 23, 42, 0.95)',
+            border: '1px solid var(--border-glow)',
             textAlign: 'center'
           }}>
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
@@ -883,13 +903,13 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
               </div>
             </div>
 
-            <button 
+            <button
               className={`btn ${isLocked ? 'btn-secondary' : 'btn-primary'}`}
-              style={{ 
-                padding: '0.85rem 2.5rem', 
-                fontSize: '1.05rem', 
-                fontWeight: 800, 
-                width: '100%', 
+              style={{
+                padding: '0.85rem 2.5rem',
+                fontSize: '1.05rem',
+                fontWeight: 800,
+                width: '100%',
                 maxWidth: '450px',
                 margin: '0 auto',
                 boxShadow: isLocked ? 'none' : '0 0 20px rgba(56, 189, 248, 0.3)'

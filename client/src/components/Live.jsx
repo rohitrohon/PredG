@@ -304,7 +304,7 @@ function Live({ groupId, user, onNavigateToPredictions }) {
   });
 
   const isUserSubmitted = Boolean(
-    (myPredictionDoc && myPredictionDoc.isSubmitted) || 
+    (myPredictionDoc && myPredictionDoc.isSubmitted) ||
     (myPredDocFromList && myPredDocFromList.isSubmitted)
   );
 
@@ -476,7 +476,7 @@ function Live({ groupId, user, onNavigateToPredictions }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
-      
+
       {/* HEADER CONTROLS */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
@@ -486,8 +486,8 @@ function Live({ groupId, user, onNavigateToPredictions }) {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <button 
-            className="btn btn-secondary" 
+          <button
+            className="btn btn-secondary"
             style={{ padding: '0.5rem 0.85rem', fontSize: '0.8rem', gap: '0.35rem', color: 'var(--primary)', borderColor: 'var(--primary-glow)' }}
             onClick={() => setShowDeadlineModal(true)}
             title="View Deadlines & Autofill Information"
@@ -543,8 +543,8 @@ function Live({ groupId, user, onNavigateToPredictions }) {
               <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontSize: '1.25rem' }}>
                 <Clock size={22} /> Matchweek Deadlines & Autofill System
               </h3>
-              <button 
-                className="btn btn-secondary" 
+              <button
+                className="btn btn-secondary"
                 style={{ padding: '0.3rem 0.7rem', fontSize: '0.85rem', borderRadius: '50%' }}
                 onClick={() => setShowDeadlineModal(false)}
               >
@@ -553,7 +553,7 @@ function Live({ groupId, user, onNavigateToPredictions }) {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', fontSize: '0.9rem', color: 'var(--text-main)' }}>
-              
+
               {/* 1st Main Deadline */}
               <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--primary)' }}>
                 <h4 style={{ color: 'var(--primary)', marginBottom: '0.5rem', fontSize: '1rem' }}>⏰ 1st Main Deadline (Game 1 Kickoff)</h4>
@@ -591,8 +591,8 @@ function Live({ groupId, user, onNavigateToPredictions }) {
             </div>
 
             <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
-              <button 
-                className="btn btn-primary" 
+              <button
+                className="btn btn-primary"
                 style={{ padding: '0.65rem 2.25rem', fontWeight: 700 }}
                 onClick={() => setShowDeadlineModal(false)}
               >
@@ -608,8 +608,8 @@ function Live({ groupId, user, onNavigateToPredictions }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* COUNTDOWN CARD */}
           <div className="card" style={{
-            textAlign: 'center', 
-            padding: '2.5rem 2rem', 
+            textAlign: 'center',
+            padding: '2.5rem 2rem',
             background: 'rgba(56, 189, 248, 0.03)',
             borderColor: 'rgba(56, 189, 248, 0.2)'
           }}>
@@ -619,9 +619,9 @@ function Live({ groupId, user, onNavigateToPredictions }) {
               Deadline: {formatDeadlineIST(selectedMw.deadline || selectedMw.submissionDeadline)}
             </div>
             <div style={{
-              fontSize: '2.5rem', 
-              fontWeight: 800, 
-              fontFamily: 'monospace', 
+              fontSize: '2.5rem',
+              fontWeight: 800,
+              fontFamily: 'monospace',
               color: 'var(--primary)',
               background: 'rgba(0,0,0,0.25)',
               padding: '0.75rem 1.75rem',
@@ -638,16 +638,16 @@ function Live({ groupId, user, onNavigateToPredictions }) {
               <div style={{
                 padding: '0.6rem 1.25rem',
                 borderRadius: '20px',
-                background: isUserSubmitted 
-                  ? 'rgba(34, 197, 94, 0.15)' 
+                background: isUserSubmitted
+                  ? 'rgba(34, 197, 94, 0.15)'
                   : 'rgba(245, 158, 11, 0.15)',
                 border: `1.5px solid ${isUserSubmitted ? 'rgba(34, 197, 94, 0.4)' : 'rgba(245, 158, 11, 0.4)'}`,
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '0.5rem',
-                boxShadow: isUserSubmitted 
-                  ? '0 0 15px rgba(34, 197, 94, 0.12)' 
+                boxShadow: isUserSubmitted
+                  ? '0 0 15px rgba(34, 197, 94, 0.12)'
                   : '0 0 15px rgba(245, 158, 11, 0.12)'
               }}>
                 {isUserSubmitted ? (
@@ -794,9 +794,9 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                   </h3>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                     {liveStandings.map((p, idx) => (
-                      <div key={idx} className="card" style={{ 
-                        padding: '0.75rem 1rem', 
-                        background: 'rgba(0,0,0,0.2)', 
+                      <div key={idx} className="card" style={{
+                        padding: '0.75rem 1rem',
+                        background: 'rgba(0,0,0,0.2)',
                         borderColor: p.username === user.username ? 'var(--primary)' : 'var(--border-color)',
                         boxShadow: p.username === user.username ? '0 0 10px rgba(56, 189, 248, 0.05)' : 'none'
                       }}>
@@ -881,7 +881,7 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                       <tbody>
                         {selectedMw.matches.map((m, idx) => {
                           const hasResults = m.actualResults && m.actualResults.homeScore !== null && m.actualResults.homeScore !== undefined;
-                          const isCompleted = m.actualResults?.isFinished || (hasResults && m.kickoffTime && (new Date() - new Date(m.kickoffTime)) > (1.9 * 60 * 60 * 1000));
+                          const isCompleted = m.actualResults?.isFinished || (hasResults && m.kickoffTime && (new Date() - new Date(m.kickoffTime)) > (2.5 * 60 * 60 * 1000));
                           const isLive = !isCompleted && m.kickoffTime && new Date() >= new Date(m.kickoffTime);
 
                           return (
@@ -913,11 +913,11 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                                   </span>
                                 )}
                               </td>
-                              <td style={{ 
-                                textAlign: 'center', 
-                                fontWeight: 800, 
-                                fontFamily: 'monospace', 
-                                fontSize: '1.05rem', 
+                              <td style={{
+                                textAlign: 'center',
+                                fontWeight: 800,
+                                fontFamily: 'monospace',
+                                fontSize: '1.05rem',
                                 color: isCompleted ? 'var(--success)' : isLive ? 'var(--danger)' : 'inherit',
                                 whiteSpace: 'nowrap'
                               }}>
@@ -945,17 +945,17 @@ function Live({ groupId, user, onNavigateToPredictions }) {
             {selectedMw.matches.map((match, matchIdx) => {
               const mId = match._id.toString();
               const hasScore = match.actualResults.homeScore !== null;
-              
+
               return (
                 <div key={mId} className="card" style={{ padding: '1.5rem', background: 'rgba(15, 23, 42, 0.4)' }}>
-                  
+
                   {/* MATCH SCORE HEADER */}
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center', 
-                    flexWrap: 'wrap', 
-                    gap: '1rem', 
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '1rem',
                     borderBottom: '1px solid var(--border-color)',
                     paddingBottom: '1rem',
                     marginBottom: '1rem'
@@ -969,7 +969,7 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                         )}
                       </h3>
                     </div>
-                    
+
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                       {hasScore ? (
                         <>
@@ -1022,11 +1022,11 @@ function Live({ groupId, user, onNavigateToPredictions }) {
 
                   {/* MATCH STATS OUTCOMES IF COMPLETED */}
                   {hasScore && (
-                    <div style={{ 
-                      display: 'flex', 
+                    <div style={{
+                      display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
-                      gap: '1rem', 
+                      gap: '1rem',
                       marginBottom: '1.5rem',
                       background: 'rgba(0,0,0,0.15)',
                       padding: '0.75rem 1rem',
@@ -1154,7 +1154,7 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                           if (isCaptain) tags.push(<span key="cap" className="badge badge-info" style={{ fontSize: '0.55rem', padding: '0.05rem 0.25rem', color: '#000000', backgroundColor: 'rgba(0,0,0,0.08)', borderColor: 'rgba(0,0,0,0.25)', fontWeight: 800 }}>C</span>);
                           if (powerUp) tags.push(<span key="pu" className="badge badge-success" style={{ fontSize: '0.55rem', padding: '0.05rem 0.25rem', color: '#000000', backgroundColor: 'rgba(0,0,0,0.08)', borderColor: 'rgba(0,0,0,0.25)', fontWeight: 800 }}>{powerUp.type}</span>);
                           if (gotSuperBonus) tags.push(<span key="sb" className="badge badge-accent" style={{ fontSize: '0.55rem', padding: '0.05rem 0.25rem', color: '#000000', backgroundColor: '#f59e0b', borderColor: 'rgba(0,0,0,0.25)', fontWeight: 800 }}>⚡ 1.5x Super Bonus</span>);
-                          
+
                           if (isGamble) {
                             tags.push(<span key="gam" className="badge badge-warning" style={{ fontSize: '0.55rem', padding: '0.05rem 0.25rem', color: '#000000', backgroundColor: 'rgba(0,0,0,0.08)', borderColor: 'rgba(0,0,0,0.25)', fontWeight: 800 }}>Gamble {predDoc.gamble.points}</span>);
                             if (hasScore && correctCats < 3 && hasShield) {
@@ -1167,7 +1167,7 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                               background: predDoc.userId?._id?.toString() === user.id ? 'rgba(56, 189, 248, 0.03)' : 'transparent'
                             }}>
                               {/* NAME COLUMN */}
-                              <td style={{ 
+                              <td style={{
                                 fontWeight: 700,
                                 whiteSpace: 'nowrap',
                                 ...getNameCellStyle(isCaptain, powerUp, isGamble, predDoc.marketPowerUps?.some(pu => pu.matchId.toString() === mId && pu.type === 'Shield'))
