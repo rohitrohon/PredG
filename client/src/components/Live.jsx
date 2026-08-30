@@ -1163,10 +1163,9 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                             }
                           }
 
-                          const matchIndex = selectedMw.matches.findIndex(m => m._id.toString() === mId);
-                          const isMatchAutofilled = matchPred?.isAutofilled !== undefined 
-                            ? matchPred.isAutofilled 
-                            : (predDoc.isAutofilled && matchIndex < 3);
+                          const isMatchAutofilled = matchPred?.isAutofilled === false 
+                            ? false 
+                            : (matchPred?.isAutofilled === true || predDoc.isAutofilled === true);
 
                           return (
                             <tr key={predDoc._id} style={{

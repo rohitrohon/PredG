@@ -100,7 +100,8 @@ async function finalizeMatchweekScoresInternal(matchweek, group) {
           firstGoal: prevMatchPred ? prevMatchPred.firstGoal : 'Home',
           possession: prevMatchPred ? prevMatchPred.possession : 'Home',
           wildPredictionCategory: prevMatchPred ? prevMatchPred.wildPredictionCategory : 'None',
-          wildPredictionValue: prevMatchPred ? prevMatchPred.wildPredictionValue : 0
+          wildPredictionValue: prevMatchPred ? prevMatchPred.wildPredictionValue : 0,
+          isAutofilled: true
         });
       });
 
