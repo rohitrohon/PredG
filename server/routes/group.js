@@ -366,13 +366,26 @@ router.get('/:id/standings', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied. You are not a member of this group.' });
     }
 
-    // Auto-sync standings totals from exact sum of prediction records to eliminate double-counting
+    // Auto-sync standings totals from exact sum of prediction records & battle records
+    const Battle = require('../models/Battle');
     const existingStandings = await GroupStanding.find({ groupId: group._id });
     for (const std of existingStandings) {
       if (!std.userId || std.userId.toString() === '600000000000000000000000') continue;
+      const uIdStr = std.userId.toString();
       const userPreds = await Prediction.find({ groupId: group._id, userId: std.userId });
       const sumTotal = userPreds.reduce((sum, p) => sum + (p.totalPointsScored || 0), 0);
-      const sumBattle = userPreds.reduce((sum, p) => sum + (p.battlePointsScored || 0), 0);
+
+      const userBattles = await Battle.find({
+        groupId: group._id,
+        $or: [{ player1Id: std.userId }, { player2Id: std.userId }, { player3Id: std.userId }]
+      });
+
+      let sumBattle = 0;
+      userBattles.forEach(b => {
+        if (b.player1Id && b.player1Id.toString() === uIdStr) sumBattle += (b.player1Points || 0);
+        if (b.player2Id && b.player2Id.toString() === uIdStr) sumBattle += (b.player2Points || 0);
+        if (b.isTriad && b.player3Id && b.player3Id.toString() === uIdStr) sumBattle += (b.player3Points || 0);
+      });
 
       std.totalPoints = sumTotal;
       std.battlePoints = sumBattle;

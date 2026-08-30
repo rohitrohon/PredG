@@ -335,9 +335,7 @@ function scoreMatchweek(matchweekDoc, predictionsList, battleMatchups) {
             if (catWinner === 'Player3') p3Wins++;
           } else {
             catWinner = 'Tie';
-            if (winners.includes('Player1')) p1Wins++;
-            if (winners.includes('Player2')) p2Wins++;
-            if (winners.includes('Player3')) p3Wins++;
+            // Tied category: no sole winner, so pWins is not incremented for anyone
           }
         }
 

@@ -62,6 +62,12 @@ function Battles({ user, groupId }) {
       setError('');
       const data = await api.getBattles(mwId, groupId);
       setBattles(data);
+
+      const standingsData = await api.getGroupStandings(groupId);
+      const activeStandings = standingsData.filter(
+        (s) => s.userId && s.userId._id !== '600000000000000000000000'
+      );
+      setStandings(activeStandings);
     } catch (err) {
       setError('Failed to load battles for the selected matchweek.');
     } finally {
