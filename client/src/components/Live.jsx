@@ -1172,11 +1172,16 @@ function Live({ groupId, user, onNavigateToPredictions }) {
 
                           const matchIndex = selectedMw?.matches ? selectedMw.matches.findIndex(m => m._id.toString() === mId) : -1;
 
+                          const isSingleMatchDefaultPattern = (mP) => {
+                            if (!mP) return false;
+                            const isDefaultScore = (mP.homeScore === 3 && mP.awayScore === 0) || (mP.homeScore === 0 && mP.awayScore === 3) || (mP.homeScore === 1 && mP.awayScore === 0);
+                            const isDefaultSafe = mP.safeBet === 'Home';
+                            const isDefaultWild = !mP.wildPredictionCategory || mP.wildPredictionCategory === 'None';
+                            return isDefaultScore && isDefaultSafe && isDefaultWild;
+                          };
+
                           const isDocAutofilledPattern = predDoc.isAutofilled || Boolean(
-                            predDoc.predictions && predDoc.predictions.length >= 3 && predDoc.predictions.slice(0, 3).every(p => {
-                              const isDefaultScore = (p.homeScore === 3 && p.awayScore === 0) || (p.homeScore === 0 && p.awayScore === 3) || (p.homeScore === 1 && p.awayScore === 0);
-                              return isDefaultScore && p.safeBet === 'Home' && (!p.wildPredictionCategory || p.wildPredictionCategory === 'None');
-                            })
+                            predDoc.predictions && predDoc.predictions.length >= 3 && predDoc.predictions.slice(0, 3).every(isSingleMatchDefaultPattern)
                           );
 
                           let isMatchAutofilled = false;
@@ -1185,7 +1190,14 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                             if (matchIndex >= 0 && matchIndex < 3) {
                               isMatchAutofilled = true;
                             } else if (matchIndex >= 3) {
-                              isMatchAutofilled = matchPred?.isAutofilled === false ? false : true;
+                              if (matchPred?.isAutofilled === false) {
+                                isMatchAutofilled = false;
+                              } else if (matchPred?.isAutofilled === true) {
+                                isMatchAutofilled = true;
+                              } else {
+                                // If matchPred.isAutofilled is not explicitly set, use single match default pattern heuristic
+                                isMatchAutofilled = isSingleMatchDefaultPattern(matchPred);
+                              }
                             } else {
                               isMatchAutofilled = true;
                             }
