@@ -233,6 +233,14 @@ input[type=number] {
   -moz-appearance: textfield;
 }
 
+.zoom-container-100 { zoom: 1; }
+.zoom-container-90 { zoom: 0.9; }
+.zoom-container-80 { zoom: 0.8; }
+.zoom-container-75 { zoom: 0.75; }
+.zoom-container-50 { zoom: 0.5; }
+.zoom-container-25 { zoom: 0.25; }
+.zoom-container-12 { zoom: 0.125; }
+
 .table-container {
   overflow-x: auto;
   border-radius: 12px;
