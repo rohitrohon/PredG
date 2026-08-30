@@ -420,6 +420,55 @@ router.get('/matchweek/:matchweekId', auth, async (req, res) => {
       return res.json({ deadlinePassed: false, secondDeadlinePassed: false, predictions: safePredictions });
     }
 
+    // Helper to test single match default prediction pattern
+    const isSingleMatchDefaultPattern = (mP) => {
+      if (!mP) return false;
+      const isDefaultScore = (mP.homeScore === 3 && mP.awayScore === 0) || (mP.homeScore === 0 && mP.awayScore === 3) || (mP.homeScore === 1 && mP.awayScore === 0);
+      const isDefaultSafe = mP.safeBet === 'Home';
+      const isDefaultWild = !mP.wildPredictionCategory || mP.wildPredictionCategory === 'None';
+      return isDefaultScore && isDefaultSafe && isDefaultWild;
+    };
+
+    // Helper to test if prediction doc was autofilled due to missing Deadline 1
+    const isDocAutofilledPattern = (predDoc) => {
+      if (!predDoc) return false;
+      if (predDoc.isAutofilled) return true;
+      if (predDoc.predictions && predDoc.predictions.length >= 3) {
+        return predDoc.predictions.slice(0, 3).every(isSingleMatchDefaultPattern);
+      }
+      return false;
+    };
+
+    // Populate and format predictions with accurate per-match and doc-level isAutofilled status
+    const formatPredictionsList = (predsList) => {
+      return predsList.map(p => {
+        const plain = p.toObject ? p.toObject() : { ...p };
+        const docAutofilled = isDocAutofilledPattern(plain);
+
+        const formattedMatchPreds = (plain.predictions || []).map((mP, idx) => {
+          let matchAutofilled = false;
+          if (mP.isAutofilled === true) {
+            matchAutofilled = true;
+          } else if (mP.isAutofilled === false) {
+            matchAutofilled = false;
+          } else if (docAutofilled) {
+            if (idx < 3) {
+              matchAutofilled = true;
+            } else {
+              matchAutofilled = isSingleMatchDefaultPattern(mP);
+            }
+          }
+          return { ...mP, isAutofilled: matchAutofilled };
+        });
+
+        return {
+          ...plain,
+          isAutofilled: docAutofilled,
+          predictions: formattedMatchPreds
+        };
+      });
+    };
+
     // Matchweek Deadline 1 passed.
     // Check requesting user's prediction submission status
     const requestingUserPred = predictions.find(p => {
@@ -427,11 +476,14 @@ router.get('/matchweek/:matchweekId', auth, async (req, res) => {
       return pUserId === req.user.id;
     });
 
-    const isRequestingUserSubmitted = requestingUserPred && requestingUserPred.isSubmitted && !requestingUserPred.isAutofilled;
+    const isRequestingUserAutofilled = isDocAutofilledPattern(requestingUserPred);
+    const isRequestingUserSubmittedBeforeD1 = requestingUserPred && requestingUserPred.isSubmitted && !isRequestingUserAutofilled;
+
+    const formattedAllPredictions = formatPredictionsList(predictions);
 
     // If requesting user submitted before Deadline 1 OR Deadline 2 has passed, reveal all 5 match predictions for all users
-    if (isRequestingUserSubmitted || secondDeadlinePassed) {
-      return res.json({ deadlinePassed: true, secondDeadlinePassed, predictions });
+    if (isRequestingUserSubmittedBeforeD1 || secondDeadlinePassed) {
+      return res.json({ deadlinePassed: true, secondDeadlinePassed, predictions: formattedAllPredictions });
     }
 
     // For autofilled users before Deadline 2 passes: hide predictions for Matches 4 & 5 of other users
@@ -439,10 +491,14 @@ router.get('/matchweek/:matchweekId', auth, async (req, res) => {
       ? matchweek.matches.slice(3).map(m => m._id.toString())
       : [];
 
-    const processedPredictions = predictions.map((p) => {
-      const plain = p.toObject ? p.toObject() : { ...p };
+    const processedPredictions = formattedAllPredictions.map((p) => {
+      const pUserIdStr = p.userId?._id ? p.userId._id.toString() : p.userId?.toString();
+      // Keep requesting user's own predictions intact so they can view/edit their own Games 4 & 5
+      if (pUserIdStr === req.user.id) {
+        return p;
+      }
 
-      const sanitizedPredictions = (plain.predictions || []).map((singleP) => {
+      const sanitizedPredictions = (p.predictions || []).map((singleP) => {
         const mIdStr = singleP.matchId ? singleP.matchId.toString() : '';
         if (lastTwoMatchIds.includes(mIdStr)) {
           return {
@@ -461,22 +517,22 @@ router.get('/matchweek/:matchweekId', auth, async (req, res) => {
         return singleP;
       });
 
-      let sanitizedCaptainId = plain.captainMatchId;
+      let sanitizedCaptainId = p.captainMatchId;
       if (sanitizedCaptainId && lastTwoMatchIds.includes(sanitizedCaptainId.toString())) {
         sanitizedCaptainId = null;
       }
 
-      let sanitizedGamble = plain.gamble;
+      let sanitizedGamble = p.gamble;
       if (sanitizedGamble && sanitizedGamble.matchId && lastTwoMatchIds.includes(sanitizedGamble.matchId.toString())) {
         sanitizedGamble = { active: false, points: 0, matchId: null };
       }
 
-      const sanitizedPowerUps = (plain.marketPowerUps || []).filter(
+      const sanitizedPowerUps = (p.marketPowerUps || []).filter(
         pu => !pu.matchId || !lastTwoMatchIds.includes(pu.matchId.toString())
       );
 
       return {
-        ...plain,
+        ...p,
         predictions: sanitizedPredictions,
         captainMatchId: sanitizedCaptainId,
         gamble: sanitizedGamble,
