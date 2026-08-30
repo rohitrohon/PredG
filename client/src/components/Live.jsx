@@ -168,7 +168,7 @@ const getNameCellStyle = (isCaptain, powerUp, isGamble, hasShield) => {
   return {};
 };
 
-function Live({ groupId, user, onNavigateToPredictions }) {
+function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTableZoom }) {
   const [matchweeks, setMatchweeks] = useState([]);
   const [selectedMwId, setSelectedMwId] = useState('');
   const [predictionData, setPredictionData] = useState(null);
@@ -178,7 +178,6 @@ function Live({ groupId, user, onNavigateToPredictions }) {
   const [timeRemaining, setTimeRemaining] = useState('');
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [tableZoom, setTableZoom] = useState('100');
   const [showFloatingOverview, setShowFloatingOverview] = useState(true);
 
   useEffect(() => {

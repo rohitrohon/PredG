@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { LogOut, Trophy, Sword, User, ShieldAlert, BookOpen, Layers, BarChart3, Home, Edit2 } from 'lucide-react';
+import { LogOut, Trophy, Sword, User, ShieldAlert, BookOpen, Layers, BarChart3, Home, Edit2, ZoomOut } from 'lucide-react';
 import api from '../api';
 
-function Navbar({ user, group, standing, onLogout, activeTab, setActiveTab, onSwitchGroup, onUserUpdate }) {
+function Navbar({ user, group, standing, onLogout, activeTab, setActiveTab, onSwitchGroup, onUserUpdate, tableZoom = '100', setTableZoom }) {
   const adminIdStr = typeof group?.adminId === 'object' ? group?.adminId?._id?.toString() : group?.adminId?.toString();
   const isGroupAdmin = (adminIdStr && user && adminIdStr === user.id) || user?.role === 'admin';
 
@@ -246,9 +246,38 @@ function Navbar({ user, group, standing, onLogout, activeTab, setActiveTab, onSw
             <span>Edit</span>
           </button>
 
-          <span className={`badge ${changeCount >= 2 ? 'badge-danger' : 'badge-info'}`} style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}>
-            {changeCount >= 2 ? '0 edits left (Max 2 reached)' : `${remainingEdits}/2 edits left`}
-          </span>
+          {setTableZoom && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'rgba(255,255,255,0.05)', padding: '0.15rem 0.4rem', borderRadius: '6px', border: '1px solid var(--border-color)', marginLeft: '0.25rem' }}>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <ZoomOut size={12} /> View:
+              </span>
+              {[
+                { label: '100%', val: '100' },
+                { label: '50%', val: '50' },
+                { label: '25%', val: '25' },
+                { label: '12.5%', val: '12' }
+              ].map(z => (
+                <button
+                  key={z.val}
+                  type="button"
+                  onClick={() => setTableZoom(z.val)}
+                  style={{
+                    padding: '0.15rem 0.4rem',
+                    fontSize: '0.65rem',
+                    fontWeight: tableZoom === z.val ? 700 : 500,
+                    borderRadius: '4px',
+                    border: 'none',
+                    background: tableZoom === z.val ? 'var(--primary)' : 'transparent',
+                    color: tableZoom === z.val ? '#0f172a' : 'var(--text-muted)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {z.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

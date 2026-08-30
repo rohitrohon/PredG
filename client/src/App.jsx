@@ -83,6 +83,8 @@ function App() {
     }
   };
 
+  const [tableZoom, setTableZoom] = useState('100');
+
   if (loading) {
     return (
       <div style={{
@@ -125,6 +127,8 @@ function App() {
         onUserUpdate={(updatedUser) => {
           setUser(updatedUser);
         }}
+        tableZoom={tableZoom}
+        setTableZoom={setTableZoom}
       />
       <main className="main-content">
         {activeTab === 'home' && (
@@ -132,6 +136,8 @@ function App() {
             groupId={activeGroup._id}
             user={user}
             onNavigateToPredictions={() => setActiveTab('predictions')}
+            tableZoom={tableZoom}
+            setTableZoom={setTableZoom}
           />
         )}
         {activeTab === 'leaderboard' && (
