@@ -130,7 +130,7 @@ function App() {
         tableZoom={tableZoom}
         setTableZoom={setTableZoom}
       />
-      <main className={`main-content zoom-container-${Math.floor(Number(tableZoom))}`}>
+      <main className="main-content">
         {activeTab === 'home' && (
           <Live 
             groupId={activeGroup._id}
