@@ -1190,12 +1190,9 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                             if (matchIndex >= 0 && matchIndex < 3) {
                               isMatchAutofilled = true;
                             } else if (matchIndex >= 3) {
-                              if (matchPred?.isAutofilled === false) {
-                                isMatchAutofilled = false;
-                              } else if (matchPred?.isAutofilled === true) {
+                              if (matchPred?.isAutofilled === true) {
                                 isMatchAutofilled = true;
                               } else {
-                                // If matchPred.isAutofilled is not explicitly set, use single match default pattern heuristic
                                 isMatchAutofilled = isSingleMatchDefaultPattern(matchPred);
                               }
                             } else {
