@@ -278,14 +278,12 @@ router.post('/submit/:matchweekId', auth, async (req, res) => {
       let matchAutofilled = false;
       if (isSecondChanceWindow) {
         if (idx < 3) {
-          matchAutofilled = predictionDoc.predictions[idx]?.isAutofilled ?? predictionDoc.isAutofilled ?? true;
+          matchAutofilled = true; // Games 1-3 are ALWAYS autofilled if user missed 1st deadline
         } else {
-          // Games 4 and 5 submitted by user during 2nd chance deadline: remove autofill tag!
-          matchAutofilled = false;
+          matchAutofilled = false; // Games 4 & 5 submitted by user during 2nd chance deadline
         }
       } else {
-        // Submitted by user before 1st deadline
-        matchAutofilled = false;
+        matchAutofilled = false; // Submitted by user before 1st deadline
       }
 
       return {

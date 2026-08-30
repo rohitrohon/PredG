@@ -1163,9 +1163,19 @@ function Live({ groupId, user, onNavigateToPredictions }) {
                             }
                           }
 
-                          const isMatchAutofilled = matchPred?.isAutofilled === false 
-                            ? false 
-                            : (matchPred?.isAutofilled === true || predDoc.isAutofilled === true);
+                          const matchIndex = selectedMw?.matches ? selectedMw.matches.findIndex(m => m._id.toString() === mId) : -1;
+                          let isMatchAutofilled = false;
+
+                          if (matchPred?.isAutofilled === true) {
+                            isMatchAutofilled = true;
+                          } else if (matchPred?.isAutofilled === false) {
+                            isMatchAutofilled = false;
+                          } else if (predDoc.isAutofilled) {
+                            // If prediction doc was autofilled due to missing Deadline 1:
+                            // Matches 1-3 (indexes 0, 1, 2) are ALWAYS autofilled.
+                            // Matches 4-5 (indexes 3, 4) are autofilled unless matchPred.isAutofilled === false.
+                            isMatchAutofilled = true;
+                          }
 
                           return (
                             <tr key={predDoc._id} style={{
