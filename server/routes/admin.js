@@ -11,6 +11,7 @@ const PLCache = require('../models/PLCache');
 const { getPremierLeagueStandings } = require('../utils/premierLeagueStandings');
 const { fetchPLMatchweekFixtures } = require('../utils/plFixturesFetcher');
 const { fetchMatchResultStats } = require('../utils/plMatchStatsFetcher');
+const { scoreMatchweek } = require('../utils/scoringEngine');
 
 // Dummy ID for Average Player (in case of odd player count)
 const AVERAGE_PLAYER_ID = '600000000000000000000000';
