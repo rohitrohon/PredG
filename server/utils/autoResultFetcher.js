@@ -13,54 +13,9 @@ const User = require('../models/User');
 const { fetchMatchResultStats } = require('./plMatchStatsFetcher');
 const { scoreMatchweek } = require('./scoringEngine');
 const { getPremierLeagueStandings } = require('./premierLeagueStandings');
+const { generateBattlePairingsInternal } = require('./battlePairing');
 
 const AVERAGE_PLAYER_ID = '600000000000000000000000';
-
-async function generateBattlePairingsInternal(matchweek, group) {
-  const standings = await GroupStanding.find({ groupId: group._id })
-    .populate('userId', 'username email role')
-    .sort({ totalPoints: -1 });
-
-  const activeStandings = standings.filter(s => s.userId && s.userId._id.toString() !== AVERAGE_PLAYER_ID);
-  if (activeStandings.length < 2) return;
-
-  await Battle.deleteMany({ groupId: group._id, matchweekId: matchweek._id });
-
-  const pairedStandings = [...activeStandings];
-  if (pairedStandings.length % 2 !== 0) {
-    let averagePlayer = await User.findById(AVERAGE_PLAYER_ID);
-    if (!averagePlayer) {
-      averagePlayer = new User({
-        _id: AVERAGE_PLAYER_ID,
-        username: 'Average Player',
-        email: 'average.player@predg.com',
-        password: 'dummy_hash_not_usable',
-        role: 'player'
-      });
-      await averagePlayer.save();
-    }
-    pairedStandings.push({
-      groupId: group._id,
-      userId: averagePlayer,
-      totalPoints: 0,
-      battlePoints: 0,
-      rank: 999
-    });
-  }
-
-  const n = pairedStandings.length;
-  for (let i = 0; i < Math.floor(n / 2); i++) {
-    const p1 = pairedStandings[i].userId;
-    const p2 = pairedStandings[n - 1 - i].userId;
-    const battle = new Battle({
-      groupId: group._id,
-      matchweekId: matchweek._id,
-      player1Id: p1._id,
-      player2Id: p2._id
-    });
-    await battle.save();
-  }
-}
 
 async function finalizeMatchweekScoresInternal(matchweek, group) {
   let existingBattles = await Battle.find({ groupId: group._id, matchweekId: matchweek._id });

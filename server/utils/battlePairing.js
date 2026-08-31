@@ -1,6 +1,12 @@
 const GroupStanding = require('../models/GroupStanding');
 const Battle = require('../models/Battle');
-const { AVERAGE_PLAYER_ID } = require('../models/User');
+
+const AVERAGE_PLAYER_ID = '600000000000000000000000';
+
+const getUserIdStr = (idObj) => {
+  if (!idObj) return '';
+  return (idObj._id ? idObj._id : idObj).toString();
+};
 
 /**
  * Generates Battle pairings for a matchweek based on current group standings:
@@ -18,7 +24,11 @@ async function generateBattlePairingsInternal(matchweek, group) {
     .sort({ totalPoints: -1 });
 
   // Exclude dummy average player if present
-  const activeStandings = standings.filter(s => s.userId && s.userId._id.toString() !== AVERAGE_PLAYER_ID);
+  const activeStandings = standings.filter(s => {
+    const uIdStr = getUserIdStr(s.userId);
+    return uIdStr && uIdStr !== AVERAGE_PLAYER_ID;
+  });
+
   if (activeStandings.length < 2) return [];
 
   // Delete old pairings for this matchweek
@@ -31,14 +41,14 @@ async function generateBattlePairingsInternal(matchweek, group) {
     // EVEN NUMBER: Pair 1st vs Nth, 2nd vs (N-1)th, etc.
     const numPairs = n / 2;
     for (let i = 0; i < numPairs; i++) {
-      const p1 = activeStandings[i].userId;
-      const p2 = activeStandings[n - 1 - i].userId;
+      const p1Id = getUserIdStr(activeStandings[i].userId);
+      const p2Id = getUserIdStr(activeStandings[n - 1 - i].userId);
       const battle = new Battle({
         groupId: group._id,
         matchweekId: matchweek._id,
         isTriad: false,
-        player1Id: p1._id,
-        player2Id: p2._id
+        player1Id: p1Id,
+        player2Id: p2Id
       });
       await battle.save();
       createdBattles.push(battle);
@@ -47,31 +57,31 @@ async function generateBattlePairingsInternal(matchweek, group) {
     // ODD NUMBER: Pair outer players, and put middle 3 into a Triad!
     const numPairs = (n - 3) / 2;
     for (let i = 0; i < numPairs; i++) {
-      const p1 = activeStandings[i].userId;
-      const p2 = activeStandings[n - 1 - i].userId;
+      const p1Id = getUserIdStr(activeStandings[i].userId);
+      const p2Id = getUserIdStr(activeStandings[n - 1 - i].userId);
       const battle = new Battle({
         groupId: group._id,
         matchweekId: matchweek._id,
         isTriad: false,
-        player1Id: p1._id,
-        player2Id: p2._id
+        player1Id: p1Id,
+        player2Id: p2Id
       });
       await battle.save();
       createdBattles.push(battle);
     }
 
     // Middle 3 players form the Triad
-    const t1 = activeStandings[numPairs].userId;
-    const t2 = activeStandings[numPairs + 1].userId;
-    const t3 = activeStandings[numPairs + 2].userId;
+    const t1Id = getUserIdStr(activeStandings[numPairs].userId);
+    const t2Id = getUserIdStr(activeStandings[numPairs + 1].userId);
+    const t3Id = getUserIdStr(activeStandings[numPairs + 2].userId);
 
     const triadBattle = new Battle({
       groupId: group._id,
       matchweekId: matchweek._id,
       isTriad: true,
-      player1Id: t1._id,
-      player2Id: t2._id,
-      player3Id: t3._id
+      player1Id: t1Id,
+      player2Id: t2Id,
+      player3Id: t3Id
     });
     await triadBattle.save();
     createdBattles.push(triadBattle);
