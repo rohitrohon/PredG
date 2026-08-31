@@ -203,41 +203,59 @@ async function finalizeMatchweekScoresInternal(matchweek, group) {
     }
   }
 
+  const getUserIdStr = (idObj) => idObj ? (idObj._id ? idObj._id : idObj).toString() : '';
+
   for (const bRes of battleResults) {
-    await Battle.findByIdAndUpdate(bRes.battleId, {
+    const bUpdate = {
       player1Wins: bRes.player1Wins,
       player2Wins: bRes.player2Wins,
       player1Points: bRes.player1Points,
       player2Points: bRes.player2Points,
       outcome: bRes.outcome,
       details: bRes.details
-    });
+    };
+    if (bRes.isTriad) {
+      bUpdate.player3Wins = bRes.player3Wins;
+      bUpdate.player3Points = bRes.player3Points;
+    }
+    await Battle.findByIdAndUpdate(bRes.battleId, bUpdate);
 
-    if (bRes.player1Id.toString() !== AVERAGE_PLAYER_ID) {
+    const p1IdStr = getUserIdStr(bRes.player1Id);
+    const p2IdStr = getUserIdStr(bRes.player2Id);
+    const p3IdStr = getUserIdStr(bRes.player3Id);
+
+    if (p1IdStr && p1IdStr !== AVERAGE_PLAYER_ID) {
       await Prediction.findOneAndUpdate(
-        { groupId: group._id, userId: bRes.player1Id, matchweekId: matchweek._id },
+        { groupId: group._id, userId: p1IdStr, matchweekId: matchweek._id },
         { battlePointsScored: bRes.player1Points }
       );
     }
-    if (bRes.player2Id.toString() !== AVERAGE_PLAYER_ID) {
+    if (p2IdStr && p2IdStr !== AVERAGE_PLAYER_ID) {
       await Prediction.findOneAndUpdate(
-        { groupId: group._id, userId: bRes.player2Id, matchweekId: matchweek._id },
+        { groupId: group._id, userId: p2IdStr, matchweekId: matchweek._id },
         { battlePointsScored: bRes.player2Points }
+      );
+    }
+    if (bRes.isTriad && p3IdStr && p3IdStr !== AVERAGE_PLAYER_ID) {
+      await Prediction.findOneAndUpdate(
+        { groupId: group._id, userId: p3IdStr, matchweekId: matchweek._id },
+        { battlePointsScored: bRes.player3Points }
       );
     }
   }
 
   for (const score of scoredPredictions) {
+    const scoreUserIdStr = getUserIdStr(score.userId);
     await Prediction.findOneAndUpdate(
-      { groupId: group._id, userId: score.userId, matchweekId: matchweek._id },
+      { groupId: group._id, userId: scoreUserIdStr, matchweekId: matchweek._id },
       { totalPointsScored: score.totalMatchweekPoints }
     );
   }
 
   const allStandings = await GroupStanding.find({ groupId: group._id });
   for (const std of allStandings) {
-    const uIdStr = std.userId.toString();
-    if (uIdStr === AVERAGE_PLAYER_ID) continue;
+    const uIdStr = getUserIdStr(std.userId);
+    if (!uIdStr || uIdStr === AVERAGE_PLAYER_ID) continue;
 
     const userPreds = await Prediction.find({ groupId: group._id, userId: uIdStr });
     const sumTotal = userPreds.reduce((sum, p) => sum + (p.totalPointsScored || 0), 0);
@@ -285,12 +303,12 @@ async function checkAndSyncActiveMatchweeks() {
         const kickoffDate = match.kickoffTime ? new Date(match.kickoffTime) : null;
         const hoursSinceKickoff = kickoffDate ? (now - kickoffDate) / (1000 * 60 * 60) : -1;
 
-        // Fetch API stats if match has kicked off and started within the last 4 hours (LIVE match window)
-        // OR if actualResults are currently unpopulated (null)
-        const isLiveWindow = hoursSinceKickoff >= 0 && hoursSinceKickoff <= 4;
+        // Fetch API stats if match has kicked off, or is not yet marked finished, or has missing/null result
+        const isLiveWindow = hoursSinceKickoff >= 0 && hoursSinceKickoff <= 12;
+        const isMatchFinished = match.actualResults && match.actualResults.isFinished === true;
         const hasNullResult = !match.actualResults || match.actualResults.homeScore === null || match.actualResults.result === null;
 
-        if (isLiveWindow || hasNullResult) {
+        if (!isMatchFinished || hasNullResult || isLiveWindow) {
           const dateIso = match.kickoffTime ? new Date(match.kickoffTime).toISOString().slice(0, 10) : '';
           const fetchedStats = await fetchMatchResultStats(match.homeTeam, match.awayTeam, dateIso);
 
@@ -324,7 +342,8 @@ async function checkAndSyncActiveMatchweeks() {
         if (!m.actualResults || m.actualResults.homeScore === null || m.actualResults.result === null) return false;
         if (m.actualResults.isFinished === true) return true;
         const kickoff = m.kickoffTime ? new Date(m.kickoffTime) : null;
-        return kickoff && (now - kickoff) > (3 * 60 * 60 * 1000);
+        // Fallback: If 3.5+ hours have elapsed since kickoff and scores are populated, treat as finished
+        return kickoff && (now - kickoff) > (3.5 * 60 * 60 * 1000);
       });
 
       if (allMatchesFinished) {

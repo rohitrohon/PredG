@@ -432,9 +432,11 @@ router.post('/matchweek/:id/calculate', [auth, verifyMwGroupAdmin], async (req, 
         avgPoints.possession /= realScores.length;
       }
 
+      const getUserIdStr = (idObj) => idObj ? (idObj._id ? idObj._id : idObj).toString() : '';
+
       for (const res of battleResults) {
-        const p1IdStr = res.player1Id.toString();
-        const p2IdStr = res.player2Id.toString();
+        const p1IdStr = getUserIdStr(res.player1Id);
+        const p2IdStr = getUserIdStr(res.player2Id);
 
         if (p1IdStr === AVERAGE_PLAYER_ID || p2IdStr === AVERAGE_PLAYER_ID) {
           const isP1Average = p1IdStr === AVERAGE_PLAYER_ID;
@@ -496,21 +498,25 @@ router.post('/matchweek/:id/calculate', [auth, verifyMwGroupAdmin], async (req, 
       await Battle.findByIdAndUpdate(bRes.battleId, bUpdate);
 
       // Update Predictions with battle points scored
-      if (bRes.player1Id && bRes.player1Id.toString() !== AVERAGE_PLAYER_ID) {
+      const p1IdStr = getUserIdStr(bRes.player1Id);
+      const p2IdStr = getUserIdStr(bRes.player2Id);
+      const p3IdStr = getUserIdStr(bRes.player3Id);
+
+      if (p1IdStr && p1IdStr !== AVERAGE_PLAYER_ID) {
         await Prediction.findOneAndUpdate(
-          { groupId: group._id, userId: bRes.player1Id, matchweekId: matchweek._id },
+          { groupId: group._id, userId: p1IdStr, matchweekId: matchweek._id },
           { battlePointsScored: bRes.player1Points }
         );
       }
-      if (bRes.player2Id && bRes.player2Id.toString() !== AVERAGE_PLAYER_ID) {
+      if (p2IdStr && p2IdStr !== AVERAGE_PLAYER_ID) {
         await Prediction.findOneAndUpdate(
-          { groupId: group._id, userId: bRes.player2Id, matchweekId: matchweek._id },
+          { groupId: group._id, userId: p2IdStr, matchweekId: matchweek._id },
           { battlePointsScored: bRes.player2Points }
         );
       }
-      if (bRes.isTriad && bRes.player3Id && bRes.player3Id.toString() !== AVERAGE_PLAYER_ID) {
+      if (bRes.isTriad && p3IdStr && p3IdStr !== AVERAGE_PLAYER_ID) {
         await Prediction.findOneAndUpdate(
-          { groupId: group._id, userId: bRes.player3Id, matchweekId: matchweek._id },
+          { groupId: group._id, userId: p3IdStr, matchweekId: matchweek._id },
           { battlePointsScored: bRes.player3Points }
         );
       }
@@ -518,8 +524,9 @@ router.post('/matchweek/:id/calculate', [auth, verifyMwGroupAdmin], async (req, 
 
     // Update Predictions with total weekly points scored
     for (const score of scoredPredictions) {
+      const scoreUserIdStr = getUserIdStr(score.userId);
       await Prediction.findOneAndUpdate(
-        { groupId: group._id, userId: score.userId, matchweekId: matchweek._id },
+        { groupId: group._id, userId: scoreUserIdStr, matchweekId: matchweek._id },
         { totalPointsScored: score.totalMatchweekPoints }
       );
     }

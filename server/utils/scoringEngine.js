@@ -273,11 +273,17 @@ function scoreMatchweek(matchweekDoc, predictionsList, battleMatchups) {
   const submittedPredictions = predictionsList.filter(p => p.isSubmitted);
   const totalPlayers = submittedPredictions.length;
 
+  const getUserIdStr = (idObj) => {
+    if (!idObj) return '';
+    return (idObj._id ? idObj._id : idObj).toString();
+  };
+
   // 2. Score each prediction doc
   const playerScoresMap = {};
   const scoredPredictions = predictionsList.map((pred) => {
     const scored = scoreUserPrediction(pred, matchweekDoc, distribution, totalPlayers);
-    playerScoresMap[pred.userId.toString()] = scored;
+    const uStr = getUserIdStr(pred.userId);
+    if (uStr) playerScoresMap[uStr] = scored;
     return scored;
   });
 
@@ -287,9 +293,9 @@ function scoreMatchweek(matchweekDoc, predictionsList, battleMatchups) {
     const battleMatchIdStr = matchweekDoc.battleMatchId.toString();
 
     battleMatchups.forEach((matchup) => {
-      const p1IdStr = matchup.player1Id ? matchup.player1Id.toString() : null;
-      const p2IdStr = matchup.player2Id ? matchup.player2Id.toString() : null;
-      const p3IdStr = matchup.player3Id ? matchup.player3Id.toString() : null;
+      const p1IdStr = getUserIdStr(matchup.player1Id);
+      const p2IdStr = getUserIdStr(matchup.player2Id);
+      const p3IdStr = getUserIdStr(matchup.player3Id);
       const isTriad = !!(matchup.isTriad && p3IdStr);
 
       const p1ScoreDoc = p1IdStr ? playerScoresMap[p1IdStr] : null;
@@ -359,17 +365,17 @@ function scoreMatchweek(matchweekDoc, predictionsList, battleMatchups) {
         };
 
         if (p1ScoreDoc) {
-          const originalPred = predictionsList.find(p => p.userId.toString() === p1IdStr)
+          const originalPred = predictionsList.find(p => getUserIdStr(p.userId) === p1IdStr)
             ?.predictions.find(m => m.matchId.toString() === battleMatchIdStr);
           p1Val = getCatDisplayVal(originalPred);
         }
         if (p2ScoreDoc) {
-          const originalPred = predictionsList.find(p => p.userId.toString() === p2IdStr)
+          const originalPred = predictionsList.find(p => getUserIdStr(p.userId) === p2IdStr)
             ?.predictions.find(m => m.matchId.toString() === battleMatchIdStr);
           p2Val = getCatDisplayVal(originalPred);
         }
         if (isTriad && p3ScoreDoc) {
-          const originalPred = predictionsList.find(p => p.userId.toString() === p3IdStr)
+          const originalPred = predictionsList.find(p => getUserIdStr(p.userId) === p3IdStr)
             ?.predictions.find(m => m.matchId.toString() === battleMatchIdStr);
           p3Val = getCatDisplayVal(originalPred);
         }
