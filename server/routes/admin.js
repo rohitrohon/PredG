@@ -263,6 +263,9 @@ router.post('/matchweek/:id/results', [auth, verifyMwGroupAdmin], async (req, re
   const { matchesResults, wildPredictionDetails } = req.body;
   const matchweek = req.matchweek;
 
+  const parseScore = (val) => (val !== null && val !== undefined && val !== '' && !isNaN(val)) ? Number(val) : null;
+  const parseStr = (val) => (val !== null && val !== undefined && val !== '') ? String(val) : null;
+
   try {
     // Update each match's actualResults
     matchweek.matches.forEach((m) => {
@@ -270,16 +273,17 @@ router.post('/matchweek/:id/results', [auth, verifyMwGroupAdmin], async (req, re
       if (matchesResults && matchesResults[matchIdStr]) {
         const resObj = matchesResults[matchIdStr];
         m.actualResults = {
-          homeScore: resObj.homeScore,
-          awayScore: resObj.awayScore,
-          result: resObj.result,
-          firstGoal: resObj.firstGoal,
-          possession: resObj.possession,
-          yellowCards: resObj.yellowCards !== undefined ? resObj.yellowCards : null,
-          offsides: resObj.offsides !== undefined ? resObj.offsides : null,
-          corners: resObj.corners !== undefined ? resObj.corners : null,
-          shots: resObj.shots !== undefined ? resObj.shots : null,
-          wildPredictionCorrectUsers: resObj.wildPredictionCorrectUsers || []
+          homeScore: parseScore(resObj.homeScore),
+          awayScore: parseScore(resObj.awayScore),
+          result: parseStr(resObj.result),
+          firstGoal: parseStr(resObj.firstGoal),
+          possession: parseStr(resObj.possession),
+          yellowCards: parseScore(resObj.yellowCards),
+          offsides: parseScore(resObj.offsides),
+          corners: parseScore(resObj.corners),
+          shots: parseScore(resObj.shots),
+          isFinished: resObj.isFinished !== undefined ? Boolean(resObj.isFinished) : (parseScore(resObj.homeScore) !== null && parseStr(resObj.result) !== null),
+          wildPredictionCorrectUsers: Array.isArray(resObj.wildPredictionCorrectUsers) ? resObj.wildPredictionCorrectUsers : []
         };
       }
     });
@@ -291,6 +295,7 @@ router.post('/matchweek/:id/results', [auth, verifyMwGroupAdmin], async (req, re
     await matchweek.save();
     res.json({ message: 'Results updated successfully.', matchweek });
   } catch (error) {
+    console.error('Error updating match results:', error);
     res.status(500).json({ message: 'Server error updating results.', error: error.message });
   }
 });

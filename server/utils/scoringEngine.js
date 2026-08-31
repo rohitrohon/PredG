@@ -101,6 +101,11 @@ function getScorelinePoints(predHome, predAway, predSafeBet, actHome, actAway) {
   return 0;
 }
 
+const getUserIdStr = (idObj) => {
+  if (!idObj) return '';
+  return (idObj._id ? idObj._id : idObj).toString();
+};
+
 /**
  * Scores a single user's predictions for a matchweek.
  */
@@ -113,15 +118,18 @@ function scoreUserPrediction(predictionDoc, matchweekDoc, distribution, totalPla
   // Create lookup for actual match results
   const matchesMap = {};
   matchweekDoc.matches.forEach((m) => {
-    matchesMap[m._id.toString()] = m;
+    if (m && m._id) {
+      matchesMap[m._id.toString()] = m;
+    }
   });
 
   // Calculate points for each match prediction
-  predictionDoc.predictions.forEach((singlePred) => {
+  (predictionDoc.predictions || []).forEach((singlePred) => {
+    if (!singlePred || !singlePred.matchId) return;
     const matchIdStr = singlePred.matchId.toString();
     const match = matchesMap[matchIdStr];
 
-    if (!match || match.actualResults.result === null) {
+    if (!match || !match.actualResults || match.actualResults.result === null || match.actualResults.result === undefined) {
       // Results not entered yet
       return;
     }
@@ -146,15 +154,17 @@ function scoreUserPrediction(predictionDoc, matchweekDoc, distribution, totalPla
     if (singlePred.wildPredictionCategory && singlePred.wildPredictionCategory !== 'None') {
       const cat = singlePred.wildPredictionCategory;
       const val = Number(singlePred.wildPredictionValue);
-      if (cat === 'Yellow Cards' && act.yellowCards !== null && val === Number(act.yellowCards)) isWildCorrect = true;
-      if (cat === 'Offsides' && act.offsides !== null && val === Number(act.offsides)) isWildCorrect = true;
-      if (cat === 'Corners' && act.corners !== null && val === Number(act.corners)) isWildCorrect = true;
-      if (cat === 'Total Shots' && act.shots !== null && val === Number(act.shots)) isWildCorrect = true;
+      if (cat === 'Yellow Cards' && act.yellowCards !== null && act.yellowCards !== undefined && val === Number(act.yellowCards)) isWildCorrect = true;
+      if (cat === 'Offsides' && act.offsides !== null && act.offsides !== undefined && val === Number(act.offsides)) isWildCorrect = true;
+      if (cat === 'Corners' && act.corners !== null && act.corners !== undefined && val === Number(act.corners)) isWildCorrect = true;
+      if (cat === 'Total Shots' && act.shots !== null && act.shots !== undefined && val === Number(act.shots)) isWildCorrect = true;
     }
-    if (!isWildCorrect && act.wildPredictionCorrectUsers && act.wildPredictionCorrectUsers.some(
-      (userId) => userId.toString() === predictionDoc.userId.toString()
-    )) {
-      isWildCorrect = true;
+    
+    const predUserIdStr = getUserIdStr(predictionDoc.userId);
+    if (!isWildCorrect && act.wildPredictionCorrectUsers && Array.isArray(act.wildPredictionCorrectUsers)) {
+      if (predUserIdStr && act.wildPredictionCorrectUsers.some(uId => getUserIdStr(uId) === predUserIdStr)) {
+        isWildCorrect = true;
+      }
     }
     const ptsWild = isWildCorrect ? 100 : 0; // Wild is 100 points if correct, else 0
 
@@ -172,13 +182,14 @@ function scoreUserPrediction(predictionDoc, matchweekDoc, distribution, totalPla
 
     // Process Gamble on this specific match if active
     let matchGamblePoints = 0;
-    const isGambleMatch = predictionDoc.gamble && predictionDoc.gamble.active && predictionDoc.gamble.matchId && predictionDoc.gamble.matchId.toString() === matchIdStr;
+    const gambleMatchIdStr = predictionDoc.gamble?.matchId ? predictionDoc.gamble.matchId.toString() : '';
+    const isGambleMatch = Boolean(predictionDoc.gamble && predictionDoc.gamble.active && gambleMatchIdStr && gambleMatchIdStr === matchIdStr);
 
     if (isGambleMatch) {
       const gamblePointsVal = predictionDoc.gamble.points || 0;
       // Check for Shield power-up on the gamble match
-      const hasShield = predictionDoc.marketPowerUps.some(
-        (pu) => pu.matchId.toString() === matchIdStr && pu.type === 'Shield'
+      const hasShield = (predictionDoc.marketPowerUps || []).some(
+        (pu) => pu.matchId && pu.matchId.toString() === matchIdStr && pu.type === 'Shield'
       );
 
       if (correctCategoriesCount >= 4) {
