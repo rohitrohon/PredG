@@ -323,6 +323,11 @@ router.post('/matchweek/:id/calculate', [auth, verifyMwGroupAdmin], async (req, 
   const matchweek = req.matchweek;
   const group = req.group;
 
+  const getUserIdStr = (idObj) => {
+    if (!idObj) return '';
+    return (idObj._id ? idObj._id : idObj).toString();
+  };
+
   try {
     // Auto-generate battle pairings if not present
     let existingBattles = await Battle.find({ groupId: group._id, matchweekId: matchweek._id });
@@ -331,7 +336,7 @@ router.post('/matchweek/:id/calculate', [auth, verifyMwGroupAdmin], async (req, 
     }
 
     // 2. Fetch all real players in the group
-    const groupMembers = group.members.filter(id => id.toString() !== AVERAGE_PLAYER_ID);
+    const groupMembers = group.members.filter(id => getUserIdStr(id) !== AVERAGE_PLAYER_ID);
 
     // 3. Process Autofills for group members who did not submit predictions
     const previousMatchweek = await Matchweek.findOne({ 
@@ -340,12 +345,13 @@ router.post('/matchweek/:id/calculate', [auth, verifyMwGroupAdmin], async (req, 
     });
     
     for (const memberId of groupMembers) {
-      let pred = await Prediction.findOne({ groupId: group._id, userId: memberId, matchweekId: matchweek._id });
+      const mIdStr = getUserIdStr(memberId);
+      let pred = await Prediction.findOne({ groupId: group._id, userId: mIdStr, matchweekId: matchweek._id });
       
       if (!pred || !pred.isSubmitted) {
         let prevPred = null;
         if (previousMatchweek) {
-          prevPred = await Prediction.findOne({ groupId: group._id, userId: memberId, matchweekId: previousMatchweek._id });
+          prevPred = await Prediction.findOne({ groupId: group._id, userId: mIdStr, matchweekId: previousMatchweek._id });
         }
 
         const autofillPredictions = [];
@@ -375,7 +381,7 @@ router.post('/matchweek/:id/calculate', [auth, verifyMwGroupAdmin], async (req, 
         if (!pred) {
           pred = new Prediction({
             groupId: group._id,
-            userId: memberId,
+            userId: mIdStr,
             matchweekId: matchweek._id,
             predictions: autofillPredictions,
             captainMatchId: matchweek.matches[0]._id,
@@ -404,16 +410,15 @@ router.post('/matchweek/:id/calculate', [auth, verifyMwGroupAdmin], async (req, 
     const { scoredPredictions, battleResults } = scoreMatchweek(matchweek, predictions, battleMatchups);
 
     // If Average Player was in battles, calculate its average scores for the Battle Match
-    let averagePlayerPrediction = null;
     const hasAveragePlayer = battleMatchups.some(
-      b => b.player1Id.toString() === AVERAGE_PLAYER_ID || b.player2Id.toString() === AVERAGE_PLAYER_ID
+      b => getUserIdStr(b.player1Id) === AVERAGE_PLAYER_ID || getUserIdStr(b.player2Id) === AVERAGE_PLAYER_ID || getUserIdStr(b.player3Id) === AVERAGE_PLAYER_ID
     );
 
     if (hasAveragePlayer && matchweek.battleMatchId) {
       const bMatchIdStr = matchweek.battleMatchId.toString();
       
       const realScores = scoredPredictions.map(sp => {
-        const mResult = sp.matchResults.find(m => m.matchId.toString() === bMatchIdStr);
+        const mResult = sp.matchResults.find(m => m.matchId && m.matchId.toString() === bMatchIdStr);
         return mResult ? mResult.points : null;
       }).filter(Boolean);
 
@@ -431,8 +436,6 @@ router.post('/matchweek/:id/calculate', [auth, verifyMwGroupAdmin], async (req, 
         avgPoints.firstGoal /= realScores.length;
         avgPoints.possession /= realScores.length;
       }
-
-      const getUserIdStr = (idObj) => idObj ? (idObj._id ? idObj._id : idObj).toString() : '';
 
       for (const res of battleResults) {
         const p1IdStr = getUserIdStr(res.player1Id);
@@ -534,8 +537,8 @@ router.post('/matchweek/:id/calculate', [auth, verifyMwGroupAdmin], async (req, 
     // 6. Recalculate GroupStandings (exact sum of all matchweeks) and ranks within the group
     const allStandings = await GroupStanding.find({ groupId: group._id });
     for (const std of allStandings) {
-      const uIdStr = std.userId.toString();
-      if (uIdStr === AVERAGE_PLAYER_ID) continue;
+      const uIdStr = getUserIdStr(std.userId);
+      if (!uIdStr || uIdStr === AVERAGE_PLAYER_ID) continue;
 
       const userPreds = await Prediction.find({ groupId: group._id, userId: uIdStr });
       const sumTotal = userPreds.reduce((sum, p) => sum + (p.totalPointsScored || 0), 0);
@@ -568,6 +571,7 @@ router.post('/matchweek/:id/calculate', [auth, verifyMwGroupAdmin], async (req, 
       battleResults
     });
   } catch (error) {
+    console.error('Error during score calculation:', error);
     res.status(500).json({ message: 'Server error during score calculation.', error: error.message });
   }
 });
