@@ -943,7 +943,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
             })}
           </div>
 
-          {/* BOTTOM SUMMARY CARD & SUBMIT BUTTON */}
+          {/* BOTTOM SUBMIT BUTTON */}
           <div className="card" style={{
             marginTop: '2rem',
             padding: '1.5rem',
@@ -951,17 +951,6 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
             border: '1px solid var(--border-glow)',
             textAlign: 'center'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
-              <div style={{ fontSize: '0.9rem' }}>
-                Battle Points Available: <span style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '1.1rem' }}>{userBP} BP</span>
-                {powerUpCost > 0 && <span style={{ fontSize: '0.8rem', color: 'var(--warning)', marginLeft: '0.35rem' }}>({powerUpCost} BP spent)</span>}
-              </div>
-              <div style={{ borderLeft: '1px solid var(--border-color)', height: '20px' }}></div>
-              <div style={{ fontSize: '0.9rem' }}>
-                Max Gamble Limit: <span style={{ color: 'var(--danger)', fontWeight: 800, fontSize: '1.1rem' }}>{maxGamble} pts</span>
-              </div>
-            </div>
-
             <button
               className={`btn ${isLocked ? 'btn-secondary' : 'btn-primary'}`}
               style={{
