@@ -537,15 +537,9 @@ function Battles({ user, groupId }) {
                   ⚔️ How H2H Battle Pairing Works
                 </h4>
                 <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.85rem' }}>
-                  <li><strong>Matchweek 1:</strong> Establishes initial baseline standings.</li>
-                  <li><strong>Matchweek 2 Onwards:</strong> Opponents are automatically paired based on current <strong>Overall Group Standings</strong>:
-                    <ul style={{ paddingLeft: '1rem', marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                      <li>Bracket #1: Rank #1 vs Rank #2</li>
-                      <li>Bracket #2: Rank #3 vs Rank #4</li>
-                      <li>Bracket #3: Rank #5 vs Rank #6, and so on.</li>
-                    </ul>
-                  </li>
-                  <li><strong>Triad Matchup (3-Way Battle):</strong> If there is an odd number of active players in the group, the bottom 3 players in the standings form a 3-way Triad matchup (e.g. Rank #7 vs Rank #8 vs Rank #9).</li>
+                  <li><strong>Pairing Method:</strong> Opponents are automatically paired based on current <strong>Overall Group Standings</strong> — <strong>1st place is paired with last place</strong>, <strong>2nd place is paired with 2nd last place</strong>, and so on.</li>
+                  <li><strong>Even Number of Participants:</strong> Everyone in the group is paired into 2-player head-to-head battles (1st vs Nth, 2nd vs (N-1)th, etc.).</li>
+                  <li><strong>Odd Number of Participants:</strong> Outer ranked players are paired head-to-head, and when only 3 players are left in the middle, they are put into a <strong>3-way Triad matchup</strong>.</li>
                   <li><strong>Battle Match of the Week:</strong> In each matchweek, 1 designated match (marked with ⚔️) serves as the battleground. Paired players' predictions on this specific match are compared head-to-head.</li>
                 </ul>
               </div>
