@@ -658,13 +658,43 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
               </div>
 
               {/* Bombs Feature */}
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--primary)' }}>
-                <h4 style={{ color: 'var(--text-main)', marginBottom: '0.5rem', fontSize: '1rem' }}>💣 Bombs Power-Up (1 BP per category)</h4>
-                <p style={{ marginBottom: '0.4rem' }}>Stake 1 Battle Point per category on any match to unlock a <strong>2x Multiplier</strong> specifically for points scored in that prediction category!</p>
-                <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem' }}>
-                  <li>Options: <strong>Scoreline, Match Result, First Goal, Greater Possession, Wild Prediction</strong></li>
-                  <li>Each category checkbox costs <strong>1 BP</strong>.</li>
-                  <li>Category points are multiplied by 2x <em>before</em> Captain (2x), Double (2x), Triple (3x), or Super Bonus (1.5x) multipliers are applied.</li>
+              <div style={{ background: 'rgba(236, 72, 153, 0.05)', padding: '1rem', borderRadius: '10px', border: '1px solid rgba(236, 72, 153, 0.25)', borderLeft: '4px solid #ec4899' }}>
+                <h4 style={{ color: '#ec4899', marginBottom: '0.5rem', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  💣 Bombs Power-Up (1 BP per category)
+                </h4>
+                <p style={{ marginBottom: '0.4rem', fontSize: '0.85rem' }}>
+                  Place a Bomb on any individual prediction category for a match to double (<strong>2x</strong>) the points earned in that specific category!
+                </p>
+                <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.85rem' }}>
+                  <li><strong>Categories Available:</strong> Match Result, Scoreline, First Goal, Greater Possession, Wild Prediction.</li>
+                  <li><strong>Cost:</strong> 1 Battle Point (BP) per category selected on a match.</li>
+                  <li><strong>Calculation Order:</strong> The 2x Bomb multiplier is applied directly to the category's earned points <em>before</em> adding the Consistency Bonus (+50) or Gamble points, and <em>before</em> applying Captain (2x), Double (2x), Triple (3x), or Super Bonus (1.5x) multipliers.</li>
+                  <li><strong>Example:</strong> Exact Scoreline (100 pts) with a Scoreline Bomb gives <strong>200 category pts</strong>. If you also have a 2x Captain multiplier on that match, it becomes <strong>400+ pts</strong>!</li>
+                </ul>
+              </div>
+
+              {/* Match Points Calculation Formula */}
+              <div style={{ background: 'rgba(56, 189, 248, 0.05)', padding: '1.1rem', borderRadius: '10px', border: '1px solid rgba(56, 189, 248, 0.25)', borderLeft: '4px solid var(--primary)' }}>
+                <h4 style={{ color: 'var(--primary)', marginBottom: '0.6rem', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  🧮 Match Points Calculation Formula
+                </h4>
+                <p style={{ marginBottom: '0.6rem', fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                  Total points earned for a single match are calculated step-by-step using the official scoring engine formula:
+                </p>
+                <div style={{ background: 'rgba(0,0,0,0.35)', padding: '0.85rem 1rem', borderRadius: '8px', fontFamily: 'monospace', fontSize: '0.8rem', lineHeight: '1.7', color: '#e2e8f0', marginBottom: '0.75rem', overflowX: 'auto', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Step 1: Category Sum (with Bombs)</div>
+                  <div style={{ color: '#38bdf8', fontWeight: 600 }}>CategoryPoints = (Pts_Result × Bomb_Result) + (Pts_Scoreline × Bomb_Scoreline) + (Pts_FirstGoal × Bomb_FirstGoal) + (Pts_Possession × Bomb_Possession) + (Pts_Wild × Bomb_Wild)</div>
+
+                  <div style={{ marginTop: '0.5rem', color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Step 2: Add Bonus & Gamble</div>
+                  <div style={{ color: '#f59e0b', fontWeight: 600 }}>BasePoints = CategoryPoints + ConsistencyBonus (+50 if ≥4 categories score &gt; 0) + GamblePoints</div>
+
+                  <div style={{ marginTop: '0.5rem', color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Step 3: Apply Match & Super Bonus Multipliers</div>
+                  <div style={{ color: '#10b981', fontWeight: 700 }}>MatchTotal = Round( BasePoints × CaptainMult (2x) × DoubleMult (2x) × TripleMult (3x) × SuperBonusMult (1.5x if all 5 categories score &gt; 0) )</div>
+                </div>
+                <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                  <li><strong>Bomb_Category:</strong> 2x if a Bomb power-up is active on that category, else 1x.</li>
+                  <li><strong>Match Multipliers:</strong> Captain (2x), Double (2x), Triple (3x) multiply base match points.</li>
+                  <li><strong>Super Bonus:</strong> 1.5x multiplier applied if all 5 categories earn &gt; 0 points.</li>
                 </ul>
               </div>
 
