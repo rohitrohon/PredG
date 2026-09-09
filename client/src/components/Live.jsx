@@ -251,27 +251,26 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
     }
   };
 
-  const [now, setNow] = useState(new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setNow(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const selectedMw = matchweeks.find(mw => mw._id === selectedMwId);
+  const selectedMw = matchweeks.find(mw => (mw._id?._id || mw._id)?.toString() === selectedMwId?.toString());
 
   const d1Time = selectedMw?.matches && selectedMw.matches[0] && selectedMw.matches[0].kickoffTime
     ? new Date(selectedMw.matches[0].kickoffTime)
-    : (selectedMw ? new Date(selectedMw.deadline) : null);
+    : (selectedMw?.deadline ? new Date(selectedMw.deadline) : null);
 
   const d2Time = selectedMw?.matches && selectedMw.matches[3] && selectedMw.matches[3].kickoffTime
     ? new Date(selectedMw.matches[3].kickoffTime)
     : d1Time;
 
-  const d1Passed = d1Time ? now >= d1Time : Boolean(predictionData?.deadlinePassed);
-  const d2Passed = d2Time ? now >= d2Time : d1Passed;
+  const deadlinePassed = Boolean(
+    predictionData?.deadlinePassed ||
+    (d1Time && new Date() >= d1Time) ||
+    (selectedMw?.deadline && new Date() >= new Date(selectedMw.deadline))
+  );
+
+  const secondDeadlinePassed = Boolean(
+    predictionData?.secondDeadlinePassed ||
+    (d2Time && new Date() >= d2Time)
+  );
 
   const rawPredictions = predictionData?.predictions || [];
   const currentUserId = user?.id || user?._id;
@@ -299,14 +298,17 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
     (myDoc?.predictions && myDoc.predictions.length >= 3 && myDoc.predictions.slice(0, 3).every(isSingleMatchDefaultPattern))
   );
 
-  const showMainCountdown = Boolean(selectedMw && !d1Passed);
-  const showSecondChanceCountdown = Boolean(selectedMw && d1Passed && !d2Passed && isMyPredictionAutofilled);
-  const deadlinePassed = d1Passed;
+  const showSecondChanceCountdown = Boolean(selectedMw && deadlinePassed && !secondDeadlinePassed && isMyPredictionAutofilled);
 
   // Countdown timer for active countdown windows
   useEffect(() => {
+    if (!selectedMw) {
+      setTimeRemaining('');
+      return;
+    }
+
     let target = null;
-    if (showMainCountdown) {
+    if (!deadlinePassed) {
       target = d1Time;
     } else if (showSecondChanceCountdown) {
       target = d2Time;
@@ -317,17 +319,23 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
       return;
     }
 
-    const diff = target - now;
-    if (diff <= 0) {
-      setTimeRemaining('LOCKED');
-      fetchPredictions(selectedMwId);
-    } else {
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-      setTimeRemaining(`${hours}h ${minutes}m ${seconds}s`);
-    }
-  }, [showMainCountdown, showSecondChanceCountdown, d1Time, d2Time, now, selectedMwId]);
+    const updateTimer = () => {
+      const diff = target - new Date();
+      if (diff <= 0) {
+        setTimeRemaining('LOCKED');
+        fetchPredictions(selectedMwId);
+      } else {
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+        setTimeRemaining(`${hours}h ${minutes}m ${seconds}s`);
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [selectedMw, deadlinePassed, showSecondChanceCountdown, d1Time, d2Time, selectedMwId]);
 
   if (loading) {
     return <div style={{ textAlign: 'center', padding: '2rem' }}>Loading Live shootout...</div>;
@@ -657,7 +665,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
       )}
 
       {/* BEFORE DEADLINE DISPLAY */}
-      {showMainCountdown && selectedMw && (
+      {!deadlinePassed && selectedMw && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* COUNTDOWN CARD */}
           <div className="card" style={{
