@@ -740,14 +740,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                             <span style={{ marginLeft: '0.35rem', fontSize: '0.95rem' }} title="Battle Match of the Week">⚔️</span>
                           )}
                         </td>
-                        <td style={{ fontWeight: 700 }}>
-                          {m.homeTeam}
-                          {isBattle && (
-                            <span className="badge badge-accent" style={{ marginLeft: '0.5rem', fontSize: '0.65rem', padding: '0.1rem 0.45rem' }}>
-                              ⚔️ Battle Match
-                            </span>
-                          )}
-                        </td>
+                        <td style={{ fontWeight: 700 }}>{m.homeTeam}</td>
                         <td style={{ textAlign: 'center', color: 'var(--text-muted)' }}>vs</td>
                         <td style={{ fontWeight: 700 }}>{m.awayTeam}</td>
                         <td style={{ textAlign: 'center', fontSize: '0.85rem' }}>
@@ -891,9 +884,6 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                               </td>
                               <td style={{ fontWeight: 700, whiteSpace: 'nowrap', minWidth: '240px' }}>
                                 {m.homeTeam} vs {m.awayTeam}
-                                {selectedMw.battleMatchId?.toString() === m._id.toString() && (
-                                  <span style={{ marginLeft: '0.5rem', color: 'var(--accent)', fontSize: '0.85rem' }} title="Battle Match of the Week">⚔️</span>
-                                )}
                               </td>
                               <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
                                 {isCompleted ? (
