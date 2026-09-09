@@ -380,9 +380,9 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
     predDoc.predictions.forEach((p) => {
       const mId = p.matchId.toString();
       const match = selectedMw.matches.find(m => m._id.toString() === mId);
-      if (!match || match.actualResults.result === null) return;
+      if (!match || !match.actualResults || match.actualResults.result === null || match.actualResults.result === undefined) return;
 
-      const act = match.actualResults;
+      const act = match.actualResults || {};
       const dist = distribution[mId] || {
         result: { Home: 0, Away: 0, Draw: 0 },
         firstGoal: { Home: 0, Away: 0, 'No goal': 0 },
@@ -476,7 +476,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
       const gMatchIdStr = predDoc.gamble.matchId.toString();
       const match = selectedMw.matches.find(m => m._id.toString() === gMatchIdStr);
 
-      if (match && match.actualResults.result !== null) {
+      if (match && match.actualResults && match.actualResults.result !== null && match.actualResults.result !== undefined) {
         const correctCats = correctCategoriesMap[gMatchIdStr] || 0;
         const gamblePts = predDoc.gamble.points || 0;
         const hasShield = predDoc.marketPowerUps?.some(pu => pu.matchId.toString() === gMatchIdStr && pu.type === 'Shield');
@@ -1045,7 +1045,8 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
             {selectedMw.matches.map((match, matchIdx) => {
               const mId = match._id.toString();
-              const hasScore = match.actualResults.homeScore !== null;
+              const act = match.actualResults || {};
+              const hasScore = act.homeScore !== null && act.homeScore !== undefined;
 
               return (
                 <div key={mId} className="card" style={{ padding: '1.5rem', background: 'rgba(15, 23, 42, 0.4)' }}>
@@ -1084,11 +1085,11 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                             fontSize: '1.25rem',
                             fontFamily: 'monospace'
                           }}>
-                            {match.actualResults.homeScore} - {match.actualResults.awayScore}
+                            {act.homeScore} - {act.awayScore}
                           </div>
                           <span className="badge badge-success" style={{ fontWeight: 700 }}>
                             {renderChoiceAbbreviation(
-                              getMatchWinnerChoice(match.actualResults, match.homeTeam, match.awayTeam),
+                              getMatchWinnerChoice(act, match.homeTeam, match.awayTeam),
                               match.homeTeam, match.awayTeam
                             )}
                           </span>
@@ -1137,22 +1138,22 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                       fontSize: '0.8rem'
                     }}>
                       <div style={{ whiteSpace: 'nowrap' }}>
-                        1st Goal: <strong style={{ color: 'var(--primary)' }}>{renderChoiceAbbreviation(match.actualResults.firstGoal, match.homeTeam, match.awayTeam)}</strong>
+                        1st Goal: <strong style={{ color: 'var(--primary)' }}>{renderChoiceAbbreviation(act.firstGoal, match.homeTeam, match.awayTeam)}</strong>
                       </div>
                       <div style={{ whiteSpace: 'nowrap' }}>
-                        Possession: <strong style={{ color: 'var(--primary)' }}>{renderChoiceAbbreviation(match.actualResults.possession, match.homeTeam, match.awayTeam)}</strong>
+                        Possession: <strong style={{ color: 'var(--primary)' }}>{renderChoiceAbbreviation(act.possession, match.homeTeam, match.awayTeam)}</strong>
                       </div>
                       <div style={{ whiteSpace: 'nowrap' }}>
-                        Yellow Cards: <strong style={{ color: 'var(--primary)' }}>{match.actualResults.yellowCards !== null && match.actualResults.yellowCards !== undefined ? match.actualResults.yellowCards : '-'}</strong>
+                        Yellow Cards: <strong style={{ color: 'var(--primary)' }}>{act.yellowCards !== null && act.yellowCards !== undefined ? act.yellowCards : '-'}</strong>
                       </div>
                       <div style={{ whiteSpace: 'nowrap' }}>
-                        Offsides: <strong style={{ color: 'var(--primary)' }}>{match.actualResults.offsides !== null && match.actualResults.offsides !== undefined ? match.actualResults.offsides : '-'}</strong>
+                        Offsides: <strong style={{ color: 'var(--primary)' }}>{act.offsides !== null && act.offsides !== undefined ? act.offsides : '-'}</strong>
                       </div>
                       <div style={{ whiteSpace: 'nowrap' }}>
-                        Corners: <strong style={{ color: 'var(--primary)' }}>{match.actualResults.corners !== null && match.actualResults.corners !== undefined ? match.actualResults.corners : '-'}</strong>
+                        Corners: <strong style={{ color: 'var(--primary)' }}>{act.corners !== null && act.corners !== undefined ? act.corners : '-'}</strong>
                       </div>
                       <div style={{ whiteSpace: 'nowrap' }}>
-                        Total Shots: <strong style={{ color: 'var(--primary)' }}>{match.actualResults.shots !== null && match.actualResults.shots !== undefined ? match.actualResults.shots : '-'}</strong>
+                        Total Shots: <strong style={{ color: 'var(--primary)' }}>{act.shots !== null && act.shots !== undefined ? act.shots : '-'}</strong>
                       </div>
                     </div>
                   )}
@@ -1176,7 +1177,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                           const matchPred = predDoc.predictions.find(p => p.matchId.toString() === mId);
                           if (!matchPred) return null;
 
-                          const act = match.actualResults;
+                          const act = match.actualResults || {};
                           const dist = distribution[mId] || {
                             result: { Home: 0, Away: 0, Draw: 0 },
                             firstGoal: { Home: 0, Away: 0, 'No goal': 0 },
