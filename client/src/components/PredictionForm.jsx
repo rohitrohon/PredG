@@ -419,8 +419,12 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
   const powerUpCost = prediction ? calculatePowerUpCost(prediction.marketPowerUps) : 0;
 
   // Find max gamble limit scoped to group standing points
-  const pointsVal = standing ? standing.totalPoints : 0;
-  const rankVal = standing ? standing.rank : null;
+  const effectiveStanding = userStandingState || standing;
+  const userBP = (effectiveStanding && effectiveStanding.battlePoints !== undefined && effectiveStanding.battlePoints !== null)
+    ? effectiveStanding.battlePoints
+    : 0;
+  const pointsVal = effectiveStanding ? effectiveStanding.totalPoints : 0;
+  const rankVal = effectiveStanding ? effectiveStanding.rank : null;
   let maxGamble = Math.floor(pointsVal * 0.10);
   if (maxGamble < 0) maxGamble = 0;
 
@@ -471,6 +475,41 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
               {countdown}
             </span>
           </div>
+        </div>
+      </div>
+
+      {/* Gamble Points Limit & Battle Points Strip (Under Nav/Header Bar) */}
+      <div className="card" style={{
+        marginBottom: '1.5rem',
+        padding: '0.85rem 1.25rem',
+        background: 'rgba(15, 23, 42, 0.8)',
+        border: '1px solid var(--border-glow)',
+        borderRadius: '12px',
+        display: 'flex',
+        justify: 'space-around',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '1rem'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 600 }}>Gamble Points Limit:</span>
+          <span style={{ color: 'var(--danger)', fontWeight: 800, fontSize: '1.15rem' }}>
+            {maxGamble} pts
+          </span>
+        </div>
+
+        <div style={{ borderLeft: '1px solid var(--border-color)', height: '24px' }}></div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 600 }}>Battle Points Available:</span>
+          <span style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '1.15rem' }}>
+            {userBP} BP
+          </span>
+          {powerUpCost > 0 && (
+            <span style={{ fontSize: '0.8rem', color: 'var(--warning)', marginLeft: '0.25rem' }}>
+              ({powerUpCost} BP spent)
+            </span>
+          )}
         </div>
       </div>
 
@@ -914,7 +953,8 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
           }}>
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
               <div style={{ fontSize: '0.9rem' }}>
-                Net BP Spent: <span style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '1.1rem' }}>{powerUpCost} BP</span>
+                Battle Points Available: <span style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '1.1rem' }}>{userBP} BP</span>
+                {powerUpCost > 0 && <span style={{ fontSize: '0.8rem', color: 'var(--warning)', marginLeft: '0.35rem' }}>({powerUpCost} BP spent)</span>}
               </div>
               <div style={{ borderLeft: '1px solid var(--border-color)', height: '20px' }}></div>
               <div style={{ fontSize: '0.9rem' }}>
