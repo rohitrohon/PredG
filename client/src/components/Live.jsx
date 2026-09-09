@@ -38,6 +38,14 @@ function getShortTeamName(teamName) {
   return teamName.trim().slice(0, 3).toUpperCase();
 }
 
+function isSingleMatchDefaultPattern(mP) {
+  if (!mP) return false;
+  const isDefaultScore = (mP.homeScore === 3 && mP.awayScore === 0) || (mP.homeScore === 0 && mP.awayScore === 3) || (mP.homeScore === 1 && mP.awayScore === 0);
+  const isDefaultSafe = mP.safeBet === 'Home';
+  const isDefaultWild = !mP.wildPredictionCategory || mP.wildPredictionCategory === 'None';
+  return isDefaultScore && isDefaultSafe && isDefaultWild;
+}
+
 function renderChoiceAbbreviation(choice, homeTeam, awayTeam) {
   if (!choice) return '-';
   if (choice === 'Home') return getShortTeamName(homeTeam);
@@ -243,32 +251,83 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
     }
   };
 
-  const selectedMw = matchweeks.find(mw => mw._id === selectedMwId);
-  const deadlinePassed = predictionData?.deadlinePassed || (selectedMw && new Date() > new Date(selectedMw.deadline));
+  const [now, setNow] = useState(new Date());
 
-  // Countdown timer for locked matchweeks
   useEffect(() => {
-    if (!selectedMw || deadlinePassed) {
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const selectedMw = matchweeks.find(mw => mw._id === selectedMwId);
+
+  const d1Time = selectedMw?.matches && selectedMw.matches[0] && selectedMw.matches[0].kickoffTime
+    ? new Date(selectedMw.matches[0].kickoffTime)
+    : (selectedMw ? new Date(selectedMw.deadline) : null);
+
+  const d2Time = selectedMw?.matches && selectedMw.matches[3] && selectedMw.matches[3].kickoffTime
+    ? new Date(selectedMw.matches[3].kickoffTime)
+    : d1Time;
+
+  const d1Passed = d1Time ? now >= d1Time : Boolean(predictionData?.deadlinePassed);
+  const d2Passed = d2Time ? now >= d2Time : d1Passed;
+
+  const rawPredictions = predictionData?.predictions || [];
+  const currentUserId = user?.id || user?._id;
+  const currentUsername = user?.username;
+
+  const myPredDocFromList = rawPredictions.find(p => {
+    if (!p.userId) return false;
+    const pId = p.userId._id ? p.userId._id.toString() : p.userId.toString();
+    const pUsername = p.userId.username || p.userId.name || '';
+
+    if (currentUserId && pId === currentUserId.toString()) return true;
+    if (currentUsername && pUsername.toLowerCase() === currentUsername.toLowerCase()) return true;
+    return false;
+  });
+
+  const myDoc = myPredictionDoc || myPredDocFromList;
+
+  const isUserSubmitted = Boolean(
+    (myPredictionDoc && myPredictionDoc.isSubmitted) ||
+    (myPredDocFromList && myPredDocFromList.isSubmitted)
+  );
+
+  const isMyPredictionAutofilled = Boolean(
+    myDoc?.isAutofilled ||
+    (myDoc?.predictions && myDoc.predictions.length >= 3 && myDoc.predictions.slice(0, 3).every(isSingleMatchDefaultPattern))
+  );
+
+  const showMainCountdown = Boolean(selectedMw && !d1Passed);
+  const showSecondChanceCountdown = Boolean(selectedMw && d1Passed && !d2Passed && isMyPredictionAutofilled);
+  const deadlinePassed = d1Passed;
+
+  // Countdown timer for active countdown windows
+  useEffect(() => {
+    let target = null;
+    if (showMainCountdown) {
+      target = d1Time;
+    } else if (showSecondChanceCountdown) {
+      target = d2Time;
+    }
+
+    if (!target) {
       setTimeRemaining('');
       return;
     }
 
-    const interval = setInterval(() => {
-      const diff = new Date(selectedMw.deadline) - new Date();
-      if (diff <= 0) {
-        setTimeRemaining('LOCKED');
-        clearInterval(interval);
-        fetchPredictions(selectedMwId);
-      } else {
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-        setTimeRemaining(`${hours}h ${minutes}m ${seconds}s`);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [selectedMw, deadlinePassed, selectedMwId]);
+    const diff = target - now;
+    if (diff <= 0) {
+      setTimeRemaining('LOCKED');
+      fetchPredictions(selectedMwId);
+    } else {
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      setTimeRemaining(`${hours}h ${minutes}m ${seconds}s`);
+    }
+  }, [showMainCountdown, showSecondChanceCountdown, d1Time, d2Time, now, selectedMwId]);
 
   if (loading) {
     return <div style={{ textAlign: 'center', padding: '2rem' }}>Loading Live shootout...</div>;
@@ -287,25 +346,6 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
       </div>
     );
   }
-
-  const rawPredictions = predictionData?.predictions || [];
-  const currentUserId = user?.id || user?._id;
-  const currentUsername = user?.username;
-
-  const myPredDocFromList = rawPredictions.find(p => {
-    if (!p.userId) return false;
-    const pId = p.userId._id ? p.userId._id.toString() : p.userId.toString();
-    const pUsername = p.userId.username || p.userId.name || '';
-
-    if (currentUserId && pId === currentUserId.toString()) return true;
-    if (currentUsername && pUsername.toLowerCase() === currentUsername.toLowerCase()) return true;
-    return false;
-  });
-
-  const isUserSubmitted = Boolean(
-    (myPredictionDoc && myPredictionDoc.isSubmitted) ||
-    (myPredDocFromList && myPredDocFromList.isSubmitted)
-  );
 
   const submittedPredictions = rawPredictions
     .filter(p => p.isSubmitted)
@@ -617,7 +657,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
       )}
 
       {/* BEFORE DEADLINE DISPLAY */}
-      {!deadlinePassed && selectedMw && (
+      {showMainCountdown && selectedMw && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* COUNTDOWN CARD */}
           <div className="card" style={{
@@ -766,6 +806,77 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
       {/* AFTER DEADLINE ACTIVE VIEW */}
       {deadlinePassed && selectedMw && (
         <>
+          {/* 2ND CHANCE DEADLINE COUNTDOWN CARD FOR AUTOFILLED USERS */}
+          {showSecondChanceCountdown && (
+            <div className="card" style={{
+              textAlign: 'center',
+              padding: '2rem 1.75rem',
+              background: 'rgba(245, 158, 11, 0.05)',
+              borderColor: 'rgba(245, 158, 11, 0.3)',
+              marginBottom: '1.5rem'
+            }}>
+              <Clock size={40} style={{ color: '#f59e0b', margin: '0 auto 0.75rem', animation: 'pulse 2s infinite' }} />
+              <h3 style={{ marginBottom: '0.25rem', color: '#f59e0b' }}>
+                Matchweek #{selectedMw.matchweekNumber} — 2nd Chance Deadline
+              </h3>
+              <div style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.95rem', margin: '0.25rem auto 1rem' }}>
+                2nd Deadline (Games 4 & 5 Kickoff): <strong>{formatDeadlineIST(d2Time)}</strong>
+              </div>
+              <div style={{
+                fontSize: '2.2rem',
+                fontWeight: 800,
+                fontFamily: 'monospace',
+                color: '#f59e0b',
+                background: 'rgba(0,0,0,0.3)',
+                padding: '0.6rem 1.5rem',
+                borderRadius: '10px',
+                display: 'inline-block',
+                letterSpacing: '0.05em',
+                boxShadow: '0 0 15px rgba(245, 158, 11, 0.15)'
+              }}>
+                {timeRemaining || 'LOCKING 2nd DEADLINE...'}
+              </div>
+
+              <div style={{ marginTop: '1rem' }}>
+                <div style={{
+                  padding: '0.5rem 1.1rem',
+                  borderRadius: '20px',
+                  background: 'rgba(245, 158, 11, 0.15)',
+                  border: '1.5px solid rgba(245, 158, 11, 0.4)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem'
+                }}>
+                  <AlertTriangle size={16} style={{ color: '#f59e0b' }} />
+                  <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#f59e0b' }}>
+                    Autofilled Default Predictions Active — You can edit Games 4 & 5 before Deadline 2!
+                  </span>
+                </div>
+              </div>
+
+              {onNavigateToPredictions && (
+                <div style={{ marginTop: '1rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn-warning"
+                    onClick={onNavigateToPredictions}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.65rem 1.5rem',
+                      fontSize: '0.95rem',
+                      fontWeight: 700
+                    }}
+                  >
+                    <Edit3 size={16} /> Edit Games 4 & 5 Predictions
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* FLOATING STICKY HEADER: LIVE STANDINGS & MATCHWEEK TABLE */}
           <div style={{
             position: 'sticky',
