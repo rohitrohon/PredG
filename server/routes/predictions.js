@@ -200,6 +200,7 @@ router.post('/submit/:matchweekId', auth, async (req, res) => {
         if (pu.type === 'Double') cost += 5;
         if (pu.type === 'Triple') cost += 10;
         if (pu.type === 'Shield') cost += 15;
+        if (pu.type === 'Bomb') cost += 1;
       });
       return cost;
     };

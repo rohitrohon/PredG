@@ -215,20 +215,38 @@ function scoreUserPrediction(predictionDoc, matchweekDoc, distribution, totalPla
 
     // Multipliers (applied to Categories + Bonus + Gamble)
     const isCaptain = predictionDoc.captainMatchId && predictionDoc.captainMatchId.toString() === matchIdStr;
-    const hasDouble = predictionDoc.marketPowerUps.some(pu => pu.matchId.toString() === matchIdStr && pu.type === 'Double');
-    const hasTriple = predictionDoc.marketPowerUps.some(pu => pu.matchId.toString() === matchIdStr && pu.type === 'Triple');
+    const hasDouble = (predictionDoc.marketPowerUps || []).some(pu => pu.matchId.toString() === matchIdStr && pu.type === 'Double');
+    const hasTriple = (predictionDoc.marketPowerUps || []).some(pu => pu.matchId.toString() === matchIdStr && pu.type === 'Triple');
 
     const captainMult = isCaptain ? 2 : 1;
     const doubleMult = hasDouble ? 2 : 1;
     const tripleMult = hasTriple ? 3 : 1;
     const totalMultiplier = captainMult * doubleMult * tripleMult;
 
+    // Check Bombs power-ups on this match (2x multiplier per selected category)
+    const bombPowerUps = (predictionDoc.marketPowerUps || []).filter(
+      (pu) => pu.matchId && pu.matchId.toString() === matchIdStr && pu.type === 'Bomb'
+    );
+    const bombCategories = bombPowerUps.map(pu => pu.category);
+
+    const hasResultBomb = bombCategories.includes('Match Result');
+    const hasScorelineBomb = bombCategories.includes('Scoreline');
+    const hasFirstGoalBomb = bombCategories.includes('First Goal');
+    const hasPossessionBomb = bombCategories.includes('Greater Possession');
+    const hasWildBomb = bombCategories.includes('Wild Prediction');
+
+    const finalPtsResult = ptsResult * (hasResultBomb ? 2 : 1);
+    const finalPtsScoreline = ptsScoreline * (hasScorelineBomb ? 2 : 1);
+    const finalPtsFirstGoal = ptsFirstGoal * (hasFirstGoalBomb ? 2 : 1);
+    const finalPtsPossession = ptsPossession * (hasPossessionBomb ? 2 : 1);
+    const finalPtsWild = ptsWild * (hasWildBomb ? 2 : 1);
+
     // Super Bonus (1.5x multiplier applied to overall match points if ALL 5 categories score > 0 points)
     const gotSuperBonus = correctCategoriesCount === 5;
     const superBonusMult = gotSuperBonus ? 1.5 : 1;
 
-    // Match Points = (Points from all 5 Categories + Bonus + Gamble Points) * Captain * Double * Triple * SuperBonus
-    const categoriesSum = ptsResult + ptsScoreline + ptsFirstGoal + ptsPossession + ptsWild;
+    // Match Points = (Points from all 5 Categories (with Bombs) + Bonus + Gamble Points) * Captain * Double * Triple * SuperBonus
+    const categoriesSum = finalPtsResult + finalPtsScoreline + finalPtsFirstGoal + finalPtsPossession + finalPtsWild;
     const pointsBeforeSuperBonus = (categoriesSum + bonusPoints + matchGamblePoints) * totalMultiplier;
     const totalMatchPoints = Math.round(pointsBeforeSuperBonus * superBonusMult);
 
@@ -237,11 +255,18 @@ function scoreUserPrediction(predictionDoc, matchweekDoc, distribution, totalPla
       homeTeam: match.homeTeam,
       awayTeam: match.awayTeam,
       points: {
-        result: ptsResult,
-        scoreline: ptsScoreline,
-        firstGoal: ptsFirstGoal,
-        possession: ptsPossession,
-        wild: ptsWild,
+        result: finalPtsResult,
+        scoreline: finalPtsScoreline,
+        firstGoal: finalPtsFirstGoal,
+        possession: finalPtsPossession,
+        wild: finalPtsWild,
+        bombs: {
+          result: hasResultBomb,
+          scoreline: hasScorelineBomb,
+          firstGoal: hasFirstGoalBomb,
+          possession: hasPossessionBomb,
+          wild: hasWildBomb
+        },
         bonus: bonusPoints,
         superBonus: gotSuperBonus,
         superBonusMult: superBonusMult,

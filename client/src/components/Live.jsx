@@ -398,24 +398,31 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
         }
       }
 
+      // Check Bomb multipliers for categories on this match
+      const matchPowerUps = (predDoc.marketPowerUps || []).filter(pu => pu.matchId.toString() === mId);
+      const bombCategories = matchPowerUps.filter(pu => pu.type === 'Bomb').map(pu => pu.category);
+
+      const ptsResultFinal = ptsResult * (bombCategories.includes('Match Result') ? 2 : 1);
+      const ptsScorelineFinal = ptsScoreline * (bombCategories.includes('Scoreline') ? 2 : 1);
+      const ptsFirstGoalFinal = ptsFirstGoal * (bombCategories.includes('First Goal') ? 2 : 1);
+      const ptsPossessionFinal = ptsPossession * (bombCategories.includes('Greater Possession') ? 2 : 1);
+      const ptsWildFinal = ptsWild * (bombCategories.includes('Wild Prediction') ? 2 : 1);
+
       // Multipliers
       let captainMult = 1;
       if (predDoc.captainMatchId && predDoc.captainMatchId.toString() === mId) {
         captainMult = 2;
       }
-      let doubleMult = 1;
-      let tripleMult = 1;
-      const powerUp = predDoc.marketPowerUps?.find(pu => pu.matchId.toString() === mId);
-      if (powerUp) {
-        if (powerUp.type === 'Double') doubleMult = 2;
-        if (powerUp.type === 'Triple') tripleMult = 3;
-      }
+      const hasDouble = matchPowerUps.some(pu => pu.type === 'Double');
+      const hasTriple = matchPowerUps.some(pu => pu.type === 'Triple');
+      const doubleMult = hasDouble ? 2 : 1;
+      const tripleMult = hasTriple ? 3 : 1;
       const totalMultiplier = captainMult * doubleMult * tripleMult;
 
       const gotSuperBonus = correctCats === 5;
       const superBonusMult = gotSuperBonus ? 1.5 : 1;
 
-      const categoriesSum = ptsResult + ptsScoreline + ptsFirstGoal + ptsPossession + ptsWild;
+      const categoriesSum = ptsResultFinal + ptsScorelineFinal + ptsFirstGoalFinal + ptsPossessionFinal + ptsWildFinal;
       const matchTotal = Math.round((categoriesSum + bonusPoints + matchGamblePoints) * totalMultiplier * superBonusMult);
       matchScores[mId] = matchTotal;
       totalLiveScore += matchTotal;

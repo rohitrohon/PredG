@@ -49,7 +49,8 @@ const PredictionSchema = new mongoose.Schema({
   },
   marketPowerUps: [{
     matchId: { type: mongoose.Schema.Types.ObjectId, required: true },
-    type: { type: String, enum: ['Double', 'Triple', 'Shield'], required: true }
+    type: { type: String, enum: ['Double', 'Triple', 'Shield', 'Bomb'], required: true },
+    category: { type: String, default: null }
   }],
   totalPointsScored: { type: Number, default: 0 },
   battlePointsScored: { type: Number, default: 0 }

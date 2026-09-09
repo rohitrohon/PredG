@@ -270,10 +270,19 @@ function Results({ groupId, user }) {
         ptsWild = 100;
       }
 
-      // Check Multipliers (Captain/Double/Triple)
+      // Check Multipliers (Captain/Double/Triple/Bomb)
       const isCaptain = predDoc.captainMatchId && predDoc.captainMatchId.toString() === selectedMatchId.toString();
-      const powerUp = predDoc.marketPowerUps?.find(pu => pu.matchId.toString() === selectedMatchId.toString());
-      const hasShield = predDoc.marketPowerUps?.some(pu => pu.matchId.toString() === selectedMatchId.toString() && pu.type === 'Shield');
+      const matchPowerUps = (predDoc.marketPowerUps || []).filter(pu => pu.matchId.toString() === selectedMatchId.toString());
+      const hasDouble = matchPowerUps.some(pu => pu.type === 'Double');
+      const hasTriple = matchPowerUps.some(pu => pu.type === 'Triple');
+      const hasShield = matchPowerUps.some(pu => pu.type === 'Shield');
+      const bombCategories = matchPowerUps.filter(pu => pu.type === 'Bomb').map(pu => pu.category);
+
+      const ptsResultFinal = ptsResult * (bombCategories.includes('Match Result') ? 2 : 1);
+      const ptsScorelineFinal = ptsScoreline * (bombCategories.includes('Scoreline') ? 2 : 1);
+      const ptsFirstGoalFinal = ptsFirstGoal * (bombCategories.includes('First Goal') ? 2 : 1);
+      const ptsPossessionFinal = ptsPossession * (bombCategories.includes('Greater Possession') ? 2 : 1);
+      const ptsWildFinal = ptsWild * (bombCategories.includes('Wild Prediction') ? 2 : 1);
 
       let correctCats = 0;
       if (ptsResult > 0) correctCats++;
@@ -299,24 +308,22 @@ function Results({ groupId, user }) {
       }
 
       const captainMult = isCaptain ? 2 : 1;
-      let doubleMult = 1;
-      let tripleMult = 1;
-      if (powerUp) {
-        if (powerUp.type === 'Double') doubleMult = 2;
-        if (powerUp.type === 'Triple') tripleMult = 3;
-      }
+      const doubleMult = hasDouble ? 2 : 1;
+      const tripleMult = hasTriple ? 3 : 1;
       const totalMultiplier = captainMult * doubleMult * tripleMult;
 
       const gotSuperBonus = correctCats === 5;
       const superBonusMult = gotSuperBonus ? 1.5 : 1;
 
-      const categoriesSum = ptsResult + ptsScoreline + ptsFirstGoal + ptsPossession + ptsWild;
+      const categoriesSum = ptsResultFinal + ptsScorelineFinal + ptsFirstGoalFinal + ptsPossessionFinal + ptsWildFinal;
       const pointsBeforeSuper = (categoriesSum + bonusPoints + matchGamblePoints) * totalMultiplier;
       const totalMatchPoints = Math.round(pointsBeforeSuper * superBonusMult);
 
       const tags = [];
       if (isCaptain) tags.push(<span key="cap" className="badge badge-info" style={{ fontSize: '0.55rem', padding: '0.05rem 0.25rem', color: '#000000', backgroundColor: 'rgba(0,0,0,0.08)', borderColor: 'rgba(0,0,0,0.25)', fontWeight: 800 }}>C</span>);
-      if (powerUp) tags.push(<span key="pu" className="badge badge-success" style={{ fontSize: '0.55rem', padding: '0.05rem 0.25rem', color: '#000000', backgroundColor: 'rgba(0,0,0,0.08)', borderColor: 'rgba(0,0,0,0.25)', fontWeight: 800 }}>{powerUp.type}</span>);
+      if (hasDouble) tags.push(<span key="dbl" className="badge badge-success" style={{ fontSize: '0.55rem', padding: '0.05rem 0.25rem', color: '#000000', backgroundColor: 'rgba(0,0,0,0.08)', borderColor: 'rgba(0,0,0,0.25)', fontWeight: 800 }}>Double</span>);
+      if (hasTriple) tags.push(<span key="tpl" className="badge badge-success" style={{ fontSize: '0.55rem', padding: '0.05rem 0.25rem', color: '#000000', backgroundColor: 'rgba(0,0,0,0.08)', borderColor: 'rgba(0,0,0,0.25)', fontWeight: 800 }}>Triple</span>);
+      if (bombCategories.length > 0) tags.push(<span key="bmb" className="badge badge-accent" style={{ fontSize: '0.55rem', padding: '0.05rem 0.25rem', color: '#ffffff', backgroundColor: '#ec4899', borderColor: '#ec4899', fontWeight: 800 }}>💣 Bomb ({bombCategories.length})</span>);
       if (gotSuperBonus) tags.push(<span key="sb" className="badge badge-accent" style={{ fontSize: '0.55rem', padding: '0.05rem 0.25rem', color: '#000000', backgroundColor: '#f59e0b', borderColor: 'rgba(0,0,0,0.25)', fontWeight: 800 }}>⚡ 1.5x Super Bonus</span>);
       
       if (isGamble) {

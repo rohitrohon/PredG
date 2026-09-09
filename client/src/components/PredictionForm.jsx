@@ -14,6 +14,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
   const [deadlinePassed, setDeadlinePassed] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [userStandingState, setUserStandingState] = useState(standing || null);
+  const [openBombDropdownMatchId, setOpenBombDropdownMatchId] = useState(null);
 
   // Total players count in group to compute Top/Bottom 50%
   const [totalPlayers, setTotalPlayers] = useState(8);
@@ -115,10 +116,11 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
 
   const calculatePowerUpCost = (powerUps) => {
     let cost = 0;
-    powerUps.forEach((pu) => {
+    (powerUps || []).forEach((pu) => {
       if (pu.type === 'Double') cost += 5;
       if (pu.type === 'Triple') cost += 10;
       if (pu.type === 'Shield') cost += 15;
+      if (pu.type === 'Bomb') cost += 1;
     });
     return cost;
   };
@@ -232,6 +234,36 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
       if (totalCost > userBP) {
         const chipCost = type === 'Double' ? 5 : (type === 'Triple' ? 10 : 15);
         alert(`Insufficient Battle Points!\n\nSelecting "${type}" requires ${chipCost} BP (Total power-up cost: ${totalCost} BP), but you only have ${userBP} Battle Points available.\n\nThis selection has been reset.`);
+        return;
+      }
+      currentPUs = newPUs;
+    }
+
+    setPrediction({ ...prediction, marketPowerUps: currentPUs });
+  };
+
+  const toggleBombCategory = (matchId, category) => {
+    if (checkIfMatchLocked(matchId)) return;
+
+    let currentPUs = [...(prediction.marketPowerUps || [])];
+    const matchIdStr = matchId.toString();
+
+    const existingIndex = currentPUs.findIndex(
+      (pu) => pu.matchId.toString() === matchIdStr && pu.type === 'Bomb' && pu.category === category
+    );
+
+    if (existingIndex >= 0) {
+      currentPUs.splice(existingIndex, 1);
+    } else {
+      const newPUs = [...currentPUs, { matchId: matchIdStr, type: 'Bomb', category }];
+      const totalCost = calculatePowerUpCost(newPUs);
+      const effectiveStanding = userStandingState || standing;
+      const userBP = (effectiveStanding && effectiveStanding.battlePoints !== undefined && effectiveStanding.battlePoints !== null)
+        ? effectiveStanding.battlePoints
+        : 0;
+
+      if (totalCost > userBP) {
+        alert(`Insufficient Battle Points!\n\nSelecting Bomb for "${category}" requires 1 BP (Total power-up cost: ${totalCost} BP), but you only have ${userBP} Battle Points available.\n\nThis selection has been reset.`);
         return;
       }
       currentPUs = newPUs;
@@ -625,6 +657,17 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                 </ul>
               </div>
 
+              {/* Bombs Feature */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid #ec4899' }}>
+                <h4 style={{ color: '#ec4899', marginBottom: '0.5rem', fontSize: '1rem' }}>💣 Bombs Power-Up (1 BP per category)</h4>
+                <p style={{ marginBottom: '0.4rem' }}>Stake 1 Battle Point per category on any match to unlock a <strong>2x Multiplier</strong> specifically for points scored in that prediction category!</p>
+                <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem' }}>
+                  <li>Options: <strong>Scoreline, Match Result, First Goal, Greater Possession, Wild Prediction</strong></li>
+                  <li>Each category checkbox costs <strong>1 BP</strong>.</li>
+                  <li>Category points are multiplied by 2x <em>before</em> Captain (2x), Double (2x), Triple (3x), or Super Bonus (1.5x) multipliers are applied.</li>
+                </ul>
+              </div>
+
               {/* Deadlines, Intelligent Autofill & Second Chance */}
               <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--primary)' }}>
                 <h4 style={{ color: 'var(--primary)', marginBottom: '0.5rem', fontSize: '1rem' }}>⏰ Deadlines, Intelligent Autofill & Second Chance Window</h4>
@@ -767,6 +810,89 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                       </div>
 
                       {/* Power Ups */}
+                      {/* Bombs Button & Dropdown (Just after Gamble button & before Double button) */}
+                      {(() => {
+                        const matchIdStr = match._id.toString();
+                        const selectedBombCategories = (prediction.marketPowerUps || [])
+                          .filter((pu) => pu.matchId.toString() === matchIdStr && pu.type === 'Bomb')
+                          .map((pu) => pu.category);
+                        const isDropdownOpen = openBombDropdownMatchId === matchIdStr;
+
+                        return (
+                          <div style={{ position: 'relative', display: 'inline-block' }}>
+                            <button
+                              className={`btn ${selectedBombCategories.length > 0 ? 'btn-accent' : 'btn-secondary'}`}
+                              style={{
+                                padding: '0.3rem 0.65rem',
+                                fontSize: '0.75rem',
+                                borderColor: selectedBombCategories.length > 0 ? 'var(--accent-glow)' : 'rgba(236, 72, 153, 0.4)',
+                                color: selectedBombCategories.length > 0 ? '#ffffff' : '#ec4899',
+                                background: selectedBombCategories.length > 0 ? 'linear-gradient(135deg, #ec4899, #8b5cf6)' : 'transparent'
+                              }}
+                              onClick={() => {
+                                if (isMatchLocked) return;
+                                setOpenBombDropdownMatchId(isDropdownOpen ? null : matchIdStr);
+                              }}
+                              disabled={isMatchLocked}
+                              title="Stake 1 BP per category to get a 2x points multiplier on that category"
+                            >
+                              💣 Bombs {selectedBombCategories.length > 0 ? `(${selectedBombCategories.length} BP)` : ''}
+                            </button>
+
+                            {isDropdownOpen && (
+                              <div style={{
+                                position: 'absolute',
+                                top: '110%',
+                                left: 0,
+                                zIndex: 100,
+                                background: 'rgba(15, 23, 42, 0.98)',
+                                border: '1px solid #ec4899',
+                                borderRadius: '10px',
+                                padding: '0.75rem',
+                                minWidth: '210px',
+                                boxShadow: '0 10px 25px rgba(0,0,0,0.6)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '0.5rem'
+                              }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.35rem', marginBottom: '0.25rem' }}>
+                                  <span style={{ fontWeight: 700, fontSize: '0.75rem', color: '#ec4899' }}>💣 Bombs (1 BP / cat)</span>
+                                  <button
+                                    style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.85rem' }}
+                                    onClick={() => setOpenBombDropdownMatchId(null)}
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+
+                                {[
+                                  { key: 'Scoreline', label: 'Scoreline' },
+                                  { key: 'Match Result', label: 'Match Result' },
+                                  { key: 'First Goal', label: 'First Goal' },
+                                  { key: 'Greater Possession', label: 'Greater Possession' },
+                                  { key: 'Wild Prediction', label: 'Wild Prediction' }
+                                ].map((catItem) => {
+                                  const isChecked = selectedBombCategories.includes(catItem.key);
+                                  return (
+                                    <label key={catItem.key} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', cursor: 'pointer', userSelect: 'none' }}>
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={() => toggleBombCategory(match._id, catItem.key)}
+                                        disabled={isMatchLocked}
+                                      />
+                                      <span style={{ color: isChecked ? '#ec4899' : 'var(--text-main)', fontWeight: isChecked ? 700 : 400 }}>
+                                        {catItem.label} (+1 BP)
+                                      </span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
                       <button
                         className={`btn ${hasDouble ? 'btn-accent' : 'btn-secondary'}`}
                         style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem' }}
