@@ -593,9 +593,9 @@ function Battles({ user, groupId }) {
 
               {/* Uses of Battle Points */}
               <div style={{ background: 'rgba(236, 72, 153, 0.05)', padding: '1rem', borderRadius: '10px', border: '1px solid rgba(236, 72, 153, 0.25)', borderLeft: '4px solid #ec4899' }}>
-                <h4 style={{ color: '#ec4899', marginBottom: '0.5rem', fontSize: '1rem' }}>💣 Using Battle Points (BP)</h4>
+                <h4 style={{ color: '#ec4899', marginBottom: '0.5rem', fontSize: '1rem' }}>⚡ Using Battle Points (BP)</h4>
                 <p style={{ margin: 0, fontSize: '0.85rem' }}>
-                  Battle Points accumulate throughout the season to determine the <strong>H2H Battle Standings</strong>. In addition, you can spend Battle Points in the <strong>Predictions tab</strong> to activate <strong>💣 Bombs Power-Ups</strong> (1 BP per category) to double category points on key matches!
+                  Battle Points accumulate throughout the season for <strong>H2H Battle Standings</strong>. In addition, you can spend Battle Points in the <strong>Predictions tab</strong> to activate <strong>Power-Ups</strong> (Bombs, Double, Triple, Shield). Active power-ups are <strong>marked in white</strong> on the match card and <strong>can be applied to multiple matches</strong> across the matchweek if enough BP is available!
                 </p>
               </div>
 

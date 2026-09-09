@@ -657,20 +657,28 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                 </ul>
               </div>
 
-              {/* Bombs Feature */}
+              {/* Power-Ups Feature */}
               <div style={{ background: 'rgba(236, 72, 153, 0.05)', padding: '1rem', borderRadius: '10px', border: '1px solid rgba(236, 72, 153, 0.25)', borderLeft: '4px solid #ec4899' }}>
                 <h4 style={{ color: '#ec4899', marginBottom: '0.5rem', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  💣 Bombs Power-Up (1 BP per category)
+                  ⚡ Power-Ups
                 </h4>
-                <p style={{ marginBottom: '0.4rem', fontSize: '0.85rem' }}>
-                  Place a Bomb on any individual prediction category for a match to double (<strong>2x</strong>) the points earned in that specific category!
+                <p style={{ marginBottom: '0.5rem', fontSize: '0.85rem' }}>
+                  Spend your accumulated <strong>Battle Points (BP)</strong> to boost match scores or protect gambles! Active power-ups are <strong>marked in white</strong> on the match card and <strong>can be applied to multiple matches</strong> across the matchweek as long as you have enough Battle Points available.
                 </p>
-                <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.85rem' }}>
-                  <li><strong>Categories Available:</strong> Match Result, Scoreline, First Goal, Greater Possession, Wild Prediction.</li>
-                  <li><strong>Cost:</strong> 1 Battle Point (BP) per category selected on a match.</li>
-                  <li><strong>Calculation Order:</strong> The 2x Bomb multiplier is applied directly to the category's earned points <em>before</em> adding the Consistency Bonus (+50) or Gamble points, and <em>before</em> applying Captain (2x), Double (2x), Triple (3x), or Super Bonus (1.5x) multipliers.</li>
-                  <li><strong>Example:</strong> Exact Scoreline (100 pts) with a Scoreline Bomb gives <strong>200 category pts</strong>. If you also have a 2x Captain multiplier on that match, it becomes <strong>400+ pts</strong>!</li>
-                </ul>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.85rem' }}>
+                  <div>
+                    <strong style={{ color: '#ec4899' }}>💣 Bombs (1 BP per category):</strong> Doubles (<strong>2x</strong>) points earned in individual prediction categories (Match Result, Scoreline, First Goal, Greater Possession, Wild Category) on a match. The 2x Bomb multiplier applies directly to category points before match multipliers or bonuses.
+                  </div>
+                  <div>
+                    <strong style={{ color: '#38bdf8' }}>2️⃣ Double (5 BP):</strong> Applies a <strong>2x Multiplier</strong> to the total base points earned on that match.
+                  </div>
+                  <div>
+                    <strong style={{ color: '#a855f7' }}>3️⃣ Triple (10 BP):</strong> Applies a <strong>3x Multiplier</strong> to the total base points earned on that match.
+                  </div>
+                  <div>
+                    <strong style={{ color: '#10b981' }}>🛡️ Shield (15 BP):</strong> Protects your staked points from loss if a <strong>Gamble</strong> on that match fails (resulting in <strong>0 net change</strong> instead of losing staked points).
+                  </div>
+                </div>
               </div>
 
               {/* Match Points Calculation Formula */}
