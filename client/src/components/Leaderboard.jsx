@@ -2,6 +2,41 @@ import React, { useEffect, useState } from 'react';
 import api from '../api';
 import { Trophy, Award, HelpCircle, TrendingUp } from 'lucide-react';
 
+function getGeneralCategoryPoints(userChoice, correctChoice, categoryDistribution = {}, totalPlayers = 1) {
+  if (!correctChoice || !userChoice || userChoice !== correctChoice) {
+    return 0;
+  }
+  const nCorrect = categoryDistribution[correctChoice] || 0;
+  const counts = Object.values(categoryDistribution);
+  const nMax = Math.max(...counts, 1);
+
+  if (nCorrect === 1) return 100;
+  if (nCorrect === totalPlayers) return 10;
+  if (nCorrect === nMax) return 20;
+  if (nCorrect < nMax && nCorrect > 1) return 50;
+  return 0;
+}
+
+function getScorelinePoints(predHome, predAway, predSafeBet, actHome, actAway) {
+  if (actHome === null || actAway === null || actHome === undefined || actAway === undefined) {
+    return 0;
+  }
+  if (predHome === null || predAway === null || predHome === undefined || predAway === undefined) {
+    return 0;
+  }
+  const pH = Number(predHome);
+  const pA = Number(predAway);
+  const aH = Number(actHome);
+  const aA = Number(actAway);
+
+  if (pH === aH && pA === aA) return 100;
+  if (predSafeBet === 'Home' && pH === aH) return 50;
+  if (predSafeBet === 'Away' && pA === aA) return 50;
+  if (pA === aA) return 20;
+  if (pH === aH) return 10;
+  return 0;
+}
+
 function Leaderboard({ groupId }) {
   const [standings, setStandings] = useState([]);
   const [matchweeks, setMatchweeks] = useState([]);
@@ -248,6 +283,7 @@ function Leaderboard({ groupId }) {
       const dist = {};
       mwPreds.forEach(predDoc => {
         (predDoc.predictions || []).forEach(p => {
+          if (!p.matchId) return;
           const mId = p.matchId.toString();
           if (!dist[mId]) {
             dist[mId] = {
@@ -280,6 +316,7 @@ function Leaderboard({ groupId }) {
 
         if (predDoc && predDoc.predictions) {
           completedMatches.forEach(m => {
+            if (!m._id) return;
             const mIdStr = m._id.toString();
             const matchPred = predDoc.predictions.find(p => p.matchId && p.matchId.toString() === mIdStr);
             if (matchPred) {
