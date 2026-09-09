@@ -50,13 +50,13 @@ function renderChoiceAbbreviation(choice, homeTeam, awayTeam) {
   return getShortTeamName(choice);
 }
 
-function isSingleMatchDefaultPattern(mP) {
+const isSingleMatchDefaultPattern = (mP) => {
   if (!mP) return false;
   const isDefaultScore = (mP.homeScore === 3 && mP.awayScore === 0) || (mP.homeScore === 0 && mP.awayScore === 3) || (mP.homeScore === 1 && mP.awayScore === 0);
   const isDefaultSafe = mP.safeBet === 'Home';
   const isDefaultWild = !mP.wildPredictionCategory || mP.wildPredictionCategory === 'None';
   return isDefaultScore && isDefaultSafe && isDefaultWild;
-}
+};
 
 function getMatchWinnerChoice(actualResults, homeTeam, awayTeam) {
   if (!actualResults) return null;
@@ -184,6 +184,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [timeRemaining, setTimeRemaining] = useState('');
+  const [secondDeadlineTimeRemaining, setSecondDeadlineTimeRemaining] = useState('');
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [showFloatingOverview, setShowFloatingOverview] = useState(true);
@@ -304,6 +305,32 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
     return () => clearInterval(interval);
   }, [selectedMw, deadlinePassed, selectedMwId, d1Time]);
 
+  // Countdown timer for 2nd deadline (Match #4 kickoff) for autofilled users after deadline 1
+  useEffect(() => {
+    if (!deadlinePassed || secondDeadlinePassed || !d2Time) {
+      setSecondDeadlineTimeRemaining('');
+      return;
+    }
+
+    const updateTimer = () => {
+      const diff = d2Time - new Date();
+      if (diff <= 0) {
+        setSecondDeadlineTimeRemaining('LOCKED');
+        fetchPredictions(selectedMwId);
+      } else {
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+        setSecondDeadlineTimeRemaining(`${hours}h ${minutes}m ${seconds}s`);
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(interval);
+  }, [deadlinePassed, secondDeadlinePassed, d2Time, selectedMwId]);
+
   if (loading) {
     return <div style={{ textAlign: 'center', padding: '2rem' }}>Loading Live shootout...</div>;
   }
@@ -339,6 +366,14 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
   const isUserSubmitted = Boolean(
     (myPredictionDoc && myPredictionDoc.isSubmitted) ||
     (myPredDocFromList && myPredDocFromList.isSubmitted)
+  );
+
+  const currentUserPredDoc = myPredDocFromList || myPredictionDoc;
+  const isCurrentUserAutofilled = Boolean(
+    currentUserPredDoc && (
+      currentUserPredDoc.isAutofilled ||
+      (currentUserPredDoc.predictions && currentUserPredDoc.predictions.length >= 3 && currentUserPredDoc.predictions.slice(0, 3).every(mP => isSingleMatchDefaultPattern(mP)))
+    )
   );
 
   const submittedPredictions = rawPredictions
@@ -497,7 +532,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
     }
 
     const isDocAutofilled = predDoc.isAutofilled || Boolean(
-      predDoc.predictions && predDoc.predictions.length >= 3 && predDoc.predictions.slice(0, 3).every(isSingleMatchDefaultPattern)
+      predDoc.predictions && predDoc.predictions.length >= 3 && predDoc.predictions.slice(0, 3).every(mP => isSingleMatchDefaultPattern(mP))
     );
 
     return {
@@ -798,6 +833,85 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
       {/* AFTER DEADLINE ACTIVE VIEW */}
       {deadlinePassed && selectedMw && (
         <>
+          {/* 2ND DEADLINE COUNTDOWN BANNER FOR AUTOFILLED USERS */}
+          {!secondDeadlinePassed && isCurrentUserAutofilled && (
+            <div className="card" style={{
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(234, 88, 12, 0.15) 100%)',
+              border: '1px solid rgba(245, 158, 11, 0.4)',
+              borderRadius: '12px',
+              padding: '1rem 1.25rem',
+              marginBottom: '1.25rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '1rem',
+              boxShadow: '0 4px 20px rgba(245, 158, 11, 0.15)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{
+                  background: 'rgba(245, 158, 11, 0.2)',
+                  padding: '0.6rem',
+                  borderRadius: '10px',
+                  color: '#f59e0b',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Clock size={22} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <h4 style={{ margin: 0, fontWeight: 700, fontSize: '0.95rem', color: '#f59e0b' }}>
+                      2nd Deadline Window Active
+                    </h4>
+                    <span className="badge badge-warning" style={{ fontSize: '0.65rem', textTransform: 'uppercase' }}>Autofill Edit</span>
+                  </div>
+                  <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    Your predictions were autofilled. You can update predictions for matches 4 & 5 before Match #4 kickoff!
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                <div style={{
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                  borderRadius: '8px',
+                  padding: '0.4rem 0.85rem',
+                  textAlign: 'center'
+                }}>
+                  <small style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    2nd Deadline Countdown
+                  </small>
+                  <span style={{ fontFamily: 'monospace', fontSize: '1.1rem', fontWeight: 800, color: '#f59e0b' }}>
+                    {secondDeadlineTimeRemaining || 'Calculating...'}
+                  </span>
+                </div>
+
+                {onNavigateToPredictions && (
+                  <button
+                    type="button"
+                    onClick={onNavigateToPredictions}
+                    className="btn btn-warning"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      fontWeight: 700,
+                      fontSize: '0.85rem',
+                      padding: '0.5rem 1rem',
+                      borderRadius: '8px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Edit3 size={15} /> Edit Matches 4 & 5
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* FLOATING STICKY HEADER: LIVE STANDINGS & MATCHWEEK TABLE */}
           <div style={{
             position: 'sticky',
@@ -1200,7 +1314,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                           const matchIndex = selectedMw?.matches ? selectedMw.matches.findIndex(m => m._id && m._id.toString() === mId) : -1;
 
                           const isDocAutofilledPattern = predDoc.isAutofilled || Boolean(
-                            predDoc.predictions && predDoc.predictions.length >= 3 && predDoc.predictions.slice(0, 3).every(isSingleMatchDefaultPattern)
+                            predDoc.predictions && predDoc.predictions.length >= 3 && predDoc.predictions.slice(0, 3).every(mP => isSingleMatchDefaultPattern(mP))
                           );
 
                           let isMatchAutofilled = false;
