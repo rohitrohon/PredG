@@ -730,24 +730,39 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                   </tr>
                 </thead>
                 <tbody>
-                  {selectedMw.matches?.map((m, idx) => (
-                    <tr key={m._id || idx}>
-                      <td style={{ textAlign: 'center', fontWeight: 700 }}>#{idx + 1}</td>
-                      <td style={{ fontWeight: 700 }}>{m.homeTeam}</td>
-                      <td style={{ textAlign: 'center', color: 'var(--text-muted)' }}>vs</td>
-                      <td style={{ fontWeight: 700 }}>{m.awayTeam}</td>
-                      <td style={{ textAlign: 'center', fontSize: '0.85rem' }}>
-                        {new Date(m.kickoffTime).toLocaleString(undefined, {
-                          weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-                        })}
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <span className="badge badge-warning" style={{ fontSize: '0.75rem' }}>
-                          Locked until deadline
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {selectedMw.matches?.map((m, idx) => {
+                    const isBattle = selectedMw.battleMatchId && m._id && selectedMw.battleMatchId.toString() === m._id.toString();
+                    return (
+                      <tr key={m._id || idx} style={isBattle ? { background: 'rgba(236, 72, 153, 0.05)' } : {}}>
+                        <td style={{ textAlign: 'center', fontWeight: 700 }}>
+                          #{idx + 1}
+                          {isBattle && (
+                            <span style={{ marginLeft: '0.35rem', fontSize: '0.95rem' }} title="Battle Match of the Week">⚔️</span>
+                          )}
+                        </td>
+                        <td style={{ fontWeight: 700 }}>
+                          {m.homeTeam}
+                          {isBattle && (
+                            <span className="badge badge-accent" style={{ marginLeft: '0.5rem', fontSize: '0.65rem', padding: '0.1rem 0.45rem' }}>
+                              ⚔️ Battle Match
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ textAlign: 'center', color: 'var(--text-muted)' }}>vs</td>
+                        <td style={{ fontWeight: 700 }}>{m.awayTeam}</td>
+                        <td style={{ textAlign: 'center', fontSize: '0.85rem' }}>
+                          {new Date(m.kickoffTime).toLocaleString(undefined, {
+                            weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                          })}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="badge badge-warning" style={{ fontSize: '0.75rem' }}>
+                            Locked until deadline
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -869,7 +884,10 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                           return (
                             <tr key={m._id}>
                               <td style={{ textAlign: 'center', fontWeight: 700 }}>
-                                {idx + 1}
+                                #{idx + 1}
+                                {selectedMw.battleMatchId && m._id && selectedMw.battleMatchId.toString() === m._id.toString() && (
+                                  <span style={{ marginLeft: '0.35rem', fontSize: '0.9rem' }} title="Battle Match of the Week">⚔️</span>
+                                )}
                               </td>
                               <td style={{ fontWeight: 700, whiteSpace: 'nowrap', minWidth: '240px' }}>
                                 {m.homeTeam} vs {m.awayTeam}
