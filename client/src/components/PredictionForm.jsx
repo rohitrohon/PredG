@@ -658,8 +658,8 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
               </div>
 
               {/* Bombs Feature */}
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid #ec4899' }}>
-                <h4 style={{ color: '#ec4899', marginBottom: '0.5rem', fontSize: '1rem' }}>💣 Bombs Power-Up (1 BP per category)</h4>
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--primary)' }}>
+                <h4 style={{ color: 'var(--text-main)', marginBottom: '0.5rem', fontSize: '1rem' }}>💣 Bombs Power-Up (1 BP per category)</h4>
                 <p style={{ marginBottom: '0.4rem' }}>Stake 1 Battle Point per category on any match to unlock a <strong>2x Multiplier</strong> specifically for points scored in that prediction category!</p>
                 <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem' }}>
                   <li>Options: <strong>Scoreline, Match Result, First Goal, Greater Possession, Wild Prediction</strong></li>
@@ -825,9 +825,9 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                               style={{
                                 padding: '0.3rem 0.65rem',
                                 fontSize: '0.75rem',
-                                borderColor: selectedBombCategories.length > 0 ? 'var(--accent-glow)' : 'rgba(236, 72, 153, 0.4)',
-                                color: selectedBombCategories.length > 0 ? '#ffffff' : '#ec4899',
-                                background: selectedBombCategories.length > 0 ? 'linear-gradient(135deg, #ec4899, #8b5cf6)' : 'transparent'
+                                borderColor: selectedBombCategories.length > 0 ? 'var(--accent-glow)' : 'var(--border-color)',
+                                color: '#ffffff',
+                                background: selectedBombCategories.length > 0 ? 'var(--accent)' : 'transparent'
                               }}
                               onClick={() => {
                                 if (isMatchLocked) return;
@@ -846,7 +846,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                                 left: 0,
                                 zIndex: 100,
                                 background: 'rgba(15, 23, 42, 0.98)',
-                                border: '1px solid #ec4899',
+                                border: '1px solid var(--border-glow)',
                                 borderRadius: '10px',
                                 padding: '0.75rem',
                                 minWidth: '210px',
@@ -856,7 +856,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                                 gap: '0.5rem'
                               }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.35rem', marginBottom: '0.25rem' }}>
-                                  <span style={{ fontWeight: 700, fontSize: '0.75rem', color: '#ec4899' }}>💣 Bombs (1 BP / cat)</span>
+                                  <span style={{ fontWeight: 700, fontSize: '0.75rem', color: '#ffffff' }}>💣 Bombs (1 BP / cat)</span>
                                   <button
                                     style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.85rem' }}
                                     onClick={() => setOpenBombDropdownMatchId(null)}
@@ -1026,10 +1026,10 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
                       </select>
                     </div>
 
-                    {/* Wild Category & Numeric Input */}
+                    {/* Wild Prediction & Numeric Input */}
                     <div className="card" style={{ background: 'rgba(0, 0, 0, 0.2)', padding: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                       <div>
-                        <label className="form-label" style={{ fontSize: '0.7rem' }}>Wild Category</label>
+                        <label className="form-label" style={{ fontSize: '0.7rem' }}>Wild Prediction</label>
                         <select
                           className="form-input"
                           style={{ marginTop: '0.25rem', fontSize: '0.85rem' }}

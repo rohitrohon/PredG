@@ -1222,6 +1222,9 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                                           +{ptsResult}
                                         </span>
                                       )}
+                                      {hasResultBomb && (
+                                        <span style={{ fontSize: '0.75rem', marginTop: '2px' }} title="Bomb 2x Multiplier Active">💣</span>
+                                      )}
                                     </>
                                   )}
                                 </div>
@@ -1246,6 +1249,9 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                                         <span style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.9, marginTop: '2px' }}>
                                           +{ptsScoreline}
                                         </span>
+                                      )}
+                                      {hasScorelineBomb && (
+                                        <span style={{ fontSize: '0.75rem', marginTop: '2px' }} title="Bomb 2x Multiplier Active">💣</span>
                                       )}
                                     </>
                                   )}
@@ -1272,6 +1278,9 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                                           +{ptsFirstGoal}
                                         </span>
                                       )}
+                                      {hasFirstGoalBomb && (
+                                        <span style={{ fontSize: '0.75rem', marginTop: '2px' }} title="Bomb 2x Multiplier Active">💣</span>
+                                      )}
                                     </>
                                   )}
                                 </div>
@@ -1297,6 +1306,9 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                                           +{ptsPossession}
                                         </span>
                                       )}
+                                      {hasPossessionBomb && (
+                                        <span style={{ fontSize: '0.75rem', marginTop: '2px' }} title="Bomb 2x Multiplier Active">💣</span>
+                                      )}
                                     </>
                                   )}
                                 </div>
@@ -1321,6 +1333,9 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                                         <span style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.9, marginTop: '2px' }}>
                                           +{ptsWild}
                                         </span>
+                                      )}
+                                      {hasWildBomb && (
+                                        <span style={{ fontSize: '0.75rem', marginTop: '2px' }} title="Bomb 2x Multiplier Active">💣</span>
                                       )}
                                     </>
                                   )}
