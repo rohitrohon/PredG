@@ -251,26 +251,27 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
     }
   };
 
-  const selectedMw = matchweeks.find(mw => (mw._id?._id || mw._id)?.toString() === selectedMwId?.toString());
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const selectedMw = matchweeks.find(mw => mw._id === selectedMwId);
 
   const d1Time = selectedMw?.matches && selectedMw.matches[0] && selectedMw.matches[0].kickoffTime
     ? new Date(selectedMw.matches[0].kickoffTime)
-    : (selectedMw?.deadline ? new Date(selectedMw.deadline) : null);
+    : (selectedMw ? new Date(selectedMw.deadline) : null);
 
   const d2Time = selectedMw?.matches && selectedMw.matches[3] && selectedMw.matches[3].kickoffTime
     ? new Date(selectedMw.matches[3].kickoffTime)
     : d1Time;
 
-  const deadlinePassed = Boolean(
-    predictionData?.deadlinePassed ||
-    (d1Time && new Date() >= d1Time) ||
-    (selectedMw?.deadline && new Date() >= new Date(selectedMw.deadline))
-  );
-
-  const secondDeadlinePassed = Boolean(
-    predictionData?.secondDeadlinePassed ||
-    (d2Time && new Date() >= d2Time)
-  );
+  const d1Passed = d1Time ? now >= d1Time : Boolean(predictionData?.deadlinePassed);
+  const d2Passed = d2Time ? now >= d2Time : d1Passed;
 
   const rawPredictions = predictionData?.predictions || [];
   const currentUserId = user?.id || user?._id;
@@ -298,17 +299,14 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
     (myDoc?.predictions && myDoc.predictions.length >= 3 && myDoc.predictions.slice(0, 3).every(isSingleMatchDefaultPattern))
   );
 
-  const showSecondChanceCountdown = Boolean(selectedMw && deadlinePassed && !secondDeadlinePassed && isMyPredictionAutofilled);
+  const showMainCountdown = Boolean(selectedMw && !d1Passed);
+  const showSecondChanceCountdown = Boolean(selectedMw && d1Passed && !d2Passed && isMyPredictionAutofilled);
+  const deadlinePassed = d1Passed;
 
   // Countdown timer for active countdown windows
   useEffect(() => {
-    if (!selectedMw) {
-      setTimeRemaining('');
-      return;
-    }
-
     let target = null;
-    if (!deadlinePassed) {
+    if (showMainCountdown) {
       target = d1Time;
     } else if (showSecondChanceCountdown) {
       target = d2Time;
@@ -319,23 +317,17 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
       return;
     }
 
-    const updateTimer = () => {
-      const diff = target - new Date();
-      if (diff <= 0) {
-        setTimeRemaining('LOCKED');
-        fetchPredictions(selectedMwId);
-      } else {
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-        setTimeRemaining(`${hours}h ${minutes}m ${seconds}s`);
-      }
-    };
-
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-    return () => clearInterval(interval);
-  }, [selectedMw, deadlinePassed, showSecondChanceCountdown, d1Time, d2Time, selectedMwId]);
+    const diff = target - now;
+    if (diff <= 0) {
+      setTimeRemaining('LOCKED');
+      fetchPredictions(selectedMwId);
+    } else {
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      setTimeRemaining(`${hours}h ${minutes}m ${seconds}s`);
+    }
+  }, [showMainCountdown, showSecondChanceCountdown, d1Time, d2Time, now, selectedMwId]);
 
   if (loading) {
     return <div style={{ textAlign: 'center', padding: '2rem' }}>Loading Live shootout...</div>;
@@ -388,9 +380,9 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
     predDoc.predictions.forEach((p) => {
       const mId = p.matchId.toString();
       const match = selectedMw.matches.find(m => m._id.toString() === mId);
-      if (!match || !match.actualResults || match.actualResults.result === null || match.actualResults.result === undefined) return;
+      if (!match || match.actualResults.result === null) return;
 
-      const act = match.actualResults || {};
+      const act = match.actualResults;
       const dist = distribution[mId] || {
         result: { Home: 0, Away: 0, Draw: 0 },
         firstGoal: { Home: 0, Away: 0, 'No goal': 0 },
@@ -484,7 +476,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
       const gMatchIdStr = predDoc.gamble.matchId.toString();
       const match = selectedMw.matches.find(m => m._id.toString() === gMatchIdStr);
 
-      if (match && match.actualResults && match.actualResults.result !== null && match.actualResults.result !== undefined) {
+      if (match && match.actualResults.result !== null) {
         const correctCats = correctCategoriesMap[gMatchIdStr] || 0;
         const gamblePts = predDoc.gamble.points || 0;
         const hasShield = predDoc.marketPowerUps?.some(pu => pu.matchId.toString() === gMatchIdStr && pu.type === 'Shield');
@@ -665,7 +657,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
       )}
 
       {/* BEFORE DEADLINE DISPLAY */}
-      {!deadlinePassed && selectedMw && (
+      {showMainCountdown && selectedMw && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* COUNTDOWN CARD */}
           <div className="card" style={{
@@ -937,14 +929,14 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                       <div key={idx} className="card" style={{
                         padding: '0.75rem 1rem',
                         background: 'rgba(0,0,0,0.2)',
-                        borderColor: (currentUsername && p.username === currentUsername) ? 'var(--primary)' : 'var(--border-color)',
-                        boxShadow: (currentUsername && p.username === currentUsername) ? '0 0 10px rgba(56, 189, 248, 0.05)' : 'none'
+                        borderColor: p.username === user.username ? 'var(--primary)' : 'var(--border-color)',
+                        boxShadow: p.username === user.username ? '0 0 10px rgba(56, 189, 248, 0.05)' : 'none'
                       }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <small style={{ color: 'var(--text-muted)', fontWeight: 700 }}>#{idx + 1}</small>
                           {p.isAutofilled && <span className="badge badge-warning" style={{ fontSize: '0.55rem', padding: '0.1rem 0.35rem' }}>Autofill</span>}
                         </div>
-                        <h4 style={{ margin: '0.2rem 0', fontWeight: 700, fontSize: '1rem', color: (currentUsername && p.username === currentUsername) ? 'var(--primary)' : 'inherit' }}>
+                        <h4 style={{ margin: '0.2rem 0', fontWeight: 700, fontSize: '1rem', color: p.username === user.username ? 'var(--primary)' : 'inherit' }}>
                           {p.username}
                         </h4>
                         <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary)' }}>
@@ -1053,8 +1045,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
             {selectedMw.matches.map((match, matchIdx) => {
               const mId = match._id.toString();
-              const act = match.actualResults || {};
-              const hasScore = act.homeScore !== null && act.homeScore !== undefined;
+              const hasScore = match.actualResults.homeScore !== null;
 
               return (
                 <div key={mId} className="card" style={{ padding: '1.5rem', background: 'rgba(15, 23, 42, 0.4)' }}>
@@ -1093,11 +1084,11 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                             fontSize: '1.25rem',
                             fontFamily: 'monospace'
                           }}>
-                            {act.homeScore} - {act.awayScore}
+                            {match.actualResults.homeScore} - {match.actualResults.awayScore}
                           </div>
                           <span className="badge badge-success" style={{ fontWeight: 700 }}>
                             {renderChoiceAbbreviation(
-                              getMatchWinnerChoice(act, match.homeTeam, match.awayTeam),
+                              getMatchWinnerChoice(match.actualResults, match.homeTeam, match.awayTeam),
                               match.homeTeam, match.awayTeam
                             )}
                           </span>
@@ -1146,22 +1137,22 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                       fontSize: '0.8rem'
                     }}>
                       <div style={{ whiteSpace: 'nowrap' }}>
-                        1st Goal: <strong style={{ color: 'var(--primary)' }}>{renderChoiceAbbreviation(act.firstGoal, match.homeTeam, match.awayTeam)}</strong>
+                        1st Goal: <strong style={{ color: 'var(--primary)' }}>{renderChoiceAbbreviation(match.actualResults.firstGoal, match.homeTeam, match.awayTeam)}</strong>
                       </div>
                       <div style={{ whiteSpace: 'nowrap' }}>
-                        Possession: <strong style={{ color: 'var(--primary)' }}>{renderChoiceAbbreviation(act.possession, match.homeTeam, match.awayTeam)}</strong>
+                        Possession: <strong style={{ color: 'var(--primary)' }}>{renderChoiceAbbreviation(match.actualResults.possession, match.homeTeam, match.awayTeam)}</strong>
                       </div>
                       <div style={{ whiteSpace: 'nowrap' }}>
-                        Yellow Cards: <strong style={{ color: 'var(--primary)' }}>{act.yellowCards !== null && act.yellowCards !== undefined ? act.yellowCards : '-'}</strong>
+                        Yellow Cards: <strong style={{ color: 'var(--primary)' }}>{match.actualResults.yellowCards !== null && match.actualResults.yellowCards !== undefined ? match.actualResults.yellowCards : '-'}</strong>
                       </div>
                       <div style={{ whiteSpace: 'nowrap' }}>
-                        Offsides: <strong style={{ color: 'var(--primary)' }}>{act.offsides !== null && act.offsides !== undefined ? act.offsides : '-'}</strong>
+                        Offsides: <strong style={{ color: 'var(--primary)' }}>{match.actualResults.offsides !== null && match.actualResults.offsides !== undefined ? match.actualResults.offsides : '-'}</strong>
                       </div>
                       <div style={{ whiteSpace: 'nowrap' }}>
-                        Corners: <strong style={{ color: 'var(--primary)' }}>{act.corners !== null && act.corners !== undefined ? act.corners : '-'}</strong>
+                        Corners: <strong style={{ color: 'var(--primary)' }}>{match.actualResults.corners !== null && match.actualResults.corners !== undefined ? match.actualResults.corners : '-'}</strong>
                       </div>
                       <div style={{ whiteSpace: 'nowrap' }}>
-                        Total Shots: <strong style={{ color: 'var(--primary)' }}>{act.shots !== null && act.shots !== undefined ? act.shots : '-'}</strong>
+                        Total Shots: <strong style={{ color: 'var(--primary)' }}>{match.actualResults.shots !== null && match.actualResults.shots !== undefined ? match.actualResults.shots : '-'}</strong>
                       </div>
                     </div>
                   )}
@@ -1185,7 +1176,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                           const matchPred = predDoc.predictions.find(p => p.matchId.toString() === mId);
                           if (!matchPred) return null;
 
-                          const act = match.actualResults || {};
+                          const act = match.actualResults;
                           const dist = distribution[mId] || {
                             result: { Home: 0, Away: 0, Draw: 0 },
                             firstGoal: { Home: 0, Away: 0, 'No goal': 0 },
@@ -1307,7 +1298,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
 
                           return (
                             <tr key={predDoc._id} style={{
-                              background: (currentUserId && (predDoc.userId?._id || predDoc.userId)?.toString() === currentUserId.toString()) ? 'rgba(56, 189, 248, 0.03)' : 'transparent'
+                              background: predDoc.userId?._id?.toString() === user.id ? 'rgba(56, 189, 248, 0.03)' : 'transparent'
                             }}>
                               {/* NAME COLUMN */}
                               <td style={{
