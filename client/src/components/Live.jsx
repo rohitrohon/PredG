@@ -1267,6 +1267,12 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                           const hasPossessionBomb = bombCategories.includes('Greater Possession');
                           const hasWildBomb = bombCategories.includes('Wild Prediction');
 
+                          const ptsResultFinal = ptsResult * (hasResultBomb ? 2 : 1);
+                          const ptsScorelineFinal = ptsScoreline * (hasScorelineBomb ? 2 : 1);
+                          const ptsFirstGoalFinal = ptsFirstGoal * (hasFirstGoalBomb ? 2 : 1);
+                          const ptsPossessionFinal = ptsPossession * (hasPossessionBomb ? 2 : 1);
+                          const ptsWildFinal = ptsWild * (hasWildBomb ? 2 : 1);
+
                           let matchGamblePoints = 0;
                           const isGamble = predDoc.gamble?.active && predDoc.gamble.matchId && predDoc.gamble.matchId.toString() === mId;
                           if (isGamble) {
@@ -1293,7 +1299,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                           const gotSuperBonus = correctCats === 5;
                           const superBonusMult = gotSuperBonus ? 1.5 : 1;
 
-                          const categoriesSum = ptsResult + ptsScoreline + ptsFirstGoal + ptsPossession + ptsWild;
+                          const categoriesSum = ptsResultFinal + ptsScorelineFinal + ptsFirstGoalFinal + ptsPossessionFinal + ptsWildFinal;
                           let matchTotal = Math.round((categoriesSum + bonusPoints + matchGamblePoints) * totalMultiplier * superBonusMult);
 
                           // Render labels
@@ -1364,7 +1370,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
 
                               {/* MATCH RESULT */}
                               <td style={{
-                                ...(matchPred.isLockedWindow || matchPred.result === 'Locked' ? {} : getTemperatureStyle(ptsResult, hasScore)),
+                                ...(matchPred.isLockedWindow || matchPred.result === 'Locked' ? {} : getTemperatureStyle(ptsResultFinal, hasScore)),
                                 textAlign: 'center',
                                 padding: '0.5rem',
                                 whiteSpace: 'nowrap'
@@ -1379,7 +1385,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                                       </span>
                                       {hasScore && (
                                         <span style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.9, marginTop: '2px' }}>
-                                          +{ptsResult}
+                                          +{ptsResultFinal}
                                         </span>
                                       )}
                                       {hasResultBomb && (
@@ -1392,7 +1398,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
 
                               {/* SCORELINE & SAFE BET */}
                               <td style={{
-                                ...(matchPred.isLockedWindow || matchPred.result === 'Locked' ? {} : getTemperatureStyle(ptsScoreline, hasScore)),
+                                ...(matchPred.isLockedWindow || matchPred.result === 'Locked' ? {} : getTemperatureStyle(ptsScorelineFinal, hasScore)),
                                 textAlign: 'center',
                                 padding: '0.5rem',
                                 whiteSpace: 'nowrap'
@@ -1407,7 +1413,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                                       </span>
                                       {hasScore && (
                                         <span style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.9, marginTop: '2px' }}>
-                                          +{ptsScoreline}
+                                          +{ptsScorelineFinal}
                                         </span>
                                       )}
                                       {hasScorelineBomb && (
@@ -1420,7 +1426,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
 
                               {/* 1ST GOAL */}
                               <td style={{
-                                ...(matchPred.isLockedWindow || matchPred.result === 'Locked' ? {} : getTemperatureStyle(ptsFirstGoal, hasScore)),
+                                ...(matchPred.isLockedWindow || matchPred.result === 'Locked' ? {} : getTemperatureStyle(ptsFirstGoalFinal, hasScore)),
                                 textAlign: 'center',
                                 padding: '0.5rem',
                                 whiteSpace: 'nowrap'
@@ -1435,7 +1441,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                                       </span>
                                       {hasScore && (
                                         <span style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.9, marginTop: '2px' }}>
-                                          +{ptsFirstGoal}
+                                          +{ptsFirstGoalFinal}
                                         </span>
                                       )}
                                       {hasFirstGoalBomb && (
@@ -1448,7 +1454,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
 
                               {/* POSSESSION */}
                               <td style={{
-                                ...(matchPred.isLockedWindow || matchPred.result === 'Locked' ? {} : getTemperatureStyle(ptsPossession, hasScore)),
+                                ...(matchPred.isLockedWindow || matchPred.result === 'Locked' ? {} : getTemperatureStyle(ptsPossessionFinal, hasScore)),
                                 textAlign: 'center',
                                 padding: '0.5rem',
                                 whiteSpace: 'nowrap'
@@ -1463,7 +1469,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                                       </span>
                                       {hasScore && (
                                         <span style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.9, marginTop: '2px' }}>
-                                          +{ptsPossession}
+                                          +{ptsPossessionFinal}
                                         </span>
                                       )}
                                       {hasPossessionBomb && (
@@ -1476,7 +1482,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
 
                               {/* WILD PREDICTION */}
                               <td style={{
-                                ...(matchPred.isLockedWindow || matchPred.result === 'Locked' ? {} : getTemperatureStyle(ptsWild, hasScore)),
+                                ...(matchPred.isLockedWindow || matchPred.result === 'Locked' ? {} : getTemperatureStyle(ptsWildFinal, hasScore)),
                                 textAlign: 'center',
                                 padding: '0.5rem',
                                 whiteSpace: 'nowrap'
@@ -1491,7 +1497,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                                       </span>
                                       {hasScore && matchPred.wildPredictionCategory !== 'None' && (
                                         <span style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.9, marginTop: '2px' }}>
-                                          +{ptsWild}
+                                          +{ptsWildFinal}
                                         </span>
                                       )}
                                       {hasWildBomb && (
