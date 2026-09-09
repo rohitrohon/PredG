@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
-import { Sword, History, Trophy, LayoutGrid, Check } from 'lucide-react';
+import { Sword, History, Trophy, LayoutGrid, Check, Info, BookOpen } from 'lucide-react';
 
 function Battles({ user, groupId }) {
   const [matchweeks, setMatchweeks] = useState([]);
@@ -9,6 +9,7 @@ function Battles({ user, groupId }) {
   const [standings, setStandings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showBattleRulesModal, setShowBattleRulesModal] = useState(false);
 
   useEffect(() => {
     fetchInitialData();
@@ -371,10 +372,33 @@ function Battles({ user, groupId }) {
       
       {/* HEADER SECTION */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <h2 style={{ borderBottom: 'none', marginBottom: '0.25rem', paddingBottom: 0 }}>
             H2H <span className="text-gradient">Battles</span>
           </h2>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setShowBattleRulesModal(true)}
+            style={{
+              padding: '0.35rem 0.65rem',
+              borderRadius: '50%',
+              fontSize: '0.9rem',
+              fontWeight: 800,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '32px',
+              height: '32px',
+              cursor: 'pointer',
+              border: '1px solid var(--primary-glow)',
+              background: 'rgba(56, 189, 248, 0.1)',
+              color: 'var(--primary)'
+            }}
+            title="Battle Rules & Points System"
+          >
+            <Info size={16} />
+          </button>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -465,6 +489,130 @@ function Battles({ user, groupId }) {
         </>
       )}
 
+      {/* BATTLE RULES & POINTS SYSTEM MODAL OVERLAY */}
+      {showBattleRulesModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.82)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }}>
+          <div className="card" style={{
+            width: '100%',
+            maxWidth: '680px',
+            maxHeight: '88vh',
+            overflowY: 'auto',
+            background: 'rgba(15, 23, 42, 0.96)',
+            border: '1px solid var(--primary-glow)',
+            borderRadius: '16px',
+            padding: '1.75rem',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.7)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontSize: '1.25rem' }}>
+                <BookOpen size={22} /> H2H Battles Rules & Point System
+              </h3>
+              <button
+                className="btn btn-secondary"
+                style={{ padding: '0.3rem 0.7rem', fontSize: '0.85rem', borderRadius: '50%' }}
+                onClick={() => setShowBattleRulesModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', fontSize: '0.9rem', color: 'var(--text-main)' }}>
+
+              {/* How Battle Pairing Works */}
+              <div style={{ background: 'rgba(56, 189, 248, 0.05)', padding: '1rem', borderRadius: '10px', border: '1px solid rgba(56, 189, 248, 0.25)', borderLeft: '4px solid var(--primary)' }}>
+                <h4 style={{ color: 'var(--primary)', marginBottom: '0.5rem', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  ⚔️ How H2H Battle Pairing Works
+                </h4>
+                <ul style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.85rem' }}>
+                  <li><strong>Matchweek 1:</strong> Establishes initial baseline standings.</li>
+                  <li><strong>Matchweek 2 Onwards:</strong> Opponents are automatically paired based on current <strong>Overall Group Standings</strong>:
+                    <ul style={{ paddingLeft: '1rem', marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                      <li>Bracket #1: Rank #1 vs Rank #2</li>
+                      <li>Bracket #2: Rank #3 vs Rank #4</li>
+                      <li>Bracket #3: Rank #5 vs Rank #6, and so on.</li>
+                    </ul>
+                  </li>
+                  <li><strong>Triad Matchup (3-Way Battle):</strong> If there is an odd number of active players in the group, the bottom 3 players in the standings form a 3-way Triad matchup (e.g. Rank #7 vs Rank #8 vs Rank #9).</li>
+                  <li><strong>Battle Match of the Week:</strong> In each matchweek, 1 designated match (marked with ⚔️) serves as the battleground. Paired players' predictions on this specific match are compared head-to-head.</li>
+                </ul>
+              </div>
+
+              {/* Head-to-Head Category Comparison */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--warning)' }}>
+                <h4 style={{ color: 'var(--warning)', marginBottom: '0.5rem', fontSize: '1rem' }}>📊 Head-to-Head Category Comparison</h4>
+                <p style={{ marginBottom: '0.4rem', fontSize: '0.85rem' }}>
+                  Predictions for the <strong>Battle Match of the Week</strong> are compared category by category across all 5 prediction categories:
+                </p>
+                <ol style={{ paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem' }}>
+                  <li><strong>Match Result</strong></li>
+                  <li><strong>Scoreline & Safe Bet</strong></li>
+                  <li><strong>First Goal</strong></li>
+                  <li><strong>Greater Possession</strong></li>
+                  <li><strong>Wild Prediction Category</strong></li>
+                </ol>
+                <p style={{ marginTop: '0.4rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  In each category, the player who earns higher points for that category wins <strong>1 Category Win</strong>. If points are equal, neither player gets a category win (Draw).
+                </p>
+              </div>
+
+              {/* Battle Points (BP) Calculation */}
+              <div style={{ background: 'rgba(16, 185, 129, 0.05)', padding: '1rem', borderRadius: '10px', border: '1px solid rgba(16, 185, 129, 0.25)', borderLeft: '4px solid var(--success)' }}>
+                <h4 style={{ color: 'var(--success)', marginBottom: '0.5rem', fontSize: '1rem' }}>🏆 Battle Points (BP) Calculation</h4>
+                
+                <div style={{ marginBottom: '0.75rem' }}>
+                  <strong style={{ color: 'var(--text-main)', fontSize: '0.88rem' }}>2-Player H2H Matchups:</strong>
+                  <ul style={{ paddingLeft: '1.2rem', marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.85rem' }}>
+                    <li><strong>Major Win (4 or 5 Category Wins):</strong> Winner earns <span style={{ color: 'var(--success)', fontWeight: 700 }}>5 BP</span> (Loser: 0 BP)</li>
+                    <li><strong>Minor Win (3 Category Wins):</strong> Winner earns <span style={{ color: 'var(--primary)', fontWeight: 700 }}>3 BP</span> (Loser: 0 BP)</li>
+                    <li><strong>Draw / Equal Category Wins:</strong> Both players earn <span style={{ color: 'var(--warning)', fontWeight: 700 }}>1 BP</span></li>
+                  </ul>
+                </div>
+
+                <div>
+                  <strong style={{ color: 'var(--text-main)', fontSize: '0.88rem' }}>3-Player Triad Matchups:</strong>
+                  <ul style={{ paddingLeft: '1.2rem', marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.85rem' }}>
+                    <li><strong>Major Win (≥ 4 Category Wins):</strong> Winner earns <span style={{ color: 'var(--success)', fontWeight: 700 }}>5 BP</span></li>
+                    <li><strong>Minor Win (Sole Highest Category Wins):</strong> Winner earns <span style={{ color: 'var(--primary)', fontWeight: 700 }}>3 BP</span></li>
+                    <li><strong>Tie for Top Wins / 3-Way Draw:</strong> Tied players earn <span style={{ color: 'var(--warning)', fontWeight: 700 }}>1 BP</span> each</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Uses of Battle Points */}
+              <div style={{ background: 'rgba(236, 72, 153, 0.05)', padding: '1rem', borderRadius: '10px', border: '1px solid rgba(236, 72, 153, 0.25)', borderLeft: '4px solid #ec4899' }}>
+                <h4 style={{ color: '#ec4899', marginBottom: '0.5rem', fontSize: '1rem' }}>💣 Using Battle Points (BP)</h4>
+                <p style={{ margin: 0, fontSize: '0.85rem' }}>
+                  Battle Points accumulate throughout the season to determine the <strong>H2H Battle Standings</strong>. In addition, you can spend Battle Points in the <strong>Predictions tab</strong> to activate <strong>💣 Bombs Power-Ups</strong> (1 BP per category) to double category points on key matches!
+                </p>
+              </div>
+
+            </div>
+
+            <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+              <button
+                className="btn btn-primary"
+                style={{ padding: '0.65rem 2.25rem', fontWeight: 700 }}
+                onClick={() => setShowBattleRulesModal(false)}
+              >
+                Got it!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
