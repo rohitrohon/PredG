@@ -216,9 +216,11 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
       setMatchweeks(visible);
 
       if (visible.length > 0) {
-        // Default to the latest matchweek
-        const latest = visible[visible.length - 1];
-        setSelectedMwId(latest._id);
+        const exists = visible.some(mw => (mw._id?._id || mw._id)?.toString() === selectedMwId?.toString());
+        if (!exists || !selectedMwId) {
+          const latest = visible[visible.length - 1];
+          setSelectedMwId((latest._id?._id || latest._id).toString());
+        }
       }
     } catch (err) {
       setError('Failed to fetch matchweeks.');
@@ -248,11 +250,34 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
       setLastUpdated(new Date());
     } catch (err) {
       console.error('Error fetching prediction details:', err);
+      // Auto-recover if selected matchweek was deleted or not found
+      if (err.message && (err.message.includes('not found') || err.message.includes('404')) && matchweeks.length > 0) {
+        const validMws = matchweeks.filter(mw => (mw._id?._id || mw._id)?.toString() !== mwId?.toString());
+        if (validMws.length > 0) {
+          const latestMw = validMws[validMws.length - 1];
+          const latestId = (latestMw._id?._id || latestMw._id).toString();
+          setMatchweeks(validMws);
+          setSelectedMwId(latestId);
+          return;
+        }
+      }
       setError(err.message || 'Failed to load predictions details.');
     }
   };
 
   const selectedMw = matchweeks.find(mw => (mw._id?._id || mw._id)?.toString() === selectedMwId?.toString());
+
+  // Auto-fallback if selectedMwId is invalid or deleted
+  useEffect(() => {
+    if (matchweeks.length > 0) {
+      const exists = matchweeks.some(mw => (mw._id?._id || mw._id)?.toString() === selectedMwId?.toString());
+      if (!exists) {
+        const latestMw = matchweeks[matchweeks.length - 1];
+        setSelectedMwId((latestMw._id?._id || latestMw._id).toString());
+      }
+    }
+  }, [matchweeks, selectedMwId]);
+
   const d1Time = selectedMw?.matches && selectedMw.matches[0] && selectedMw.matches[0].kickoffTime
     ? new Date(selectedMw.matches[0].kickoffTime)
     : (selectedMw?.deadline ? new Date(selectedMw.deadline) : null);
