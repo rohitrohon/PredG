@@ -38,6 +38,14 @@ function getShortTeamName(teamName) {
   return teamName.trim().slice(0, 3).toUpperCase();
 }
 
+function isSingleMatchDefaultPattern(mP) {
+  if (!mP) return false;
+  const isDefaultScore = (mP.homeScore === 3 && mP.awayScore === 0) || (mP.homeScore === 0 && mP.awayScore === 3) || (mP.homeScore === 1 && mP.awayScore === 0);
+  const isDefaultSafe = mP.safeBet === 'Home';
+  const isDefaultWild = !mP.wildPredictionCategory || mP.wildPredictionCategory === 'None';
+  return isDefaultScore && isDefaultSafe && isDefaultWild;
+}
+
 function renderChoiceAbbreviation(choice, homeTeam, awayTeam) {
   if (!choice) return '-';
   if (choice === 'Home') return getShortTeamName(homeTeam);
@@ -176,6 +184,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [timeRemaining, setTimeRemaining] = useState('');
+  const [d2TimeRemaining, setD2TimeRemaining] = useState('');
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [showFloatingOverview, setShowFloatingOverview] = useState(true);
@@ -243,10 +252,18 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
     }
   };
 
-  const selectedMw = matchweeks.find(mw => mw._id === selectedMwId);
-  const deadlinePassed = predictionData?.deadlinePassed || (selectedMw && new Date() > new Date(selectedMw.deadline));
+  const selectedMw = matchweeks.find(mw => (mw._id?._id || mw._id)?.toString() === selectedMwId?.toString());
+  const d1Time = selectedMw?.matches && selectedMw.matches[0] && selectedMw.matches[0].kickoffTime
+    ? new Date(selectedMw.matches[0].kickoffTime)
+    : (selectedMw?.deadline ? new Date(selectedMw.deadline) : null);
+  const d2Time = selectedMw?.matches && selectedMw.matches[3] && selectedMw.matches[3].kickoffTime
+    ? new Date(selectedMw.matches[3].kickoffTime)
+    : d1Time;
 
-  // Countdown timer for locked matchweeks
+  const deadlinePassed = Boolean(predictionData?.deadlinePassed || (d1Time && new Date() >= d1Time));
+  const secondDeadlinePassed = Boolean(predictionData?.secondDeadlinePassed || (d2Time && new Date() >= d2Time));
+
+  // Countdown timer for 1st main deadline
   useEffect(() => {
     if (!selectedMw || deadlinePassed) {
       setTimeRemaining('');
@@ -254,7 +271,8 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
     }
 
     const interval = setInterval(() => {
-      const diff = new Date(selectedMw.deadline) - new Date();
+      const deadlineDate = d1Time || new Date(selectedMw.deadline);
+      const diff = deadlineDate - new Date();
       if (diff <= 0) {
         setTimeRemaining('LOCKED');
         clearInterval(interval);
@@ -268,7 +286,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [selectedMw, deadlinePassed, selectedMwId]);
+  }, [selectedMw, deadlinePassed, selectedMwId, d1Time]);
 
   if (loading) {
     return <div style={{ textAlign: 'center', padding: '2rem' }}>Loading Live shootout...</div>;
@@ -330,6 +348,39 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
     });
   });
 
+  const isCurrentUserAutofilled = Boolean(
+    (myPredictionDoc && myPredictionDoc.isAutofilled) ||
+    (myPredDocFromList && myPredDocFromList.isAutofilled) ||
+    (myPredDocFromList && myPredDocFromList.predictions && myPredDocFromList.predictions.length >= 3 && myPredDocFromList.predictions.slice(0, 3).every(isSingleMatchDefaultPattern))
+  );
+
+  const isD2ActiveForUser = deadlinePassed && !secondDeadlinePassed && isCurrentUserAutofilled && d2Time && new Date() < d2Time;
+
+  // Countdown timer for 2nd chance deadline (Match #4 kickoff)
+  useEffect(() => {
+    if (!isD2ActiveForUser || !d2Time) {
+      setD2TimeRemaining('');
+      return;
+    }
+
+    const updateD2Timer = () => {
+      const diff = d2Time - new Date();
+      if (diff <= 0) {
+        setD2TimeRemaining('LOCKED');
+        fetchPredictions(selectedMwId);
+      } else {
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+        setD2TimeRemaining(`${hours}h ${minutes}m ${seconds}s`);
+      }
+    };
+
+    updateD2Timer();
+    const interval = setInterval(updateD2Timer, 1000);
+    return () => clearInterval(interval);
+  }, [isD2ActiveForUser, d2Time, selectedMwId]);
+
   // Helper to calculate exact player scores and details
   const getScoredPlayerDoc = (predDoc) => {
     let totalLiveScore = 0;
@@ -337,10 +388,11 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
     const matchScores = {}; // matchId -> matchTotal
 
     // Score matches
-    predDoc.predictions.forEach((p) => {
+    (predDoc.predictions || []).forEach((p) => {
+      if (!p.matchId) return;
       const mId = p.matchId.toString();
-      const match = selectedMw.matches.find(m => m._id.toString() === mId);
-      if (!match || match.actualResults.result === null) return;
+      const match = selectedMw?.matches ? selectedMw.matches.find(m => m._id && m._id.toString() === mId) : null;
+      if (!match || !match.actualResults || match.actualResults.result === null || match.actualResults.result === undefined) return;
 
       const act = match.actualResults;
       const dist = distribution[mId] || {
@@ -359,13 +411,13 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
       if (p.wildPredictionCategory && p.wildPredictionCategory !== 'None') {
         const cat = p.wildPredictionCategory;
         const val = Number(p.wildPredictionValue);
-        if (cat === 'Yellow Cards' && act.yellowCards !== null && val === Number(act.yellowCards)) isWildCorrect = true;
-        if (cat === 'Offsides' && act.offsides !== null && val === Number(act.offsides)) isWildCorrect = true;
-        if (cat === 'Corners' && act.corners !== null && val === Number(act.corners)) isWildCorrect = true;
-        if (cat === 'Total Shots' && act.shots !== null && val === Number(act.shots)) isWildCorrect = true;
+        if (cat === 'Yellow Cards' && act.yellowCards !== null && act.yellowCards !== undefined && val === Number(act.yellowCards)) isWildCorrect = true;
+        if (cat === 'Offsides' && act.offsides !== null && act.offsides !== undefined && val === Number(act.offsides)) isWildCorrect = true;
+        if (cat === 'Corners' && act.corners !== null && act.corners !== undefined && val === Number(act.corners)) isWildCorrect = true;
+        if (cat === 'Total Shots' && act.shots !== null && act.shots !== undefined && val === Number(act.shots)) isWildCorrect = true;
       }
-      if (!isWildCorrect && act.wildPredictionCorrectUsers && act.wildPredictionCorrectUsers.some(
-        id => id.toString() === predDoc.userId?._id?.toString()
+      if (!isWildCorrect && act.wildPredictionCorrectUsers && Array.isArray(act.wildPredictionCorrectUsers) && act.wildPredictionCorrectUsers.some(
+        id => id.toString() === (predDoc.userId?._id ? predDoc.userId._id.toString() : predDoc.userId?.toString())
       )) {
         isWildCorrect = true;
       }
@@ -387,7 +439,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
       const isGambleMatch = predDoc.gamble?.active && predDoc.gamble.matchId && predDoc.gamble.matchId.toString() === mId;
       if (isGambleMatch) {
         const gamblePtsVal = predDoc.gamble.points || 0;
-        const hasShield = predDoc.marketPowerUps?.some(pu => pu.matchId.toString() === mId && pu.type === 'Shield');
+        const hasShield = (predDoc.marketPowerUps || []).some(pu => pu.matchId && pu.matchId.toString() === mId && pu.type === 'Shield');
 
         if (correctCats >= 4) {
           matchGamblePoints = gamblePtsVal;
@@ -399,7 +451,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
       }
 
       // Check Bomb multipliers for categories on this match
-      const matchPowerUps = (predDoc.marketPowerUps || []).filter(pu => pu.matchId.toString() === mId);
+      const matchPowerUps = (predDoc.marketPowerUps || []).filter(pu => pu.matchId && pu.matchId.toString() === mId);
       const bombCategories = matchPowerUps.filter(pu => pu.type === 'Bomb').map(pu => pu.category);
 
       const ptsResultFinal = ptsResult * (bombCategories.includes('Match Result') ? 2 : 1);
@@ -434,12 +486,12 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
 
     if (predDoc.gamble?.active && predDoc.gamble.matchId) {
       const gMatchIdStr = predDoc.gamble.matchId.toString();
-      const match = selectedMw.matches.find(m => m._id.toString() === gMatchIdStr);
+      const match = selectedMw?.matches ? selectedMw.matches.find(m => m._id && m._id.toString() === gMatchIdStr) : null;
 
-      if (match && match.actualResults.result !== null) {
+      if (match && match.actualResults && match.actualResults.result !== null && match.actualResults.result !== undefined) {
         const correctCats = correctCategoriesMap[gMatchIdStr] || 0;
         const gamblePts = predDoc.gamble.points || 0;
-        const hasShield = predDoc.marketPowerUps?.some(pu => pu.matchId.toString() === gMatchIdStr && pu.type === 'Shield');
+        const hasShield = (predDoc.marketPowerUps || []).some(pu => pu.matchId && pu.matchId.toString() === gMatchIdStr && pu.type === 'Shield');
 
         if (correctCats >= 4) {
           gambleNet = gamblePts;
@@ -462,14 +514,11 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
     }
 
     const isDocAutofilled = predDoc.isAutofilled || Boolean(
-      predDoc.predictions && predDoc.predictions.length >= 3 && predDoc.predictions.slice(0, 3).every(p => {
-        const isDefaultScore = (p.homeScore === 3 && p.awayScore === 0) || (p.homeScore === 0 && p.awayScore === 3) || (p.homeScore === 1 && p.awayScore === 0);
-        return isDefaultScore && p.safeBet === 'Home' && (!p.wildPredictionCategory || p.wildPredictionCategory === 'None');
-      })
+      predDoc.predictions && predDoc.predictions.length >= 3 && predDoc.predictions.slice(0, 3).every(isSingleMatchDefaultPattern)
     );
 
     return {
-      username: predDoc.userId?.username || 'Unknown',
+      username: predDoc.userId?.username || predDoc.userId?.name || 'Unknown',
       points: totalLiveScore,
       submitted: predDoc.isSubmitted,
       isAutofilled: isDocAutofilled,
@@ -766,6 +815,56 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
       {/* AFTER DEADLINE ACTIVE VIEW */}
       {deadlinePassed && selectedMw && (
         <>
+          {/* 2ND CHANCE DEADLINE COUNTDOWN BANNER FOR AUTOFILLED USERS BEFORE 2ND DEADLINE */}
+          {isD2ActiveForUser && (
+            <div className="card" style={{
+              textAlign: 'center',
+              padding: '1.5rem 2rem',
+              background: 'rgba(245, 158, 11, 0.05)',
+              borderColor: 'rgba(245, 158, 11, 0.3)',
+              marginBottom: '1.5rem'
+            }}>
+              <Clock size={36} style={{ color: 'var(--warning)', margin: '0 auto 0.5rem', animation: 'pulse 2s infinite' }} />
+              <h3 style={{ marginBottom: '0.25rem', color: 'var(--warning)' }}>2nd Chance Deadline (Match #4 Kickoff)</h3>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+                You missed the 1st deadline and received default predictions. You can still submit/edit predictions for <strong>Games 4 & 5</strong> before Match #4 starts!
+              </div>
+              <div style={{
+                fontSize: '2rem',
+                fontWeight: 800,
+                fontFamily: 'monospace',
+                color: 'var(--warning)',
+                background: 'rgba(0,0,0,0.3)',
+                padding: '0.5rem 1.5rem',
+                borderRadius: '10px',
+                display: 'inline-block',
+                letterSpacing: '0.05em',
+                boxShadow: '0 0 15px rgba(245, 158, 11, 0.15)'
+              }}>
+                {d2TimeRemaining || 'LOCKING...'}
+              </div>
+              {onNavigateToPredictions && (
+                <div style={{ marginTop: '1rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={onNavigateToPredictions}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.6rem 1.35rem',
+                      fontSize: '0.95rem',
+                      fontWeight: 700
+                    }}
+                  >
+                    <Edit3 size={16} /> Edit Games 4 & 5
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* FLOATING STICKY HEADER: LIVE STANDINGS & MATCHWEEK TABLE */}
           <div style={{
             position: 'sticky',
@@ -814,25 +913,30 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                     <Trophy size={18} style={{ color: 'var(--primary)' }} /> Live standings
                   </h3>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
-                    {liveStandings.map((p, idx) => (
-                      <div key={idx} className="card" style={{
-                        padding: '0.75rem 1rem',
-                        background: 'rgba(0,0,0,0.2)',
-                        borderColor: p.username === user.username ? 'var(--primary)' : 'var(--border-color)',
-                        boxShadow: p.username === user.username ? '0 0 10px rgba(56, 189, 248, 0.05)' : 'none'
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <small style={{ color: 'var(--text-muted)', fontWeight: 700 }}>#{idx + 1}</small>
-                          {p.isAutofilled && <span className="badge badge-warning" style={{ fontSize: '0.55rem', padding: '0.1rem 0.35rem' }}>Autofill</span>}
+                    {liveStandings.map((p, idx) => {
+                      const isMe = Boolean(
+                        (currentUsername && p.username && p.username.toLowerCase() === currentUsername.toLowerCase())
+                      );
+                      return (
+                        <div key={idx} className="card" style={{
+                          padding: '0.75rem 1rem',
+                          background: 'rgba(0,0,0,0.2)',
+                          borderColor: isMe ? 'var(--primary)' : 'var(--border-color)',
+                          boxShadow: isMe ? '0 0 10px rgba(56, 189, 248, 0.05)' : 'none'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <small style={{ color: 'var(--text-muted)', fontWeight: 700 }}>#{idx + 1}</small>
+                            {p.isAutofilled && <span className="badge badge-warning" style={{ fontSize: '0.55rem', padding: '0.1rem 0.35rem' }}>Autofill</span>}
+                          </div>
+                          <h4 style={{ margin: '0.2rem 0', fontWeight: 700, fontSize: '1rem', color: isMe ? 'var(--primary)' : 'inherit' }}>
+                            {p.username}
+                          </h4>
+                          <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary)' }}>
+                            {p.points} <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-muted)' }}>pts</span>
+                          </div>
                         </div>
-                        <h4 style={{ margin: '0.2rem 0', fontWeight: 700, fontSize: '1rem', color: p.username === user.username ? 'var(--primary)' : 'inherit' }}>
-                          {p.username}
-                        </h4>
-                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary)' }}>
-                          {p.points} <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-muted)' }}>pts</span>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -869,13 +973,13 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                         </tr>
                       </thead>
                       <tbody>
-                        {selectedMw.matches.map((m, idx) => {
+                        {(selectedMw.matches || []).map((m, idx) => {
                           const hasResults = m.actualResults && m.actualResults.homeScore !== null && m.actualResults.homeScore !== undefined;
-                          const isCompleted = m.actualResults?.isFinished || (hasResults && m.kickoffTime && (new Date() - new Date(m.kickoffTime)) > (2.5 * 60 * 60 * 1000));
+                          const isCompleted = Boolean(m.actualResults?.isFinished || (hasResults && m.kickoffTime && (new Date() - new Date(m.kickoffTime)) > (2.5 * 60 * 60 * 1000)));
                           const isLive = !isCompleted && m.kickoffTime && new Date() >= new Date(m.kickoffTime);
 
                           return (
-                            <tr key={m._id}>
+                            <tr key={m._id || idx}>
                               <td style={{ textAlign: 'center', fontWeight: 700 }}>
                                 #{idx + 1}
                                 {selectedMw.battleMatchId && m._id && selectedMw.battleMatchId.toString() === m._id.toString() && (
@@ -915,10 +1019,10 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                               </td>
                               <td>{hasResults ? renderChoiceAbbreviation(m.actualResults.firstGoal, m.homeTeam, m.awayTeam) : '-'}</td>
                               <td>{hasResults ? renderChoiceAbbreviation(m.actualResults.possession, m.homeTeam, m.awayTeam) : '-'}</td>
-                              <td style={{ textAlign: 'center' }}>{hasResults && m.actualResults.yellowCards !== null ? m.actualResults.yellowCards : '-'}</td>
-                              <td style={{ textAlign: 'center' }}>{hasResults && m.actualResults.offsides !== null ? m.actualResults.offsides : '-'}</td>
-                              <td style={{ textAlign: 'center' }}>{hasResults && m.actualResults.corners !== null ? m.actualResults.corners : '-'}</td>
-                              <td style={{ textAlign: 'center' }}>{hasResults && m.actualResults.shots !== null ? m.actualResults.shots : '-'}</td>
+                              <td style={{ textAlign: 'center' }}>{hasResults && m.actualResults.yellowCards !== null && m.actualResults.yellowCards !== undefined ? m.actualResults.yellowCards : '-'}</td>
+                              <td style={{ textAlign: 'center' }}>{hasResults && m.actualResults.offsides !== null && m.actualResults.offsides !== undefined ? m.actualResults.offsides : '-'}</td>
+                              <td style={{ textAlign: 'center' }}>{hasResults && m.actualResults.corners !== null && m.actualResults.corners !== undefined ? m.actualResults.corners : '-'}</td>
+                              <td style={{ textAlign: 'center' }}>{hasResults && m.actualResults.shots !== null && m.actualResults.shots !== undefined ? m.actualResults.shots : '-'}</td>
                             </tr>
                           );
                         })}
@@ -932,12 +1036,12 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
 
           {/* ALL MATCHES DETAIL SECTION */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
-            {selectedMw.matches.map((match, matchIdx) => {
-              const mId = match._id.toString();
-              const hasScore = match.actualResults.homeScore !== null;
+            {(selectedMw.matches || []).map((match, matchIdx) => {
+              const mId = match._id ? match._id.toString() : '';
+              const hasScore = Boolean(match.actualResults && match.actualResults.homeScore !== null && match.actualResults.homeScore !== undefined);
 
               return (
-                <div key={mId} className="card" style={{ padding: '1.5rem', background: 'rgba(15, 23, 42, 0.4)' }}>
+                <div key={mId || matchIdx} className="card" style={{ padding: '1.5rem', background: 'rgba(15, 23, 42, 0.4)' }}>
 
                   {/* MATCH SCORE HEADER */}
                   <div style={{
@@ -954,7 +1058,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                       <span className="badge badge-info" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>Match #{matchIdx + 1}</span>
                       <h3 style={{ margin: 0, fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         {match.homeTeam} vs {match.awayTeam}
-                        {selectedMw.battleMatchId?.toString() === match._id.toString() && (
+                        {selectedMw.battleMatchId && match._id && selectedMw.battleMatchId.toString() === match._id.toString() && (
                           <span style={{ color: 'var(--accent)', fontSize: '1rem' }} title="Battle Match of the Week">⚔️</span>
                         )}
                       </h3>
@@ -973,7 +1077,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                             fontSize: '1.25rem',
                             fontFamily: 'monospace'
                           }}>
-                            {match.actualResults.homeScore} - {match.actualResults.awayScore}
+                            {match.actualResults?.homeScore ?? '-'} - {match.actualResults?.awayScore ?? '-'}
                           </div>
                           <span className="badge badge-success" style={{ fontWeight: 700 }}>
                             {renderChoiceAbbreviation(
@@ -1026,22 +1130,22 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                       fontSize: '0.8rem'
                     }}>
                       <div style={{ whiteSpace: 'nowrap' }}>
-                        1st Goal: <strong style={{ color: 'var(--primary)' }}>{renderChoiceAbbreviation(match.actualResults.firstGoal, match.homeTeam, match.awayTeam)}</strong>
+                        1st Goal: <strong style={{ color: 'var(--primary)' }}>{renderChoiceAbbreviation(match.actualResults?.firstGoal, match.homeTeam, match.awayTeam)}</strong>
                       </div>
                       <div style={{ whiteSpace: 'nowrap' }}>
-                        Possession: <strong style={{ color: 'var(--primary)' }}>{renderChoiceAbbreviation(match.actualResults.possession, match.homeTeam, match.awayTeam)}</strong>
+                        Possession: <strong style={{ color: 'var(--primary)' }}>{renderChoiceAbbreviation(match.actualResults?.possession, match.homeTeam, match.awayTeam)}</strong>
                       </div>
                       <div style={{ whiteSpace: 'nowrap' }}>
-                        Yellow Cards: <strong style={{ color: 'var(--primary)' }}>{match.actualResults.yellowCards !== null && match.actualResults.yellowCards !== undefined ? match.actualResults.yellowCards : '-'}</strong>
+                        Yellow Cards: <strong style={{ color: 'var(--primary)' }}>{match.actualResults?.yellowCards !== null && match.actualResults?.yellowCards !== undefined ? match.actualResults.yellowCards : '-'}</strong>
                       </div>
                       <div style={{ whiteSpace: 'nowrap' }}>
-                        Offsides: <strong style={{ color: 'var(--primary)' }}>{match.actualResults.offsides !== null && match.actualResults.offsides !== undefined ? match.actualResults.offsides : '-'}</strong>
+                        Offsides: <strong style={{ color: 'var(--primary)' }}>{match.actualResults?.offsides !== null && match.actualResults?.offsides !== undefined ? match.actualResults.offsides : '-'}</strong>
                       </div>
                       <div style={{ whiteSpace: 'nowrap' }}>
-                        Corners: <strong style={{ color: 'var(--primary)' }}>{match.actualResults.corners !== null && match.actualResults.corners !== undefined ? match.actualResults.corners : '-'}</strong>
+                        Corners: <strong style={{ color: 'var(--primary)' }}>{match.actualResults?.corners !== null && match.actualResults?.corners !== undefined ? match.actualResults.corners : '-'}</strong>
                       </div>
                       <div style={{ whiteSpace: 'nowrap' }}>
-                        Total Shots: <strong style={{ color: 'var(--primary)' }}>{match.actualResults.shots !== null && match.actualResults.shots !== undefined ? match.actualResults.shots : '-'}</strong>
+                        Total Shots: <strong style={{ color: 'var(--primary)' }}>{match.actualResults?.shots !== null && match.actualResults?.shots !== undefined ? match.actualResults.shots : '-'}</strong>
                       </div>
                     </div>
                   )}
@@ -1062,10 +1166,10 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                       </thead>
                       <tbody>
                         {submittedPredictions.map((predDoc) => {
-                          const matchPred = predDoc.predictions.find(p => p.matchId.toString() === mId);
+                          const matchPred = (predDoc.predictions || []).find(p => p.matchId && p.matchId.toString() === mId);
                           if (!matchPred) return null;
 
-                          const act = match.actualResults;
+                          const act = match.actualResults || {};
                           const dist = distribution[mId] || {
                             result: { Home: 0, Away: 0, Draw: 0 },
                             firstGoal: { Home: 0, Away: 0, 'No goal': 0 },
@@ -1087,7 +1191,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                             if (cat === 'Corners' && act.corners !== null && act.corners !== undefined && val === Number(act.corners)) isWildCorrect = true;
                             if (cat === 'Total Shots' && act.shots !== null && act.shots !== undefined && val === Number(act.shots)) isWildCorrect = true;
                           }
-                          if (!isWildCorrect && act.wildPredictionCorrectUsers && act.wildPredictionCorrectUsers.some(
+                          if (!isWildCorrect && act.wildPredictionCorrectUsers && Array.isArray(act.wildPredictionCorrectUsers) && act.wildPredictionCorrectUsers.some(
                             id => id.toString() === (predDoc.userId?._id ? predDoc.userId._id.toString() : predDoc.userId?.toString())
                           )) {
                             isWildCorrect = true;
@@ -1106,11 +1210,19 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
 
                           // Check Multipliers & Powerups
                           const isCaptain = predDoc.captainMatchId && predDoc.captainMatchId.toString() === mId;
-                          const powerUp = predDoc.marketPowerUps?.find(pu => pu.matchId.toString() === mId);
-                          const hasShield = predDoc.marketPowerUps?.some(pu => pu.matchId.toString() === mId && pu.type === 'Shield');
+                          const powerUp = (predDoc.marketPowerUps || []).find(pu => pu.matchId && pu.matchId.toString() === mId);
+                          const hasShield = (predDoc.marketPowerUps || []).some(pu => pu.matchId && pu.matchId.toString() === mId && pu.type === 'Shield');
+
+                          const matchPowerUps = (predDoc.marketPowerUps || []).filter(pu => pu.matchId && pu.matchId.toString() === mId);
+                          const bombCategories = matchPowerUps.filter(pu => pu.type === 'Bomb').map(pu => pu.category);
+                          const hasResultBomb = bombCategories.includes('Match Result');
+                          const hasScorelineBomb = bombCategories.includes('Scoreline');
+                          const hasFirstGoalBomb = bombCategories.includes('First Goal');
+                          const hasPossessionBomb = bombCategories.includes('Greater Possession');
+                          const hasWildBomb = bombCategories.includes('Wild Prediction');
 
                           let matchGamblePoints = 0;
-                          const isGamble = predDoc.gamble?.active && predDoc.gamble.matchId?.toString() === mId;
+                          const isGamble = predDoc.gamble?.active && predDoc.gamble.matchId && predDoc.gamble.matchId.toString() === mId;
                           if (isGamble) {
                             const gamblePtsVal = predDoc.gamble.points || 0;
                             if (correctCats >= 4) {
@@ -1139,7 +1251,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                           let matchTotal = Math.round((categoriesSum + bonusPoints + matchGamblePoints) * totalMultiplier * superBonusMult);
 
                           // Render labels
-                          let nameLabel = predDoc.userId?.username || 'Unknown';
+                          let nameLabel = predDoc.userId?.username || predDoc.userId?.name || 'Unknown';
                           const tags = [];
                           if (isCaptain) tags.push(<span key="cap" className="badge badge-info" style={{ fontSize: '0.55rem', padding: '0.05rem 0.25rem', color: '#000000', backgroundColor: 'rgba(0,0,0,0.08)', borderColor: 'rgba(0,0,0,0.25)', fontWeight: 800 }}>C</span>);
                           if (powerUp) tags.push(<span key="pu" className="badge badge-success" style={{ fontSize: '0.55rem', padding: '0.05rem 0.25rem', color: '#000000', backgroundColor: 'rgba(0,0,0,0.08)', borderColor: 'rgba(0,0,0,0.25)', fontWeight: 800 }}>{powerUp.type}</span>);
@@ -1153,15 +1265,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                             }
                           }
 
-                          const matchIndex = selectedMw?.matches ? selectedMw.matches.findIndex(m => m._id.toString() === mId) : -1;
-
-                          const isSingleMatchDefaultPattern = (mP) => {
-                            if (!mP) return false;
-                            const isDefaultScore = (mP.homeScore === 3 && mP.awayScore === 0) || (mP.homeScore === 0 && mP.awayScore === 3) || (mP.homeScore === 1 && mP.awayScore === 0);
-                            const isDefaultSafe = mP.safeBet === 'Home';
-                            const isDefaultWild = !mP.wildPredictionCategory || mP.wildPredictionCategory === 'None';
-                            return isDefaultScore && isDefaultSafe && isDefaultWild;
-                          };
+                          const matchIndex = selectedMw?.matches ? selectedMw.matches.findIndex(m => m._id && m._id.toString() === mId) : -1;
 
                           const isDocAutofilledPattern = predDoc.isAutofilled || Boolean(
                             predDoc.predictions && predDoc.predictions.length >= 3 && predDoc.predictions.slice(0, 3).every(isSingleMatchDefaultPattern)
@@ -1185,15 +1289,17 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                             isMatchAutofilled = true;
                           }
 
+                          const isCurrentPredDocUser = (predDoc.userId?._id ? predDoc.userId._id.toString() : predDoc.userId?.toString()) === currentUserId?.toString();
+
                           return (
                             <tr key={predDoc._id} style={{
-                              background: predDoc.userId?._id?.toString() === user.id ? 'rgba(56, 189, 248, 0.03)' : 'transparent'
+                              background: isCurrentPredDocUser ? 'rgba(56, 189, 248, 0.03)' : 'transparent'
                             }}>
                               {/* NAME COLUMN */}
                               <td style={{
                                 fontWeight: 700,
                                 whiteSpace: 'nowrap',
-                                ...getNameCellStyle(isCaptain, powerUp, isGamble, predDoc.marketPowerUps?.some(pu => pu.matchId.toString() === mId && pu.type === 'Shield'))
+                                ...getNameCellStyle(isCaptain, powerUp, isGamble, (predDoc.marketPowerUps || []).some(pu => pu.matchId && pu.matchId.toString() === mId && pu.type === 'Shield'))
                               }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                                   <span>
