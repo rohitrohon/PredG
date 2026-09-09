@@ -929,14 +929,14 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
                       <div key={idx} className="card" style={{
                         padding: '0.75rem 1rem',
                         background: 'rgba(0,0,0,0.2)',
-                        borderColor: p.username === user.username ? 'var(--primary)' : 'var(--border-color)',
-                        boxShadow: p.username === user.username ? '0 0 10px rgba(56, 189, 248, 0.05)' : 'none'
+                        borderColor: (currentUsername && p.username === currentUsername) ? 'var(--primary)' : 'var(--border-color)',
+                        boxShadow: (currentUsername && p.username === currentUsername) ? '0 0 10px rgba(56, 189, 248, 0.05)' : 'none'
                       }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <small style={{ color: 'var(--text-muted)', fontWeight: 700 }}>#{idx + 1}</small>
                           {p.isAutofilled && <span className="badge badge-warning" style={{ fontSize: '0.55rem', padding: '0.1rem 0.35rem' }}>Autofill</span>}
                         </div>
-                        <h4 style={{ margin: '0.2rem 0', fontWeight: 700, fontSize: '1rem', color: p.username === user.username ? 'var(--primary)' : 'inherit' }}>
+                        <h4 style={{ margin: '0.2rem 0', fontWeight: 700, fontSize: '1rem', color: (currentUsername && p.username === currentUsername) ? 'var(--primary)' : 'inherit' }}>
                           {p.username}
                         </h4>
                         <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary)' }}>
@@ -1299,7 +1299,7 @@ function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTa
 
                           return (
                             <tr key={predDoc._id} style={{
-                              background: predDoc.userId?._id?.toString() === user.id ? 'rgba(56, 189, 248, 0.03)' : 'transparent'
+                              background: (currentUserId && (predDoc.userId?._id || predDoc.userId)?.toString() === currentUserId.toString()) ? 'rgba(56, 189, 248, 0.03)' : 'transparent'
                             }}>
                               {/* NAME COLUMN */}
                               <td style={{
