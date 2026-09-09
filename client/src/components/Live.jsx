@@ -156,24 +156,50 @@ const getTotalTemperatureStyle = (pts, hasScore) => {
   return { backgroundColor: '#6aa84f', color: '#ffffff', textAlign: 'right', fontWeight: 900 };
 };
 
-// Assign unique background colors to the Name/Participant cells based on active items
+// Assign unique background colors & gradients to the Name/Participant cells based on active items (Captain, Gamble, Double, Triple, Shield)
 const getNameCellStyle = (isCaptain, powerUp, isGamble, hasShield) => {
-  if (powerUp?.type === 'Triple') {
-    return { backgroundColor: '#8e7cc3', color: '#000000', fontWeight: 700 };
-  }
-  if (powerUp?.type === 'Double') {
-    return { backgroundColor: '#b4a7d6', color: '#000000', fontWeight: 700 };
-  }
+  const activeItems = [];
+
   if (isCaptain) {
-    return { backgroundColor: '#d9d2e9', color: '#000000', fontWeight: 700 };
+    activeItems.push({ key: 'captain', name: 'Captain', start: '#f3e8ff', end: '#c084fc' }); // Purple
   }
   if (isGamble) {
-    return { backgroundColor: '#cfe2f3', color: '#000000', fontWeight: 700 };
+    activeItems.push({ key: 'gamble', name: 'Gamble', start: '#fef08a', end: '#f59e0b' }); // Amber Gold
   }
+
+  const pType = typeof powerUp === 'string' ? powerUp : powerUp?.type;
+  if (pType === 'Double') {
+    activeItems.push({ key: 'double', name: 'Double', start: '#e0f2fe', end: '#38bdf8' }); // Sky Cyan
+  } else if (pType === 'Triple') {
+    activeItems.push({ key: 'triple', name: 'Triple', start: '#e0e7ff', end: '#818cf8' }); // Royal Indigo
+  }
+
   if (hasShield) {
-    return { backgroundColor: '#d0e0e3', color: '#000000', fontWeight: 700 };
+    activeItems.push({ key: 'shield', name: 'Shield', start: '#d1fae5', end: '#10b981' }); // Emerald Mint
   }
-  return {};
+
+  if (activeItems.length === 0) return {};
+
+  if (activeItems.length === 1) {
+    const item = activeItems[0];
+    return {
+      background: `linear-gradient(135deg, ${item.start} 0%, ${item.end} 100%)`,
+      color: '#0f172a',
+      fontWeight: 700
+    };
+  }
+
+  // Multi-item selection: create smooth multi-stop gradient across all active item colors
+  const stops = activeItems.map((item, idx) => {
+    const pct = Math.round((idx / (activeItems.length - 1)) * 100);
+    return `${item.end} ${pct}%`;
+  });
+
+  return {
+    background: `linear-gradient(135deg, ${stops.join(', ')})`,
+    color: '#0f172a',
+    fontWeight: 800
+  };
 };
 
 function Live({ groupId, user, onNavigateToPredictions, tableZoom = '100', setTableZoom }) {
