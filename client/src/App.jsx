@@ -57,8 +57,15 @@ function App() {
   const refreshUserStanding = async () => {
     if (!activeGroup || !user) return;
     try {
+      const myUserIdStr = (user._id || user.id || '').toString();
       const standings = await api.getGroupStandings(activeGroup._id);
-      const standing = standings.find(s => s.userId && s.userId._id === user.id);
+      const standing = standings.find(s => {
+        if (!s.userId) return false;
+        const stdUserIdStr = typeof s.userId === 'object'
+          ? (s.userId._id || s.userId).toString()
+          : s.userId.toString();
+        return stdUserIdStr === myUserIdStr;
+      });
       setUserStanding(standing || null);
     } catch (err) {
       console.error('Error fetching standing:', err);

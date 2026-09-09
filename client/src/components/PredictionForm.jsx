@@ -13,6 +13,7 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
   const [deadline2Passed, setDeadline2Passed] = useState(false);
   const [deadlinePassed, setDeadlinePassed] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
+  const [userStandingState, setUserStandingState] = useState(standing || null);
 
   // Total players count in group to compute Top/Bottom 50%
   const [totalPlayers, setTotalPlayers] = useState(8);
@@ -23,6 +24,12 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
   useEffect(() => {
     fetchActiveData();
   }, [groupId]);
+
+  useEffect(() => {
+    if (standing) {
+      setUserStandingState(standing);
+    }
+  }, [standing]);
 
   useEffect(() => {
     if (!matchweek) return;
@@ -83,12 +90,22 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
         setPrediction(pred);
       }
 
-      // Fetch standings to count group players
+      // Fetch standings to count group players & extract current user standing
       const data = await api.getGroupStandings(groupId);
       const activeStandings = data.filter(
-        (s) => s.userId && s.userId._id !== '600000000000000000000000'
+        (s) => s.userId && (s.userId._id ? s.userId._id.toString() : s.userId.toString()) !== '600000000000000000000000'
       );
       setTotalPlayers(activeStandings.length || 8);
+
+      const myUserIdStr = (user?.id || user?._id || '').toString();
+      const myStanding = data.find((s) => {
+        if (!s.userId) return false;
+        const uId = (s.userId._id ? s.userId._id : s.userId).toString();
+        return uId === myUserIdStr;
+      });
+      if (myStanding) {
+        setUserStandingState(myStanding);
+      }
     } catch (err) {
       setError(err.message || 'Failed to load prediction form data.');
     } finally {
@@ -179,8 +196,9 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
   };
 
   const getMaxGambleLimit = () => {
-    const pointsVal = standing ? standing.totalPoints : 0;
-    const rankVal = standing ? standing.rank : null;
+    const effectiveStanding = userStandingState || standing;
+    const pointsVal = effectiveStanding ? effectiveStanding.totalPoints : 0;
+    const rankVal = effectiveStanding ? effectiveStanding.rank : null;
     let maxG = Math.floor(pointsVal * 0.10);
     if (maxG < 0) maxG = 0;
 
@@ -208,7 +226,8 @@ function PredictionForm({ user, groupId, standing, onPointsUpdate }) {
     } else {
       const newPUs = [...currentPUs, { matchId: matchIdStr, type }];
       const totalCost = calculatePowerUpCost(newPUs);
-      const userBP = standing?.battlePoints || 0;
+      const effectiveStanding = userStandingState || standing;
+      const userBP = effectiveStanding?.battlePoints || 0;
 
       if (totalCost > userBP) {
         const chipCost = type === 'Double' ? 5 : (type === 'Triple' ? 10 : 15);

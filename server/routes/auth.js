@@ -248,7 +248,10 @@ router.post('/reset-password', async (req, res) => {
 router.get('/me', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
-    res.json(user);
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+    const userObj = user.toObject();
+    userObj.id = user._id.toString();
+    res.json(userObj);
   } catch (error) {
     res.status(500).json({ message: 'Server error retrieving profile.', error: error.message });
   }
