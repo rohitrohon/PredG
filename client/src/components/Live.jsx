@@ -50,6 +50,14 @@ function renderChoiceAbbreviation(choice, homeTeam, awayTeam) {
   return getShortTeamName(choice);
 }
 
+function isSingleMatchDefaultPattern(mP) {
+  if (!mP) return false;
+  const isDefaultScore = (mP.homeScore === 3 && mP.awayScore === 0) || (mP.homeScore === 0 && mP.awayScore === 3) || (mP.homeScore === 1 && mP.awayScore === 0);
+  const isDefaultSafe = mP.safeBet === 'Home';
+  const isDefaultWild = !mP.wildPredictionCategory || mP.wildPredictionCategory === 'None';
+  return isDefaultScore && isDefaultSafe && isDefaultWild;
+}
+
 function getMatchWinnerChoice(actualResults, homeTeam, awayTeam) {
   if (!actualResults) return null;
   if (actualResults.result === 'Home' || actualResults.result === 'Away' || actualResults.result === 'Draw') {
