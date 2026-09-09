@@ -236,10 +236,13 @@ function Results({ groupId, user }) {
       const matchPred = predDoc.predictions.find(p => p.matchId.toString() === selectedMatchId.toString());
       if (!matchPred) return null;
 
-      // Extract actual outcomes
-      const actRes = currentMatch.actualHomeScore !== null ? (currentMatch.actualHomeScore > currentMatch.actualAwayScore ? 'Home' : currentMatch.actualAwayScore > currentMatch.actualHomeScore ? 'Away' : 'Draw') : null;
-      const actFirst = currentMatch.actualFirstGoal || null;
-      const actPoss = currentMatch.actualPossession || null;
+      // Extract actual outcomes from actualResults nested object
+      const act = currentMatch.actualResults || {};
+      const hasScore = act.homeScore !== null && act.homeScore !== undefined && act.awayScore !== null && act.awayScore !== undefined;
+
+      const actRes = act.result || null;
+      const actFirst = act.firstGoal || null;
+      const actPoss = act.possession || null;
 
       const dist = currentMwDistribution[selectedMatchId.toString()] || {
         result: { Home: 0, Away: 0, Draw: 0 },
@@ -247,28 +250,36 @@ function Results({ groupId, user }) {
         possession: { Home: 0, Away: 0, Equal: 0 }
       };
 
-      // Calculate Category Points
+      // Calculate Category Base Points
       const ptsResult = getGeneralCategoryPoints(matchPred.result, actRes, dist.result, totalPlayersSub);
       const ptsFirstGoal = getGeneralCategoryPoints(matchPred.firstGoal, actFirst, dist.firstGoal, totalPlayersSub);
       const ptsPossession = getGeneralCategoryPoints(matchPred.possession, actPoss, dist.possession, totalPlayersSub);
-      
       const ptsScoreline = getScorelinePoints(
         matchPred.homeScore, 
         matchPred.awayScore, 
         matchPred.safeBet, 
-        currentMatch.actualHomeScore, 
-        currentMatch.actualAwayScore
+        act.homeScore, 
+        act.awayScore
       );
 
-      // Check if wild correct
-      let ptsWild = 0;
-      const isWild = predDoc.predictions.find(p => p.matchId.toString() === selectedMatchId.toString());
-      const isWildCorrect = currentMatch.actualResults?.wildPredictionCorrectUsers?.some(
-        id => id.toString() === predDoc.userId?._id?.toString()
-      );
-      if (isWildCorrect) {
-        ptsWild = 100;
+      // Check if wild prediction is correct
+      let isWildCorrect = false;
+      if (matchPred.wildPredictionCategory && matchPred.wildPredictionCategory !== 'None') {
+        const cat = matchPred.wildPredictionCategory;
+        const val = Number(matchPred.wildPredictionValue);
+        if (cat === 'Yellow Cards' && act.yellowCards !== null && act.yellowCards !== undefined && val === Number(act.yellowCards)) isWildCorrect = true;
+        if (cat === 'Offsides' && act.offsides !== null && act.offsides !== undefined && val === Number(act.offsides)) isWildCorrect = true;
+        if (cat === 'Corners' && act.corners !== null && act.corners !== undefined && val === Number(act.corners)) isWildCorrect = true;
+        if (cat === 'Total Shots' && act.shots !== null && act.shots !== undefined && val === Number(act.shots)) isWildCorrect = true;
       }
+
+      const predUserIdStr = (predDoc.userId?._id || predDoc.userId || '').toString();
+      if (!isWildCorrect && act.wildPredictionCorrectUsers && Array.isArray(act.wildPredictionCorrectUsers)) {
+        if (predUserIdStr && act.wildPredictionCorrectUsers.some(id => (id._id || id).toString() === predUserIdStr)) {
+          isWildCorrect = true;
+        }
+      }
+      const ptsWild = isWildCorrect ? 100 : 0;
 
       // Check Multipliers (Captain/Double/Triple/Bomb)
       const isCaptain = predDoc.captainMatchId && predDoc.captainMatchId.toString() === selectedMatchId.toString();
@@ -278,11 +289,17 @@ function Results({ groupId, user }) {
       const hasShield = matchPowerUps.some(pu => pu.type === 'Shield');
       const bombCategories = matchPowerUps.filter(pu => pu.type === 'Bomb').map(pu => pu.category);
 
-      const ptsResultFinal = ptsResult * (bombCategories.includes('Match Result') ? 2 : 1);
-      const ptsScorelineFinal = ptsScoreline * (bombCategories.includes('Scoreline') ? 2 : 1);
-      const ptsFirstGoalFinal = ptsFirstGoal * (bombCategories.includes('First Goal') ? 2 : 1);
-      const ptsPossessionFinal = ptsPossession * (bombCategories.includes('Greater Possession') ? 2 : 1);
-      const ptsWildFinal = ptsWild * (bombCategories.includes('Wild Prediction') ? 2 : 1);
+      const hasResultBomb = bombCategories.includes('Match Result');
+      const hasScorelineBomb = bombCategories.includes('Scoreline');
+      const hasFirstGoalBomb = bombCategories.includes('First Goal');
+      const hasPossessionBomb = bombCategories.includes('Greater Possession');
+      const hasWildBomb = bombCategories.includes('Wild Prediction');
+
+      const ptsResultFinal = ptsResult * (hasResultBomb ? 2 : 1);
+      const ptsScorelineFinal = ptsScoreline * (hasScorelineBomb ? 2 : 1);
+      const ptsFirstGoalFinal = ptsFirstGoal * (hasFirstGoalBomb ? 2 : 1);
+      const ptsPossessionFinal = ptsPossession * (hasPossessionBomb ? 2 : 1);
+      const ptsWildFinal = ptsWild * (hasWildBomb ? 2 : 1);
 
       let correctCats = 0;
       if (ptsResult > 0) correctCats++;
@@ -336,20 +353,26 @@ function Results({ groupId, user }) {
       return {
         username: predDoc.userId?.username || 'Unknown',
         rawUsername: predDoc.userId?.username,
+        hasScore,
+        hasResultBomb,
+        hasScorelineBomb,
+        hasFirstGoalBomb,
+        hasPossessionBomb,
+        hasWildBomb,
         result: matchPred.result,
-        resultPts: ptsResult,
+        resultPts: ptsResultFinal,
         scoreline: `${matchPred.homeScore}-${matchPred.awayScore}`,
         safeBet: matchPred.safeBet,
-        safeBetPts: ptsScoreline,
+        safeBetPts: ptsScorelineFinal,
         firstGoal: matchPred.firstGoal,
-        firstGoalPts: ptsFirstGoal,
+        firstGoalPts: ptsFirstGoalFinal,
         possession: matchPred.possession,
-        possessionPts: ptsPossession,
-        wildText: isWild && isWild.wildPredictionCategory !== 'None' ? `${isWild.wildPredictionCategory}: ${isWild.wildPredictionValue}` : '-',
-        wildPts: ptsWild,
+        possessionPts: ptsPossessionFinal,
+        wildText: matchPred.wildPredictionCategory && matchPred.wildPredictionCategory !== 'None' ? `${matchPred.wildPredictionCategory}: ${matchPred.wildPredictionValue}` : '-',
+        wildPts: ptsWildFinal,
         total: totalMatchPoints,
         isCaptain,
-        powerUp,
+        powerUp: matchPowerUps.find(pu => pu.type === 'Double' || pu.type === 'Triple'),
         isGamble,
         hasShield,
         tags
@@ -362,16 +385,16 @@ function Results({ groupId, user }) {
           <thead>
             <tr>
               <th>Name</th>
-              <th>Match Result</th>
+              <th style={{ textAlign: 'center' }}>Match Result</th>
               <th style={{ textAlign: 'right' }}>Points</th>
-              <th style={{ textAlign: 'center' }}>Scoreline</th>
-              <th>Safe Bet</th>
+              <th style={{ textAlign: 'center' }}>Scoreline (Safe Bet)</th>
+              <th style={{ textAlign: 'center' }}>Safe Bet</th>
               <th style={{ textAlign: 'right' }}>Points</th>
-              <th>1st Goal</th>
+              <th style={{ textAlign: 'center' }}>1st Goal</th>
               <th style={{ textAlign: 'right' }}>Points</th>
-              <th>Possession</th>
+              <th style={{ textAlign: 'center' }}>Possession</th>
               <th style={{ textAlign: 'right' }}>Points</th>
-              <th>Wild Prediction</th>
+              <th style={{ textAlign: 'center' }}>Wild Prediction</th>
               <th style={{ textAlign: 'right' }}>Points</th>
               <th style={{ textAlign: 'right', color: 'var(--primary)', fontWeight: 700 }}>Total</th>
             </tr>
@@ -392,18 +415,33 @@ function Results({ groupId, user }) {
                     </div>
                   </div>
                 </td>
-                <td>{row.result}</td>
-                <td style={getTemperatureStyle(row.resultPts, true)}>{row.resultPts}</td>
-                <td style={{ textAlign: 'center', fontWeight: 600 }}>{row.scoreline}</td>
-                <td>{row.safeBet}</td>
-                <td style={getTemperatureStyle(row.safeBetPts, true)}>{row.safeBetPts}</td>
-                <td>{row.firstGoal}</td>
-                <td style={getTemperatureStyle(row.firstGoalPts, true)}>{row.firstGoalPts}</td>
-                <td>{row.possession}</td>
-                <td style={getTemperatureStyle(row.possessionPts, true)}>{row.possessionPts}</td>
-                <td style={{ fontSize: '0.85rem' }}>{row.wildText}</td>
-                <td style={getTemperatureStyle(row.wildPts, true)}>{row.wildText !== '-' ? row.wildPts : '-'}</td>
-                <td style={getTotalTemperatureStyle(row.total, true)}>{row.total}</td>
+                <td style={{ textAlign: 'center' }}>
+                  {row.result}
+                  {row.hasResultBomb && <span style={{ marginLeft: '0.25rem', fontSize: '0.75rem' }} title="Bomb 2x Active">💣</span>}
+                </td>
+                <td style={getTemperatureStyle(row.resultPts, row.hasScore)}>{row.hasScore ? row.resultPts : '-'}</td>
+                <td style={{ textAlign: 'center', fontWeight: 600 }}>
+                  {row.scoreline}
+                  {row.hasScorelineBomb && <span style={{ marginLeft: '0.25rem', fontSize: '0.75rem' }} title="Bomb 2x Active">💣</span>}
+                </td>
+                <td style={{ textAlign: 'center' }}>{row.safeBet}</td>
+                <td style={getTemperatureStyle(row.safeBetPts, row.hasScore)}>{row.hasScore ? row.safeBetPts : '-'}</td>
+                <td style={{ textAlign: 'center' }}>
+                  {row.firstGoal}
+                  {row.hasFirstGoalBomb && <span style={{ marginLeft: '0.25rem', fontSize: '0.75rem' }} title="Bomb 2x Active">💣</span>}
+                </td>
+                <td style={getTemperatureStyle(row.firstGoalPts, row.hasScore)}>{row.hasScore ? row.firstGoalPts : '-'}</td>
+                <td style={{ textAlign: 'center' }}>
+                  {row.possession}
+                  {row.hasPossessionBomb && <span style={{ marginLeft: '0.25rem', fontSize: '0.75rem' }} title="Bomb 2x Active">💣</span>}
+                </td>
+                <td style={getTemperatureStyle(row.possessionPts, row.hasScore)}>{row.hasScore ? row.possessionPts : '-'}</td>
+                <td style={{ fontSize: '0.85rem', textAlign: 'center' }}>
+                  {row.wildText}
+                  {row.hasWildBomb && <span style={{ marginLeft: '0.25rem', fontSize: '0.75rem' }} title="Bomb 2x Active">💣</span>}
+                </td>
+                <td style={getTemperatureStyle(row.wildPts, row.hasScore)}>{row.hasScore && row.wildText !== '-' ? row.wildPts : '-'}</td>
+                <td style={getTotalTemperatureStyle(row.total, row.hasScore)}>{row.hasScore ? row.total : '-'}</td>
               </tr>
             ))}
           </tbody>
