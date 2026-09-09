@@ -8,13 +8,23 @@ const { auth } = require('../middleware/auth');
 const { generateIntelligentDefaultPrediction } = require('../utils/autofillHelper');
 
 function getMatchweekDeadlines(matchweek) {
-  const d1 = matchweek.matches && matchweek.matches[0] && matchweek.matches[0].kickoffTime 
+  const kickoff1 = matchweek.matches && matchweek.matches[0] && matchweek.matches[0].kickoffTime 
     ? new Date(matchweek.matches[0].kickoffTime) 
-    : new Date(matchweek.deadline);
+    : null;
+  const adminDeadline = matchweek.deadline ? new Date(matchweek.deadline) : null;
 
-  const d2 = matchweek.matches && matchweek.matches[3] && matchweek.matches[3].kickoffTime 
+  let d1;
+  if (kickoff1 && adminDeadline) {
+    d1 = kickoff1 < adminDeadline ? kickoff1 : adminDeadline;
+  } else {
+    d1 = kickoff1 || adminDeadline || new Date();
+  }
+
+  const kickoff4 = matchweek.matches && matchweek.matches[3] && matchweek.matches[3].kickoffTime 
     ? new Date(matchweek.matches[3].kickoffTime) 
     : d1;
+
+  const d2 = kickoff4 < d1 ? d1 : kickoff4;
 
   return { d1, d2 };
 }
