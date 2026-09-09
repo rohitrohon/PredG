@@ -222,6 +222,130 @@ function Leaderboard({ groupId }) {
 
   const totalPlayers = standings.length;
 
+  const getGoldenBootData = () => {
+    let totalCompletedMatches = 0;
+    const completedMwMap = {};
+
+    matchweeks.forEach(mw => {
+      if (!mw.matches) return;
+      const completedMatchesInMw = mw.matches.filter(
+        m => m.actualResults && m.actualResults.homeScore !== null && m.actualResults.homeScore !== undefined
+      );
+      if (completedMatchesInMw.length > 0) {
+        totalCompletedMatches += completedMatchesInMw.length;
+        completedMwMap[mw._id.toString()] = {
+          mw,
+          completedMatches: completedMatchesInMw
+        };
+      }
+    });
+
+    const totalCategoriesSoFar = totalCompletedMatches * 5;
+
+    const mwDistributions = {};
+    Object.keys(completedMwMap).forEach(mwId => {
+      const mwPreds = predictions.filter(p => p.matchweekId && p.matchweekId.toString() === mwId && p.isSubmitted);
+      const dist = {};
+      mwPreds.forEach(predDoc => {
+        (predDoc.predictions || []).forEach(p => {
+          const mId = p.matchId.toString();
+          if (!dist[mId]) {
+            dist[mId] = {
+              result: { Home: 0, Away: 0, Draw: 0 },
+              firstGoal: { Home: 0, Away: 0, 'No goal': 0 },
+              possession: { Home: 0, Away: 0, Equal: 0 }
+            };
+          }
+          if (p.result in dist[mId].result) dist[mId].result[p.result]++;
+          if (p.firstGoal in dist[mId].firstGoal) dist[mId].firstGoal[p.firstGoal]++;
+          if (p.possession in dist[mId].possession) dist[mId].possession[p.possession]++;
+        });
+      });
+      mwDistributions[mwId] = { dist, totalSubmitted: mwPreds.length || 1 };
+    });
+
+    const goldenBootRows = standings.map(standing => {
+      const userObj = standing.userId || {};
+      const uIdStr = (userObj._id || userObj.id || '').toString();
+
+      let categoriesScoredCount = 0;
+
+      Object.keys(completedMwMap).forEach(mwId => {
+        const { completedMatches } = completedMwMap[mwId];
+        const { dist, totalSubmitted } = mwDistributions[mwId] || { dist: {}, totalSubmitted: 1 };
+
+        const predDoc = predictions.find(
+          p => p.matchweekId && p.matchweekId.toString() === mwId && (p.userId?._id || p.userId || '').toString() === uIdStr
+        );
+
+        if (predDoc && predDoc.predictions) {
+          completedMatches.forEach(m => {
+            const mIdStr = m._id.toString();
+            const matchPred = predDoc.predictions.find(p => p.matchId && p.matchId.toString() === mIdStr);
+            if (matchPred) {
+              const act = m.actualResults;
+              const d = dist[mIdStr] || {
+                result: { Home: 0, Away: 0, Draw: 0 },
+                firstGoal: { Home: 0, Away: 0, 'No goal': 0 },
+                possession: { Home: 0, Away: 0, Equal: 0 }
+              };
+
+              const ptsResult = getGeneralCategoryPoints(matchPred.result, act.result, d.result, totalSubmitted);
+              const ptsFirstGoal = getGeneralCategoryPoints(matchPred.firstGoal, act.firstGoal, d.firstGoal, totalSubmitted);
+              const ptsPossession = getGeneralCategoryPoints(matchPred.possession, act.possession, d.possession, totalSubmitted);
+              const ptsScoreline = getScorelinePoints(matchPred.homeScore, matchPred.awayScore, matchPred.safeBet, act.homeScore, act.awayScore);
+
+              let isWildCorrect = false;
+              if (matchPred.wildPredictionCategory && matchPred.wildPredictionCategory !== 'None') {
+                const cat = matchPred.wildPredictionCategory;
+                const val = Number(matchPred.wildPredictionValue);
+                if (cat === 'Yellow Cards' && act.yellowCards !== null && act.yellowCards !== undefined && val === Number(act.yellowCards)) isWildCorrect = true;
+                if (cat === 'Offsides' && act.offsides !== null && act.offsides !== undefined && val === Number(act.offsides)) isWildCorrect = true;
+                if (cat === 'Corners' && act.corners !== null && act.corners !== undefined && val === Number(act.corners)) isWildCorrect = true;
+                if (cat === 'Total Shots' && act.shots !== null && act.shots !== undefined && val === Number(act.shots)) isWildCorrect = true;
+              }
+              if (!isWildCorrect && act.wildPredictionCorrectUsers && Array.isArray(act.wildPredictionCorrectUsers)) {
+                if (uIdStr && act.wildPredictionCorrectUsers.some(id => (id._id || id).toString() === uIdStr)) {
+                  isWildCorrect = true;
+                }
+              }
+              const ptsWild = isWildCorrect ? 100 : 0;
+
+              if (ptsResult > 0) categoriesScoredCount++;
+              if (ptsScoreline > 0) categoriesScoredCount++;
+              if (ptsFirstGoal > 0) categoriesScoredCount++;
+              if (ptsPossession > 0) categoriesScoredCount++;
+              if (ptsWild > 0) categoriesScoredCount++;
+            }
+          });
+        }
+      });
+
+      const percentage = totalCategoriesSoFar > 0
+        ? ((categoriesScoredCount / totalCategoriesSoFar) * 100)
+        : 0;
+
+      return {
+        standing,
+        userObj,
+        categoriesScoredCount,
+        totalCategoriesSoFar,
+        percentage
+      };
+    });
+
+    goldenBootRows.sort((a, b) => {
+      if (b.categoriesScoredCount !== a.categoriesScoredCount) {
+        return b.categoriesScoredCount - a.categoriesScoredCount;
+      }
+      return (b.standing.totalPoints || 0) - (a.standing.totalPoints || 0);
+    });
+
+    return { goldenBootRows, totalCategoriesSoFar };
+  };
+
+  const { goldenBootRows, totalCategoriesSoFar } = getGoldenBootData();
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       
@@ -310,6 +434,71 @@ function Leaderboard({ groupId }) {
                       <span className={`badge ${bracketClass || 'badge-info'}`} style={{ fontSize: '0.75rem' }}>
                         {bracketText}
                       </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Golden Boot Table (Below League Standings Table) */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-color)', background: 'rgba(245, 158, 11, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#f59e0b' }}>
+            <span>🥾</span> Golden Boot Standings
+          </h3>
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+            Total Categories Evaluated: <strong>{totalCategoriesSoFar}</strong> ({totalCategoriesSoFar / 5} matches)
+          </span>
+        </div>
+
+        <div className="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th style={{ width: '90px', textAlign: 'center' }}>Rank</th>
+                <th>Name</th>
+                <th>Username</th>
+                <th style={{ textAlign: 'center' }}>Scored</th>
+                <th style={{ textAlign: 'right', color: '#f59e0b', fontWeight: 700 }}>Scored %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {goldenBootRows.map((row, index) => {
+                const rank = index + 1;
+                const isFirstPlace = rank === 1;
+
+                return (
+                  <tr key={row.standing._id || index} style={{
+                    background: isFirstPlace ? 'rgba(245, 158, 11, 0.06)' : 'transparent'
+                  }}>
+                    <td style={{ textAlign: 'center', fontWeight: 700 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
+                        {isFirstPlace ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#f59e0b', fontWeight: 800 }}>
+                            🥾 #1
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)' }}>#{rank}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td style={{ fontWeight: 600 }}>
+                      {row.userObj.name || '-'}
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}>{row.userObj.username}</span>
+                        {row.userObj.role === 'admin' && <span className="badge badge-info" style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}>Admin</span>}
+                      </div>
+                    </td>
+                    <td style={{ textAlign: 'center', fontWeight: 700, fontSize: '1rem' }}>
+                      {row.categoriesScoredCount} / {row.totalCategoriesSoFar}
+                    </td>
+                    <td style={{ textAlign: 'right', fontWeight: 800, fontSize: '1.05rem', color: '#f59e0b' }}>
+                      {row.percentage.toFixed(1)}%
                     </td>
                   </tr>
                 );
